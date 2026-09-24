@@ -1,0 +1,11 @@
+{
+  "owner": "careytian-ai",
+  "slug": "zh-search-pro",
+  "displayName": "中文搜索增强工具，整合百度、必应、微信、知乎等 6 个中文搜索引擎，支持高级搜索语法和时间过滤，无需 API 密钥。",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1774794075630,
+    "commit": "https://github.com/openclaw/skills/commit/71c5a35ab2e79c44a3de30a1aba644320dd26c12"
+  },
+  "history": []
+}
