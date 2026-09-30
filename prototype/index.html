@@ -1,0 +1,1082 @@
+<title>外贸超级工作台</title>
+<meta name="description" content="外贸超级工作台 M0 可点击原型：订单列表、订单菜单、单证模块、客户库、报价计算器">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* 布局：首页（订单列表 + 资料库侧栏）→ 订单菜单（单据卡片）→ 模块（步骤 | 表单 | A4 预览） */
+:root{
+  --bg:#f2f4f7; --surface:#ffffff; --surface-2:#eef1f5; --line:#dce1e8; --line-2:#c9d0da;
+  --ink:#152033; --ink-2:#465264; --ink-3:#7b8595;
+  --brand:#1c4f8a; --brand-ink:#ffffff; --brand-soft:#e2eaf5;
+  --stamp:#b8322a; --stamp-soft:#f7e4e2;
+  --ok:#1d7248; --ok-soft:#e0f1e8; --warn:#9a5b00; --warn-soft:#faefd9;
+  --desk:#d9dee6; --paper:#ffffff; --paper-ink:#1a1d22;
+  --shadow:0 1px 2px rgba(18,32,56,.06),0 6px 20px rgba(18,32,56,.06);
+  --f-ui:"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --r:8px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e131a; --surface:#151c26; --surface-2:#1b2430; --line:#28323f; --line-2:#36414f;
+  --ink:#e4e9f0; --ink-2:#a8b3c2; --ink-3:#768296;
+  --brand:#74a6e4; --brand-ink:#0a1220; --brand-soft:#1b2b41;
+  --stamp:#e0675d; --stamp-soft:#3a1f1d;
+  --ok:#5fc393; --ok-soft:#15302a; --warn:#e3a84e; --warn-soft:#352a16;
+  --desk:#0a0e14; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0e131a; --surface:#151c26; --surface-2:#1b2430; --line:#28323f; --line-2:#36414f;
+  --ink:#e4e9f0; --ink-2:#a8b3c2; --ink-3:#768296;
+  --brand:#74a6e4; --brand-ink:#0a1220; --brand-soft:#1b2b41;
+  --stamp:#e0675d; --stamp-soft:#3a1f1d;
+  --ok:#5fc393; --ok-soft:#15302a; --warn:#e3a84e; --warn-soft:#352a16;
+  --desk:#0a0e14; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.55 var(--f-ui);-webkit-font-smoothing:antialiased}
+table{font-size:inherit;border-collapse:collapse}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+h1,h2,h3{text-wrap:balance;margin:0}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+
+/* 顶栏 */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:16px;padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;background:none;border:0;padding:0;text-align:left}
+.brand b{display:block;font-size:15px;letter-spacing:.02em}
+.brand small{display:block;font-size:11px;color:var(--ink-3);letter-spacing:.08em}
+.seal{display:grid;place-items:center;width:32px;height:32px;border:2px solid var(--stamp);color:var(--stamp);border-radius:6px;font-weight:700;font-size:16px;transform:rotate(-6deg)}
+.crumbs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--ink-3);font-size:13px;min-width:0}
+.crumbs button{background:none;border:0;padding:2px 4px;color:var(--ink-2);border-radius:4px}
+.crumbs button:hover{background:var(--surface-2);color:var(--ink)}
+.crumbs span.cur{color:var(--ink);font-weight:600}
+.top-r{margin-left:auto;display:flex;align-items:center;gap:10px}
+.proto{font-size:11px;letter-spacing:.06em;color:var(--warn);background:var(--warn-soft);padding:3px 8px;border-radius:99px;white-space:nowrap}
+
+/* 通用 */
+.wrap{max-width:1320px;margin:0 auto;padding-inline:20px;padding-block:24px 48px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--surface);padding:7px 14px;border-radius:6px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--ink-3)}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
+.btn.ghost:hover{background:var(--surface-2);color:var(--ink)}
+.btn.sm{padding:4px 10px;font-size:12px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.muted{color:var(--ink-3)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 9px;border-radius:99px;background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.s-询价,.pill.s-报价{background:var(--brand-soft);color:var(--brand)}
+.pill.s-确认,.pill.s-生产{background:var(--warn-soft);color:var(--warn)}
+.pill.s-出货{background:var(--stamp-soft);color:var(--stamp)}
+.pill.s-收款,.pill.s-完结{background:var(--ok-soft);color:var(--ok)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.sec-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.sec-title h2{font-size:15px}
+
+/* 首页 */
+.home{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.home-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.home-hero h1{font-size:24px;letter-spacing:.01em}
+.stats{display:flex;gap:28px;flex-wrap:wrap;margin-bottom:20px}
+.stat b{display:block;font-size:22px;font-family:var(--f-num);font-weight:500}
+.stat span{font-size:12px;color:var(--ink-3)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px;border-bottom:1px solid var(--line)}
+.search{flex:1 1 220px;min-width:0;display:flex;align-items:center;gap:8px;border:1px solid var(--line-2);border-radius:6px;padding:0 10px;background:var(--surface)}
+.search>span{flex:none;white-space:nowrap}
+.search input{border:0;outline:0;background:transparent;padding:7px 0;width:100%}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{border:1px solid transparent;background:transparent;padding:4px 10px;border-radius:99px;font-size:12px;color:var(--ink-2)}
+.chip:hover{background:var(--surface-2)}
+.chip.on{background:var(--ink);color:var(--surface)}
+.olist{overflow-x:auto}
+.orow{display:grid;grid-template-columns:96px minmax(180px,1.6fr) minmax(140px,1fr) 70px 120px 88px 36px;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer;min-width:760px}
+.orow:hover{background:var(--surface-2)}
+.orow.head{cursor:default;background:transparent;font-size:12px;color:var(--ink-3);padding-block:8px}
+.orow.head:hover{background:transparent}
+.orow .no{font-family:var(--f-num);font-size:13px;color:var(--ink-2)}
+.orow .nm b{display:block;font-weight:600}
+.orow .nm small{color:var(--ink-3);font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.orow .amt{text-align:right;font-family:var(--f-num)}
+.orow .dt{font-size:12px;color:var(--ink-3);font-family:var(--f-num)}
+.empty{padding:40px 16px;text-align:center;color:var(--ink-3)}
+.side-group{margin-bottom:22px}
+.side-group h3{font-size:12px;letter-spacing:.1em;color:var(--ink-3);margin-bottom:8px;font-weight:600}
+.lib{display:grid;gap:6px}
+.lib button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
+.lib button:hover{border-color:var(--brand)}
+.lib .ic{display:grid;place-items:center;width:34px;height:34px;border-radius:6px;background:var(--brand-soft);color:var(--brand);font:600 11px var(--f-num);flex:none}
+.lib b{display:block;font-size:13px}
+.lib small{display:block;font-size:12px;color:var(--ink-3)}
+.lib .cnt{margin-left:auto;font-family:var(--f-num);font-size:12px;color:var(--ink-3)}
+
+/* 订单菜单 */
+.ord-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.title-in{font-size:24px;font-weight:700;border:1px solid transparent;background:transparent;border-radius:6px;padding:2px 6px;margin-left:-7px;max-width:100%}
+.title-in:hover,.title-in:focus{border-color:var(--line-2);background:var(--surface)}
+.ord-head p{margin:2px 0 0;color:var(--ink-3);font-size:13px}
+.ord-head-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.track{display:flex;gap:0;margin-bottom:22px;overflow-x:auto}
+.track button{flex:1 0 80px;background:none;border:0;border-top:3px solid var(--line);padding:8px 4px 0;text-align:left;font-size:12px;color:var(--ink-3)}
+.track button.done{border-top-color:var(--brand);color:var(--ink-2)}
+.track button.cur{border-top-color:var(--stamp);color:var(--ink);font-weight:600}
+.track button:hover{color:var(--ink)}
+.sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:28px}
+.sum .panel{padding:14px 16px;min-width:0}
+.sum h3{font-size:12px;color:var(--ink-3);font-weight:600;letter-spacing:.06em;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.sum .big{font-size:15px;font-weight:600;overflow-wrap:anywhere}
+.sum .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12.5px;margin-top:6px}
+.sum .kv span{color:var(--ink-3)}
+.sum .kv b{font-weight:500;overflow-wrap:anywhere}
+.sum select{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:5px;padding:4px 6px;font-size:12.5px}
+.mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.mcard{position:relative;display:flex;flex-direction:column;gap:10px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-height:132px}
+.mcard:hover{border-color:var(--brand);box-shadow:var(--shadow)}
+.mcard .code{font:500 12px var(--f-num);color:var(--brand);border:1.5px solid currentColor;border-radius:4px;padding:1px 6px;align-self:flex-start;letter-spacing:.04em}
+.mcard b{font-size:15px}
+.mcard small{color:var(--ink-3);font-size:12.5px;line-height:1.45}
+.mcard .st{margin-top:auto;font-size:12px;display:flex;align-items:center;gap:6px}
+.mcard .st.ok{color:var(--ok)} .mcard .st.warn{color:var(--warn)} .mcard .st.ph{color:var(--ink-3)}
+.mcard .need{position:absolute;top:14px;right:14px;font-size:11px;color:var(--stamp);background:var(--stamp-soft);padding:1px 7px;border-radius:99px}
+.mcard.dim{background:var(--surface-2)}
+.mgroup{margin-bottom:26px}
+
+/* 模块页 */
+.mod-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--surface)}
+.mod-head h1{font-size:17px;display:flex;align-items:center;gap:10px}
+.mod-head .code{font:500 12px var(--f-num);color:var(--brand);border:1.5px solid currentColor;border-radius:4px;padding:1px 6px}
+.mod-head .ord{font-size:12.5px;color:var(--ink-3)}
+.mod-head .r{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.mod{display:grid;grid-template-columns:188px minmax(0,1fr) minmax(0,1.1fr);height:calc(100dvh - 118px);min-height:520px}
+.mod.expand{grid-template-columns:188px minmax(0,1fr)}
+.mod.expand .form{display:none}
+.steps{border-right:1px solid var(--line);padding:14px 10px;overflow:auto;background:var(--surface)}
+.steps .lbl{font-size:11px;letter-spacing:.1em;color:var(--ink-3);padding:0 8px 8px;font-weight:600}
+.step{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:0;background:transparent;padding:9px 10px;border-radius:6px;margin-bottom:2px;border-left:3px solid transparent}
+.step:hover{background:var(--surface-2)}
+.step.on{background:var(--brand-soft);border-left-color:var(--brand)}
+.step b{font-size:13.5px;font-weight:600}
+.step small{font-size:11.5px}
+.step small.ok{color:var(--ok)} .step small.warn{color:var(--warn)}
+.steps .hint{margin-top:14px;padding:10px;border-radius:6px;background:var(--surface-2);font-size:12px;color:var(--ink-2);line-height:1.5}
+.form{overflow:auto;padding:20px 22px 40px;min-width:0}
+.form-head{margin-bottom:16px}
+.form-head h2{font-size:18px}
+.form-head p{margin:4px 0 0;color:var(--ink-3);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.w2{grid-column:1/-1}
+.sub{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-top:8px;margin-top:4px;border-top:1px dashed var(--line)}
+.sub:first-child{border-top:0;padding-top:0;margin-top:0}
+.sub span{font-size:12px;font-weight:600;letter-spacing:.08em;color:var(--ink-2)}
+.fi{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fi label{font-size:12.5px;color:var(--ink-2);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fi label .req{color:var(--stamp)}
+.tag{font:500 10px var(--f-num);padding:0 5px;border-radius:3px;letter-spacing:.03em;border:1px solid currentColor}
+.tag.S{color:var(--brand)} .tag.B{color:var(--ok)} .tag.FF{color:var(--warn)} .tag.CB{color:var(--stamp)} .tag.F{color:var(--ink-3)}
+.fi input,.fi select,.fi textarea,.cell{width:100%;border:1px solid var(--line-2);background:var(--surface);border-radius:6px;padding:7px 10px;min-width:0}
+.fi textarea{resize:vertical;min-height:64px;line-height:1.5}
+.fi input:focus,.fi select:focus,.fi textarea:focus,.cell:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.fi.chk{flex-direction:row;align-items:center;gap:8px}
+.fi.chk input{width:auto}
+.flash{animation:flash 1.2s ease}
+@keyframes flash{0%,40%{box-shadow:0 0 0 4px var(--stamp-soft);border-color:var(--stamp)}100%{box-shadow:none}}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.tbl{width:100%;min-width:720px}
+.tbl th{font-size:11.5px;font-weight:600;color:var(--ink-3);text-align:left;padding:8px 6px;background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:4px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl .cell{padding:5px 7px;border-color:transparent;background:transparent;border-radius:4px}
+.tbl .cell:hover{border-color:var(--line-2)}
+.tbl .calc{font-family:var(--f-num);font-size:12.5px;color:var(--ink-2);text-align:right;padding-right:10px;white-space:nowrap}
+.tbl .ix{color:var(--ink-3);font-size:12px;text-align:center;width:28px}
+.tbl .del{border:0;background:none;color:var(--ink-3);padding:4px 8px;border-radius:4px}
+.tbl .del:hover{color:var(--stamp);background:var(--stamp-soft)}
+.tbl tfoot td{font-family:var(--f-num);font-size:12.5px;font-weight:500;background:var(--surface-2);padding:8px 6px}
+.tbl-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.form-foot{display:flex;justify-content:space-between;gap:8px;margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.note{font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border-radius:6px;padding:10px 12px;margin-top:12px;line-height:1.55}
+
+/* 预览 */
+.pv{display:flex;flex-direction:column;background:var(--desk);border-left:1px solid var(--line);min-width:0}
+.pv-bar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--surface);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{border:0;background:transparent;padding:6px 10px;border-radius:5px;font-size:12.5px;color:var(--ink-2)}
+.tab:hover{background:var(--surface-2)}
+.tab.on{background:var(--ink);color:var(--surface)}
+.pv-bar .r{margin-left:auto;display:flex;gap:4px;align-items:center}
+.pv-bar .tip{font-size:11.5px;color:var(--ink-3)}
+.pv-wrap{flex:1;overflow:auto;padding:16px 12px 40px}
+.pv-hold{margin:0 auto;position:relative}
+.pv-scale{width:794px;transform-origin:top left;position:absolute;top:0;left:0}
+
+/* A4 单据：纸张在两种主题下都保持白底 */
+.paper{width:794px;min-height:1123px;background:var(--paper);color:var(--paper-ink);padding:52px 56px 60px;font:10.5px/1.5 "IBM Plex Sans","Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.18);--acc:#1d3f72}
+.paper .fld{cursor:pointer;border-radius:2px;transition:background .15s}
+.paper .fld:hover{background:rgba(29,79,138,.12);outline:1px dashed var(--acc)}
+.paper .fld.miss{color:#b8322a;background:rgba(184,50,42,.08);font-style:italic}
+.d-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}
+.d-co{font-size:15px;font-weight:700;color:var(--acc);margin-bottom:4px}
+.d-seller{max-width:52%;color:#444}
+.d-title{text-align:right}
+.d-title h1{font-size:22px;letter-spacing:.06em;color:var(--acc);font-weight:700;margin-bottom:8px}
+.d-meta{margin-left:auto}
+.d-meta th{text-align:right;font-weight:500;color:#777;padding:1px 8px 1px 0;white-space:nowrap}
+.d-meta td{text-align:left;font-family:"IBM Plex Mono",monospace;font-size:10px}
+.d-rule{height:3px;background:var(--acc);margin:16px 0 18px}
+.d-two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.d-box{border:1px solid #d9dde3;padding:10px 12px;border-radius:2px}
+.d-lab{font-size:9px;letter-spacing:.14em;color:var(--acc);font-weight:700;margin-bottom:4px}
+.d-strong{font-weight:700}
+.d-terms{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 14px;background:#f4f6f9;padding:10px 12px;margin-bottom:14px}
+.d-terms span{display:block;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:#7b8594}
+.d-tbl{width:100%;border:1px solid #cfd4db}
+.d-tbl th{background:var(--acc);color:#fff;font-weight:600;font-size:9.5px;padding:6px 5px;text-align:center;border:1px solid var(--acc)}
+.d-tbl td{border:1px solid #d9dde3;padding:5px;vertical-align:top}
+.d-tbl .c{text-align:center} .d-tbl .r{text-align:right;font-family:"IBM Plex Mono",monospace;font-size:10px;white-space:nowrap}
+.d-tbl .b{font-weight:600}
+.d-tbl tr.tot td{background:#f4f6f9;font-weight:700}
+.d-sub{color:#777;font-size:9.5px}
+.d-words{margin:10px 0;padding:8px 10px;border-left:3px solid var(--acc);background:#f7f8fa;font-weight:600}
+.d-sec{margin-top:14px}
+.d-sec h4{font-size:9.5px;letter-spacing:.12em;color:var(--acc);margin:0 0 4px}
+.d-sec ol{margin:0;padding-left:16px}
+.d-pre{white-space:pre-line}
+.d-sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:34px}
+.d-sigline{height:56px;border-bottom:1px solid #333;position:relative;margin-bottom:4px}
+.stamp-slot{position:absolute;left:20px;bottom:6px;width:70px;height:70px;border:1.5px dashed #b8322a;border-radius:50%;display:grid;place-items:center;color:#b8322a;font-size:9px;opacity:.7}
+.d-center{text-align:center}
+.d-ctitle{font-size:24px;letter-spacing:.5em;font-weight:700;text-indent:.5em}
+.d-csub{letter-spacing:.3em;color:#777;font-size:10px;margin-top:4px}
+.d-cl{display:grid;grid-template-columns:170px 1fr;gap:3px 12px;margin-top:12px}
+.d-cl dt{font-weight:600}
+.d-cl dd{margin:0}
+.cd-grid{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #333;border-left:1px solid #333}
+.cd-grid>div{border-right:1px solid #333;border-bottom:1px solid #333;padding:4px 6px;min-height:38px}
+.cd-grid span{display:block;font-size:8.5px;color:#666}
+.cd-grid .s2{grid-column:span 2}.cd-grid .s4{grid-column:span 4}
+.mk{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px}
+.mk-box{border:2.5px solid #111;padding:22px 18px;min-height:220px;font:700 17px/1.7 "IBM Plex Mono",monospace;text-align:center;white-space:pre-line;display:flex;align-items:center;justify-content:center}
+.mk-cap{font-size:10px;color:#666;margin-top:6px;text-align:center;letter-spacing:.1em}
+
+/* 客户库 */
+.cust{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+.clist{max-height:calc(100dvh - 200px);overflow:auto}
+.citem{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;padding:12px 14px}
+.citem:hover{background:var(--surface-2)}
+.citem.on{background:var(--brand-soft)}
+.citem b{display:block;font-size:13.5px}
+.citem small{color:var(--ink-3);font-size:12px}
+.cdet{padding:20px 22px}
+.cdet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.cdet-h h2{font-size:20px}
+.lvl{font:600 11px var(--f-num);color:var(--stamp);border:1.5px solid currentColor;border-radius:4px;padding:0 6px;margin-left:8px;vertical-align:middle}
+.cstats{display:flex;gap:28px;flex-wrap:wrap;padding:12px 0 16px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.cblock{margin-bottom:22px}
+.cblock h3{font-size:13px;margin-bottom:10px;color:var(--ink-2)}
+.follow{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.follow li{display:grid;grid-template-columns:90px 1fr;gap:10px;font-size:13px}
+.follow .num{color:var(--ink-3);font-size:12px}
+
+/* 报价计算器 */
+.calc-g{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:20px;align-items:start}
+.calc-g .panel{padding:18px 20px}
+.qt{width:100%}
+.qt th,.qt td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:right}
+.qt th:first-child,.qt td:first-child{text-align:left}
+.qt th{font-size:12px;color:var(--ink-3);font-weight:600}
+.qt td{font-family:var(--f-num)}
+.qt td b{font-size:16px;font-weight:500;color:var(--brand)}
+.qt tr.hl td{background:var(--brand-soft)}
+
+/* 弹窗 与 提示 */
+.modal-bg{position:fixed;inset:0;background:rgba(10,16,26,.45);display:grid;place-items:center;z-index:50;padding:16px}
+.modal{background:var(--surface);border-radius:10px;width:min(560px,100%);max-height:86dvh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-h{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.modal-h h2{font-size:16px}
+.modal-b{padding:16px 20px}
+.modal-f{padding:12px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:6px;margin-bottom:8px;cursor:pointer}
+.opt:hover{border-color:var(--brand)}
+.opt input{margin-top:3px}
+.opt b{display:block;font-size:13.5px}
+.opt small{color:var(--ink-3);font-size:12px}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;display:grid;gap:8px;width:min(520px,calc(100% - 32px))}
+.toast{background:var(--ink);color:var(--surface);padding:10px 14px;border-radius:8px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:tin .2s ease}
+@keyframes tin{from{transform:translateY(8px);opacity:0}}
+
+/* 导出中心 */
+.exp{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);height:calc(100dvh - 118px);min-height:520px}
+.exp-l{overflow:auto;padding:20px;border-right:1px solid var(--line);background:var(--surface)}
+.seg{display:flex;border:1px solid var(--line-2);border-radius:7px;overflow:hidden;margin-bottom:16px}
+.seg button{flex:1;border:0;background:transparent;padding:8px 4px;font-size:13px;border-right:1px solid var(--line-2)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--ink);color:var(--surface)}
+.dl{display:grid;gap:6px;margin-bottom:16px}
+.dl label{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:6px;font-size:13px}
+.dl label.foc{border-color:var(--brand);background:var(--brand-soft)}
+.dl label .ph{margin-left:auto;font-size:11px;color:var(--ink-3)}
+.dl label .eye{margin-left:auto;border:0;background:none;color:var(--brand);font-size:12px}
+.mail{width:100%;min-height:190px;border:1px solid var(--line-2);border-radius:6px;padding:10px;background:var(--surface-2);font:12.5px/1.6 var(--f-ui);resize:vertical}
+.ph-body{max-width:760px;margin:0 auto;padding-inline:20px;padding-block:32px}
+.ph-body ul{padding-left:18px;line-height:1.8}
+
+@media (max-width:1100px){
+  .home{grid-template-columns:1fr}
+  .sum{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mod,.mod.expand{grid-template-columns:1fr;height:auto}
+  .mod.expand .form{display:block}
+  .steps{border-right:0;border-bottom:1px solid var(--line);display:flex;gap:6px;overflow-x:auto;padding:10px}
+  .steps .lbl,.steps .hint{display:none}
+  .step{flex:none;width:auto;border-left:0;border-bottom:3px solid transparent}
+  .step.on{border-bottom-color:var(--brand)}
+  .pv{border-left:0;border-top:1px solid var(--line);min-height:70dvh}
+  .cust,.calc-g{grid-template-columns:1fr}
+  .clist{max-height:260px}
+  .exp{grid-template-columns:1fr;height:auto}
+  .exp-l{border-right:0}
+  .exp .pv{min-height:70dvh}
+}
+@media (max-width:640px){
+  .top{padding:10px 16px;gap:10px;flex-wrap:wrap}
+  .brand small,.proto{display:none}
+  .wrap{padding-inline:16px}
+  .grid{grid-template-columns:1fr}
+  .sum{grid-template-columns:1fr}
+  .mod-head{padding:10px 16px}
+  .form{padding:16px}
+  .d-two{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div id="app"></div>
+<div id="modal-root"></div>
+<div id="toast" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- 工具 ---------- */
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fx=(n,d)=>(+n||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const today=()=>new Date().toISOString().slice(0,10);
+const uid=()=>Math.random().toString(36).slice(2,9);
+const clone=o=>JSON.parse(JSON.stringify(o));
+function getP(o,p){return p.split('.').reduce((a,k)=>a==null?a:a[k],o)}
+function setP(o,p,v){const ks=p.split('.');let a=o;for(let i=0;i<ks.length-1;i++){if(a[ks[i]]==null)a[ks[i]]={};a=a[ks[i]]}a[ks[ks.length-1]]=v}
+const idOf=p=>'in-'+p.replace(/[.*]/g,'-');
+
+const ONES=['','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN','EIGHT','NINE','TEN','ELEVEN','TWELVE','THIRTEEN','FOURTEEN','FIFTEEN','SIXTEEN','SEVENTEEN','EIGHTEEN','NINETEEN'];
+const TENS=['','','TWENTY','THIRTY','FORTY','FIFTY','SIXTY','SEVENTY','EIGHTY','NINETY'];
+function chunk(n){let s='';if(n>=100){s+=ONES[Math.floor(n/100)]+' HUNDRED';n%=100;if(n)s+=' AND '}if(n>=20){s+=TENS[Math.floor(n/10)];if(n%10)s+='-'+ONES[n%10]}else if(n>0)s+=ONES[n];return s}
+function intWords(n){n=Math.floor(n);if(!n)return 'ZERO';const u=['',' THOUSAND',' MILLION',' BILLION'];const parts=[];let i=0;while(n>0){const c=n%1000;if(c)parts.unshift(chunk(c)+u[i]);n=Math.floor(n/1000);i++}return parts.join(' ')}
+const CUR_NAME={USD:'US DOLLARS',EUR:'EUROS',CNY:'CHINESE YUAN',GBP:'POUNDS STERLING'};
+function amountWords(a,c){const cents=Math.round(a*100)%100;return 'SAY '+(CUR_NAME[c]||c)+' '+intWords(a)+(cents?' AND CENTS '+intWords(cents):'')+' ONLY'}
+
+/* ---------- 常量 ---------- */
+const INCOTERMS=['EXW','FCA','FAS','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP'];
+const PAYMENTS=['T/T','L/C at sight','L/C 30 days after B/L','D/P at sight','D/A 60 days','O/A 30 days'];
+const STATUSES=['询价','报价','确认','生产','出货','收款','完结'];
+const SYM={USD:'$',EUR:'€',CNY:'¥',GBP:'£'};
+const THEMES={'藏青':'#1d3f72','墨黑':'#262626','港绿':'#16615a','酒红':'#7a1f2b'};
+const TRANSPORT_CD={'海运':'水路运输','空运':'航空运输','铁路':'铁路运输','陆运':'公路运输','快递':'其他运输'};
+
+/* ---------- 示例数据 ---------- */
+function seed(){
+  const seller={name:'Qingdao Hengyuan Industrial Co., Ltd.',nameCn:'青岛恒远实业有限公司',address:'No. 18 Haier Road, Laoshan District, Qingdao, Shandong, China',phone:'+86 532 8888 6666',email:'sales@hengyuan-demo.com',tax:'91370212MA3DEMO001',bank:'Beneficiary: Qingdao Hengyuan Industrial Co., Ltd.\nBank: Bank of China, Qingdao Branch\nSWIFT: BKCHCNBJ500\nA/C No.: 2201 0000 0000 0000 (示例)'};
+  const products=[
+    {id:uid(),model:'AL-S200',nameCn:'铝合金展示架（标准款）',nameEn:'Aluminium Display Rack - Standard',spec:'1200×450×1800 mm',hs:'9403200000',unit:'PCS',price:12.5,pcsPerCtn:2,l:122,w:47,h:20,nw:14.5,gw:16,elements:'0|0|展示用|铝合金|无品牌|AL-S200',cat:'展示架'},
+    {id:uid(),model:'AL-H500',nameCn:'铝合金展示架（加重款）',nameEn:'Aluminium Display Rack - Heavy Duty',spec:'1500×600×2000 mm',hs:'9403200000',unit:'SETS',price:89,pcsPerCtn:1,l:155,w:62,h:28,nw:28,gw:31,elements:'0|0|展示用|铝合金|无品牌|AL-H500',cat:'展示架'},
+    {id:uid(),model:'AC-01',nameCn:'配件包（挂钩及螺栓）',nameEn:'Accessory Kit (Hooks & Bolts)',spec:'20 pcs / kit',hs:'7318159001',unit:'SETS',price:3.2,pcsPerCtn:50,l:40,w:30,h:25,nw:9,gw:10,elements:'0|0|紧固用|钢制|无品牌|AC-01',cat:'配件'},
+    {id:uid(),model:'SH-80',nameCn:'钢制货架 80cm',nameEn:'Steel Shelf 80cm, Powder Coated',spec:'800×400×1500 mm',hs:'9403200000',unit:'PCS',price:18.6,pcsPerCtn:1,l:82,w:42,h:12,nw:11,gw:12.2,elements:'0|0|仓储用|钢制|无品牌|SH-80',cat:'货架'}
+  ];
+  const customers=[
+    {id:'c1',name:'Global Ventures Pte. Ltd.',short:'GV',country:'新加坡',address:'88 Cross Street, #05-01, Singapore 048445',tax:'UEN 201912345K',notify:'SAME AS CONSIGNEE',level:'A',source:'展会 · 广交会',
+     contacts:[{name:'David Kim',title:'Purchasing Manager',email:'purchase@globalventures-demo.sg',phone:'+65 6123 4567'},{name:'Grace Tan',title:'Logistics',email:'logistics@globalventures-demo.sg',phone:'+65 6123 4570'}],
+     habits:{incoterm:'FOB',place:'Qingdao',payment:'T/T',paymentDetail:'30% deposit, 70% before shipment',currency:'USD',pod:'Singapore',marks:'G.V.\nPO NO.: {PO}\nSINGAPORE\nC/NO. 1-{CTNS}\nMADE IN CHINA'},
+     notes:'要求中性包装，外箱印 PO 号；付款准时。',follow:[{d:'2026-09-20',t:'询价 3 款铝合金展架，要求 10 月底前出货'},{d:'2026-08-02',t:'外贸订单1 已收尾款，客户反馈包装良好'}]},
+    {id:'c2',name:'ABC Trading LLC',short:'ABC',country:'美国',address:'123 Main St, Los Angeles, CA 90001, USA',tax:'EIN 95-1234567',notify:'ABC Logistics Inc., same address',level:'A',source:'阿里巴巴国际站',
+     contacts:[{name:'John Miller',title:'Owner',email:'john@abctrading-demo.com',phone:'+1 213 555 0100'}],
+     habits:{incoterm:'CIF',place:'Los Angeles',payment:'L/C at sight',paymentDetail:'Irrevocable L/C at sight',currency:'USD',pod:'Los Angeles',marks:'ABC\nLOS ANGELES\nC/NO. 1-{CTNS}\nMADE IN CHINA'},
+     notes:'信用证付款，单据要求严格，货描须与 L/C 一致。',follow:[{d:'2026-09-02',t:'L/C 已开到，最迟装期 10-15'}]},
+    {id:'c3',name:'Nordhavn Supply ApS',short:'NS',country:'丹麦',address:'Havnegade 12, 1058 Copenhagen K, Denmark',tax:'VAT DK12345678',notify:'SAME AS CONSIGNEE',level:'B',source:'LinkedIn',
+     contacts:[{name:'Mette Larsen',title:'Buyer',email:'mette@nordhavn-demo.dk',phone:'+45 33 12 34 56'}],
+     habits:{incoterm:'CFR',place:'Aarhus',payment:'O/A 30 days',paymentDetail:'100% within 30 days after B/L date',currency:'EUR',pod:'Aarhus',marks:'NORDHAVN\nAARHUS\nC/NO. 1-{CTNS}'},
+     notes:'欧元结算，需 EORI 号。',follow:[]}
+  ];
+  const partners=[
+    {id:'p1',type:'货代',name:'青岛远航国际货运代理有限公司',contact:'王经理',phone:'138 0000 1111',note:'新加坡、东南亚航线'},
+    {id:'p2',type:'货代',name:'捷通物流（上海）有限公司',contact:'陈小姐',phone:'139 0000 2222',note:'美线、欧线'},
+    {id:'p3',type:'报关行',name:'青岛海通报关有限公司',contact:'李小姐',phone:'137 0000 3333',note:'青岛大港'},
+    {id:'p4',type:'工厂',name:'临沂金盛铝业有限公司',contact:'张厂长',phone:'136 0000 4444',note:'铝合金展架'},
+    {id:'p5',type:'船公司',name:'COSCO SHIPPING',contact:'订舱部',phone:'—',note:''}
+  ];
+  const P=m=>products.find(p=>p.model===m);
+  const item=(m,q)=>{const p=P(m);return {id:uid(),model:p.model,nameEn:p.nameEn,nameCn:p.nameCn,spec:p.spec,hs:p.hs,unit:p.unit,qty:q,price:p.price,pcsPerCtn:p.pcsPerCtn,l:p.l,w:p.w,h:p.h,nw:p.nw,gw:p.gw,elements:p.elements}};
+  const mk=(c,no,name,status,created,items,extra)=>{
+    const o=blankOrder(seller,no,name,created);
+    applyCustomer(o,c);o.status=status;o.items=items;
+    Object.keys(extra||{}).forEach(k=>Object.assign(o[k],extra[k]));
+    o.shipping.marks=fillMarks(c.habits.marks,o);
+    return o;
+  };
+  const orders=[
+    mk(customers[0],'2026-003','外贸订单3','报价','2026-09-26',[item('AL-S200',100),item('AL-H500',20),item('AC-01',200)],{numbers:{po:'GV-PO-7781'},partners:{forwarder:'p1',broker:'p3',factory:'p4'}}),
+    mk(customers[1],'2026-002','外贸订单2','出货','2026-09-05',[item('AL-H500',60),item('AL-S200',300)],{numbers:{po:'ABC-2026-118'},shipping:{vessel:'COSCO SHIPPING ARIES V.045E',blNo:'COSU6384521900',container:'CSNU7234561 / 40HQ',seal:'CN4471823',etd:'2026-10-08'},customs:{tradeCountry:'美国',destCountry:'美国'},partners:{forwarder:'p2',broker:'p3',factory:'p4'}}),
+    mk(customers[2],'2026-001','外贸订单1','完结','2026-07-12',[item('SH-80',500)],{shipping:{vessel:'MAERSK EINDHOVEN V.231W',blNo:'MAEU231889012',container:'MSKU8812345 / 40GP',seal:'ML882211',etd:'2026-08-01'},customs:{tradeCountry:'丹麦',destCountry:'丹麦'},partners:{forwarder:'p2',broker:'p3',factory:''}})
+  ];
+  return {seller,products,customers,partners,orders,seq:4};
+}
+function blankOrder(seller,no,name,created){
+  return {id:uid(),no,name,status:'询价',created:created||today(),updated:created||today(),customerId:'',
+    seller:clone(seller),
+    buyer:{name:'',address:'',contact:'',phone:'',email:'',tax:'',notify:''},
+    terms:{incoterm:'FOB',place:'Qingdao',currency:'USD',payment:'T/T',paymentDetail:'',pol:'Qingdao, China',pod:'',transport:'海运',leadTime:'20-25 working days',shipment:'Within 30 days after receipt of deposit',partial:'Not Allowed',transship:'Allowed',insurance:'To be covered by the Buyer',packing:'Export standard cartons, suitable for ocean transportation'},
+    numbers:{quote:'QT-'+no,pi:'PI-'+no,contract:'SC-'+no,ci:'CI-'+no,po:'',date:created||today(),validUntil:'',signedAt:'Qingdao, China'},
+    items:[],
+    shipping:{vessel:'',blNo:'',container:'',seal:'',etd:'',origin:'CHINA',marks:'',side:''},
+    customs:{exportPort:'青岛大港海关',supervision:'0110 一般贸易',exemption:'101 一般征税',license:'',tradeCountry:'',destCountry:'',sourceArea:'青岛',packageType:'纸制或纤维板制盒/箱',freight:'',insFee:'',docs:''},
+    partners:{forwarder:'',broker:'',factory:''},
+    docset:{theme:'藏青',stamp:true,remarks:'Prices are based on current material costs. Goods are inspected before shipment.',clauses:'All prices are subject to change without prior notice.\nClaims must be raised within 7 days after receipt of goods.\nForce majeure events excuse any delay in performance.'}};
+}
+function snapCustomer(c){const k=c.contacts[0]||{};return {name:c.name,address:c.address,contact:k.name||'',phone:k.phone||'',email:k.email||'',tax:c.tax||'',notify:c.notify||''}}
+function applyCustomer(o,c){
+  o.customerId=c.id;o.buyer=snapCustomer(c);
+  const h=c.habits||{};
+  ['incoterm','place','payment','paymentDetail','currency','pod'].forEach(k=>{if(h[k])o.terms[k]=h[k]});
+  o.terms.insurance=['CIF','CIP'].includes(h.incoterm)?'To be covered by the Seller for 110% of invoice value against All Risks':'To be covered by the Buyer';
+  const map={'新加坡':'新加坡','美国':'美国','丹麦':'丹麦'};
+  if(map[c.country]){o.customs.tradeCountry=map[c.country];o.customs.destCountry=map[c.country]}
+}
+function fillMarks(t,o){if(!t)return '';const k=calc(o);return t.replace('{PO}',o.numbers.po||'—').replace('{CTNS}',k.ctns||'UP')}
+
+const LS='ftw-proto-m0-v1';
+let S;
+try{S=JSON.parse(localStorage.getItem(LS)||'null')}catch(e){S=null}
+if(!S||!S.orders)S=seed();
+function save(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+
+let V={page:'home',orderId:null,mod:null,step:null,doc:null,q:'',status:'all',custId:null,cq:'',ptype:'货代',expand:false,bundle:'客户',expSel:null,expDoc:null};
+const curOrder=()=>S.orders.find(o=>o.id===V.orderId);
+let CUR=null;
+
+/* ---------- 计算 ---------- */
+function calc(o){
+  let qty=0,amount=0,ctns=0,nw=0,gw=0,cbm=0,c=0;
+  const rows=o.items.map(it=>{
+    const q=+it.qty||0,p=+it.price||0,a=q*p,per=+it.pcsPerCtn||0,n=per>0?Math.ceil(q/per):0;
+    const from=n?c+1:0,to=n?c+n:0;c+=n;
+    const v=(+it.l||0)*(+it.w||0)*(+it.h||0)/1e6;
+    const r=Object.assign({},it,{q,p,a,n,from,to,nwT:n*(+it.nw||0),gwT:n*(+it.gw||0),cbmT:n*v});
+    qty+=q;amount+=a;ctns+=n;nw+=r.nwT;gw+=r.gwT;cbm+=r.cbmT;return r;
+  });
+  return {rows,qty,amount,ctns,nw,gw,cbm};
+}
+
+/* ---------- 模块与步骤定义 ---------- */
+const MODS={
+  quote:{code:'QT',name:'报价单',desc:'Quotation：报价、有效期、条款',docs:['quote'],steps:['parties','items','terms','docset'],grp:'doc'},
+  pi:{code:'PI',name:'合同 / PI',desc:'形式发票 + 中英文销售合同',docs:['pi','contract'],steps:['parties','items','terms','docset'],grp:'doc'},
+  ci:{code:'CI',name:'商业发票',desc:'Commercial Invoice：船名、提单号、原产地',docs:['ci'],steps:['parties','items','terms','shipping','docset'],grp:'doc'},
+  pl:{code:'PL',name:'箱单',desc:'Packing List：箱号、净毛重、体积自动计算',docs:['pl'],steps:['parties','packing','shipping','docset'],grp:'doc'},
+  customs:{code:'CD',name:'报关资料',desc:'报关预录入表 + 发票 + 箱单，发报关行',docs:['customs','ci','pl'],steps:['customs','customsItems','packing'],grp:'doc'},
+  booking:{code:'SI',name:'订舱 / SI',desc:'订舱委托书、提单补料',grp:'doc',ph:'M2',plan:['订舱委托书：自动带入发货人、收货人、通知人、港口、柜型柜量、件毛体','SI 提单补料：按船公司格式生成，发给货代','数据与箱单自动一致，改一处全同步']},
+  marks:{code:'SM',name:'唛头箱贴',desc:'正唛、侧唛，按箱号批量打印',docs:['marks'],steps:['marks'],grp:'doc'},
+  export:{code:'ZIP',name:'单据导出',desc:'按客户 / 工厂 / 报关行 / 货代一键打包',grp:'doc',special:true},
+  bl:{code:'B/L',name:'提单核对',desc:'货代提单确认件与订单自动比对',grp:'biz',ph:'M4',plan:['上传货代提单确认件（PDF）或直接粘贴文字','自动比对发货人、收货人、通知人、货描、唛头、件数、毛重、体积、柜号封号','差异标红，一键生成修改意见发给货代','文字版 PDF 离线可用；扫描件需在设置里配置自己的 AI Key']},
+  lc:{code:'L/C',name:'信用证审证',desc:'条款解析、软条款风险、与订单比对',grp:'biz',ph:'M4 / M5',plan:['粘贴 MT700 信用证原文，自动解析 31D / 44C / 48 / 39A / 43P / 46A / 47A 等条款','规则层（离线）：日期冲突、金额容差、内置软条款特征库逐条匹配','与本订单比对：金额、货描、港口、交期、贸易术语是否一致','AI 层（自带 Key）：结合内置 UCP600 / ISBP745 知识库，输出风险条款、原因、改证建议措辞','按信用证要求生成单据，货描逐字一致']},
+  payment:{code:'T/T',name:'收款记录',desc:'定金、尾款、手续费、实际利润',grp:'biz',ph:'M4',plan:['登记定金、尾款、银行手续费、结汇汇率','应收余额与到期提醒','每单真实利润 vs 报价时的预算利润']}
+};
+const DOCNAMES={quote:'报价单',pi:'PI 形式发票',contract:'销售合同',ci:'商业发票',pl:'装箱单',customs:'报关预录入表',marks:'唛头'};
+
+const STEPS={
+  parties:{label:'双方信息',hint:'卖方信息来自「设置」，买方可从客户库一键调入。',fields:[
+    {h:'卖方（我方）'},
+    {p:'seller.name',l:'公司名称（英文）',req:1,w:2,src:'S'},
+    {p:'seller.nameCn',l:'公司名称（中文）',src:'S'},
+    {p:'seller.tax',l:'统一社会信用代码',src:'S'},
+    {p:'seller.address',l:'地址',req:1,w:2,src:'S'},
+    {p:'seller.phone',l:'电话',src:'S'},{p:'seller.email',l:'邮箱',src:'S'},
+    {p:'seller.bank',l:'收款银行信息',type:'textarea',w:2,src:'S'},
+    {h:'买方（客户）',tools:'buyer'},
+    {p:'buyer.name',l:'公司名称',req:1,w:2,src:'B'},
+    {p:'buyer.address',l:'地址',req:1,w:2,type:'textarea',src:'B'},
+    {p:'buyer.contact',l:'联系人',src:'B'},{p:'buyer.phone',l:'电话 / WhatsApp',src:'B'},
+    {p:'buyer.email',l:'邮箱',src:'B'},{p:'buyer.tax',l:'税号 / VAT / EORI',src:'B'},
+    {p:'buyer.notify',l:'通知方 Notify Party',w:2,src:'B'}
+  ]},
+  items:{label:'货物明细',hint:'可从产品库批量添加；金额自动计算。',table:'items'},
+  packing:{label:'包装装箱',hint:'填每箱装量和箱规，箱数、箱号段、净毛重、体积自动算。',table:'packing'},
+  customsItems:{label:'申报商品',hint:'中文品名、HS 编码、申报要素；录过的会进 HS 记忆库。',table:'customsItems'},
+  terms:{label:'贸易条款',hint:'选好客户后，默认交易习惯已自动带入。',fields:[
+    {p:'terms.incoterm',l:'贸易术语 Incoterms 2020',type:'select',opts:INCOTERMS,req:1,src:'S'},
+    {p:'terms.place',l:'指定地点',req:1,src:'S'},
+    {p:'terms.currency',l:'币种',type:'select',opts:['USD','EUR','CNY','GBP'],req:1,src:'S'},
+    {p:'terms.payment',l:'付款方式',type:'select',opts:PAYMENTS,req:1,src:'B'},
+    {p:'terms.paymentDetail',l:'付款说明',w:2,src:'B'},
+    {p:'terms.pol',l:'装运港 POL',req:1,src:'FF'},{p:'terms.pod',l:'目的港 POD',req:1,src:'B'},
+    {p:'terms.transport',l:'运输方式',type:'select',opts:['海运','空运','铁路','陆运','快递'],src:'FF'},
+    {p:'terms.leadTime',l:'交期 Lead Time',src:'F'},
+    {p:'terms.shipment',l:'装运期限',w:2,src:'S'},
+    {p:'terms.partial',l:'分批装运',type:'select',opts:['Allowed','Not Allowed']},
+    {p:'terms.transship',l:'转运',type:'select',opts:['Allowed','Not Allowed']},
+    {p:'terms.insurance',l:'保险',w:2},
+    {p:'terms.packing',l:'包装要求',w:2,src:'F'}
+  ]},
+  shipping:{label:'运输信息',hint:'货代订舱后回填；唛头会同步到箱单和唛头模块。',fields:[
+    {p:'shipping.vessel',l:'船名航次',w:2,src:'FF'},
+    {p:'shipping.blNo',l:'提单号 B/L No.',src:'FF'},{p:'shipping.etd',l:'开船日期 ETD',type:'date',src:'FF'},
+    {p:'shipping.container',l:'柜号 / 柜型',src:'FF'},{p:'shipping.seal',l:'封号',src:'FF'},
+    {p:'shipping.origin',l:'原产地',src:'S'},
+    {p:'shipping.marks',l:'唛头 Shipping Marks',type:'textarea',w:2,src:'B'}
+  ]},
+  customs:{label:'报关要素',hint:'监管方式、征免性质等由报关行确认。',fields:[
+    {p:'customs.exportPort',l:'出境关别',req:1,src:'CB'},
+    {p:'customs.supervision',l:'监管方式',type:'select',opts:['0110 一般贸易','1039 市场采购','9610 跨境电商 B2C','9710 跨境电商 B2B 直接出口','9810 跨境电商出口海外仓','1210 保税跨境电商'],req:1,src:'CB'},
+    {p:'customs.exemption',l:'征免性质',type:'select',opts:['101 一般征税','299 其他法定','789 鼓励项目'],req:1,src:'CB'},
+    {p:'customs.license',l:'许可证号'},
+    {p:'customs.tradeCountry',l:'贸易国（地区）',req:1,src:'B'},
+    {p:'customs.destCountry',l:'运抵国（地区）',req:1,src:'B'},
+    {p:'customs.sourceArea',l:'境内货源地',req:1,src:'F'},
+    {p:'customs.packageType',l:'包装种类',type:'select',opts:['纸制或纤维板制盒/箱','木制或竹藤等植物性材料制盒/箱','再生木托','散装','其他包装'],src:'F'},
+    {p:'customs.freight',l:'运费',src:'FF'},{p:'customs.insFee',l:'保费'},
+    {p:'customs.docs',l:'随附单证',w:2,src:'CB'}
+  ]},
+  docset:{label:'编号与样式',hint:'编号由订单号派生，可改。',fields:[
+    {p:'numbers.quote',l:'报价单号'},{p:'numbers.pi',l:'PI 号'},
+    {p:'numbers.contract',l:'合同号'},{p:'numbers.ci',l:'发票号'},
+    {p:'numbers.po',l:'客户 PO 号',src:'B'},{p:'numbers.date',l:'单据日期',type:'date',req:1},
+    {p:'numbers.validUntil',l:'报价有效期至',type:'date'},{p:'numbers.signedAt',l:'签约地点'},
+    {p:'docset.remarks',l:'备注 Remarks',type:'textarea',w:2},
+    {p:'docset.clauses',l:'条款（每行一条）',type:'textarea',w:2},
+    {p:'docset.theme',l:'单据配色',type:'select',opts:Object.keys(THEMES)},
+    {p:'docset.stamp',l:'显示公章位置',type:'checkbox'}
+  ]},
+  marks:{label:'唛头内容',hint:'{PO}、{CTNS} 会自动替换为 PO 号和总箱数。',fields:[
+    {p:'shipping.marks',l:'正唛 Main Mark',type:'textarea',w:2,src:'B'},
+    {p:'shipping.side',l:'侧唛 Side Mark（留空则自动生成）',type:'textarea',w:2}
+  ]}
+};
+const TABLES={
+  items:[{k:'model',l:'型号',w:92},{k:'nameEn',l:'品名（英文）',w:210},{k:'spec',l:'规格',w:140},{k:'hs',l:'HS 编码',w:110},{k:'unit',l:'单位',w:70},{k:'qty',l:'数量',w:80,num:1},{k:'price',l:'单价',w:84,num:1},{c:'a',l:'金额',w:96}],
+  packing:[{k:'nameEn',l:'品名',w:190},{c:'q',l:'数量',w:64},{k:'pcsPerCtn',l:'每箱装',w:64,num:1},{k:'l',l:'长 cm',w:60,num:1},{k:'w',l:'宽 cm',w:60,num:1},{k:'h',l:'高 cm',w:60,num:1},{k:'nw',l:'净重/箱',w:70,num:1},{k:'gw',l:'毛重/箱',w:70,num:1},{c:'n',l:'箱数',w:54},{c:'cno',l:'箱号',w:74},{c:'cbmT',l:'体积 m³',w:70}],
+  customsItems:[{k:'nameCn',l:'中文品名',w:170},{k:'hs',l:'商品编号',w:110},{k:'elements',l:'申报要素',w:250},{k:'model',l:'型号',w:90},{c:'q',l:'数量',w:64}]
+};
+function stepPaths(step){
+  const s=STEPS[step];const out=(s.fields||[]).filter(f=>f.p).map(f=>f.p);
+  if(s.table)TABLES[s.table].filter(c=>c.k).forEach(c=>out.push('items.*.'+c.k));
+  return out;
+}
+function missing(o,step){
+  const s=STEPS[step],out=[];
+  (s.fields||[]).forEach(f=>{if(f.req&&!String(getP(o,f.p)==null?'':getP(o,f.p)).trim())out.push(f.l)});
+  if(s.table==='items'){if(!o.items.length)out.push('至少一行货物');o.items.forEach((it,i)=>{if(!it.nameEn)out.push('第'+(i+1)+'行品名');if(!(+it.qty))out.push('第'+(i+1)+'行数量');if(!(+it.price))out.push('第'+(i+1)+'行单价')})}
+  if(s.table==='packing')o.items.forEach((it,i)=>{if(!(+it.pcsPerCtn))out.push('第'+(i+1)+'行每箱装');if(!(+it.gw))out.push('第'+(i+1)+'行毛重');if(!(+it.l&&+it.w&&+it.h))out.push('第'+(i+1)+'行箱规')});
+  if(s.table==='customsItems')o.items.forEach((it,i)=>{if(!it.nameCn)out.push('第'+(i+1)+'行中文品名');if(!it.hs)out.push('第'+(i+1)+'行商品编号')});
+  return out;
+}
+function modProgress(o,key){const m=MODS[key];if(!m.steps)return null;const done=m.steps.filter(s=>!missing(o,s).length).length;return {done,total:m.steps.length}}
+function neededMods(o){
+  const n=new Set(['quote','pi','ci','pl','marks','export','payment']);
+  if(o.terms.transport!=='快递')n.add('customs');
+  if(o.terms.transport==='海运'){n.add('booking');n.add('bl')}
+  if(/L\/C/.test(o.terms.payment))n.add('lc');
+  return n;
+}
+
+/* ---------- 渲染：通用 ---------- */
+const app=document.getElementById('app');
+function topbar(crumbs){
+  return '<header class="top"><button class="brand" data-act="go" data-page="home" aria-label="返回首页"><span class="seal">外</span><span><b>外贸超级工作台</b><small>单证 · 报关 · 订单</small></span></button>'+
+  '<nav class="crumbs">'+(crumbs||'')+'</nav><div class="top-r"><span class="proto">M0 原型 · 示例数据</span><button class="btn ghost sm" data-act="resetDemo">重置示例</button></div></header>';
+}
+function crumbOrder(o,extra){
+  let s='<button data-act="go" data-page="home">首页</button><span>/</span>';
+  if(extra){s+='<button data-act="openOrder" data-id="'+o.id+'">'+esc(o.no)+' '+esc(o.name)+'</button><span>/</span><span class="cur">'+esc(extra)+'</span>'}
+  else s+='<span class="cur">'+esc(o.no)+' '+esc(o.name)+'</span>';
+  return s;
+}
+function render(){
+  CUR=curOrder()||null;
+  const p=V.page;
+  if(p==='home')app.innerHTML=pageHome();
+  else if(p==='order')app.innerHTML=pageOrder();
+  else if(p==='module'){app.innerHTML=pageModule();afterModule();afterExport()}
+  else if(p==='customers')app.innerHTML=pageCustomers();
+  else if(p==='partners')app.innerHTML=pagePartners();
+  else if(p==='products')app.innerHTML=pageProducts();
+  else if(p==='hs')app.innerHTML=pageHS();
+  else if(p==='clauses')app.innerHTML=pageClauses();
+  else if(p==='calc'){app.innerHTML=pageCalc();runCalc()}
+  window.scrollTo(0,0);
+}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.getElementById('toast').appendChild(t);setTimeout(()=>t.remove(),3200)}
+function modal(title,body,foot){
+  document.getElementById('modal-root').innerHTML='<div class="modal-bg" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="modal-h"><h2>'+esc(title)+'</h2><button class="btn ghost sm" data-act="closeModal">关闭</button></div><div class="modal-b">'+body+'</div>'+(foot?'<div class="modal-f">'+foot+'</div>':'')+'</div></div>';
+}
+function closeModal(){document.getElementById('modal-root').innerHTML=''}
+
+/* ---------- 首页 ---------- */
+function orderAmount(o){const k=calc(o);return (SYM[o.terms.currency]||'')+money(k.amount)}
+function pageHome(){
+  const os=S.orders.slice().sort((a,b)=>b.no.localeCompare(a.no));
+  const q=V.q.trim().toLowerCase();
+  const list=os.filter(o=>(V.status==='all'||o.status===V.status)&&(!q||[o.no,o.name,o.buyer.name].concat(o.items.map(i=>i.nameEn+' '+i.model)).join(' ').toLowerCase().includes(q)));
+  const active=os.filter(o=>o.status!=='完结').length;
+  const toShip=os.filter(o=>['确认','生产'].includes(o.status)).length;
+  const recv=os.filter(o=>o.status==='出货');
+  const recvTxt=recv.length?recv.map(orderAmount).join(' + '):'—';
+  const chips=['all'].concat(STATUSES).map(s=>'<button class="chip'+(V.status===s?' on':'')+'" data-act="filter" data-s="'+s+'">'+(s==='all'?'全部':s)+'</button>').join('');
+  const rows=list.map(o=>{
+    const cnt=S.customers.find(c=>c.id===o.customerId);
+    return '<div class="orow" data-act="openOrder" data-id="'+o.id+'" role="button" tabindex="0"><span class="no">'+esc(o.no)+'</span><span class="nm"><b>'+esc(o.name)+'</b><small>'+esc(o.items.map(i=>i.model).join(' · ')||'尚未添加货物')+'</small></span><span>'+esc(o.buyer.name||'未选择客户')+(cnt?' <small class="muted">'+esc(cnt.country)+'</small>':'')+'</span><span><span class="pill s-'+o.status+'">'+o.status+'</span></span><span class="amt">'+orderAmount(o)+'</span><span class="dt">'+esc(o.updated)+'</span><span><button class="btn ghost sm" data-act="copyOrder" data-id="'+o.id+'" title="复制为新订单（返单）">复制</button></span></div>';
+  }).join('');
+  const lib=(page,ic,t,s,c)=>'<button data-act="go" data-page="'+page+'"><span class="ic">'+ic+'</span><span><b>'+t+'</b><small>'+s+'</small></span>'+(c!=null?'<span class="cnt">'+c+'</span>':'')+'</button>';
+  return topbar('<span class="cur">首页</span>')+
+  '<main class="wrap"><div class="home"><section>'+
+  '<div class="home-hero"><div><div class="eyebrow">我的订单</div><h1>每一单，一个独立档案</h1></div><button class="btn pri" data-act="newOrder">＋ 新建订单</button></div>'+
+  '<div class="stats"><div class="stat"><b>'+active+'</b><span>进行中订单</span></div><div class="stat"><b>'+toShip+'</b><span>待出货</span></div><div class="stat"><b>'+recvTxt+'</b><span>已出货待收款</span></div></div>'+
+  '<div class="panel"><div class="toolbar"><label class="search"><span class="muted">搜索</span><input id="home-q" placeholder="单号 / 客户 / 型号 / 品名" value="'+esc(V.q)+'"></label><div class="chips">'+chips+'</div></div>'+
+  '<div class="olist"><div class="orow head"><span>单号</span><span>订单名称 · 货物</span><span>客户</span><span>状态</span><span style="text-align:right">金额</span><span>更新</span><span></span></div>'+(rows||'<div class="empty">没有符合条件的订单</div>')+'</div></div>'+
+  '</section><aside>'+
+  '<div class="side-group"><h3>资料库</h3><div class="lib">'+
+    lib('customers','客户','客户库','客户档案、交易习惯、历史订单',S.customers.length)+
+    lib('partners','合作','合作方库','货代、报关行、工厂、船公司',S.partners.length)+
+    lib('products','产品','产品库','型号、HS、箱规、重量',S.products.length)+
+    lib('clauses','条款','条款库','付款、交货、质量等常用条款',null)+
+    lib('hs','HS','HS 记忆库','品名 ↔ 编码 ↔ 申报要素',S.products.length)+
+  '</div></div>'+
+  '<div class="side-group"><h3>小工具</h3><div class="lib">'+
+    lib('calc','¥→$','报价计算器','成本 + 运费 + 退税 → FOB / CIF',null)+
+    '<button data-act="soon" data-t="汇率换算"><span class="ic">FX</span><span><b>汇率换算</b><small>常用币种实时汇率</small></span></button>'+
+    '<button data-act="soon" data-t="金额大写"><span class="ic">SAY</span><span><b>金额英文大写</b><small>SAY US DOLLARS … ONLY</small></span></button>'+
+  '</div></div>'+
+  '</aside></div></main>';
+}
+
+/* ---------- 订单菜单 ---------- */
+function pageOrder(){
+  const o=CUR,k=calc(o),need=neededMods(o),cur=STATUSES.indexOf(o.status);
+  const track=STATUSES.map((s,i)=>'<button class="'+(i<cur?'done':i===cur?'cur':'')+'" data-act="setStatus" data-s="'+s+'">'+(i+1)+' · '+s+'</button>').join('');
+  const pOpt=(type,val)=>'<option value="">未选择</option>'+S.partners.filter(p=>p.type===type).map(p=>'<option value="'+p.id+'"'+(p.id===val?' selected':'')+'>'+esc(p.name)+'</option>').join('');
+  const card=key=>{
+    const m=MODS[key],pr=modProgress(o,key);
+    let st;
+    if(m.ph)st='<span class="st ph">规划中 · '+m.ph+'</span>';
+    else if(m.special)st='<span class="st ph">'+k.rows.length+' 行货物 · 可导出</span>';
+    else st=pr.done===pr.total?'<span class="st ok">✓ 资料齐全，可导出</span>':'<span class="st warn">'+pr.done+' / '+pr.total+' 步完成</span>';
+    return '<button class="mcard'+(m.ph?' dim':'')+'" data-act="openMod" data-mod="'+key+'">'+(need.has(key)&&!m.ph?'<span class="need">本单需要</span>':'')+'<span class="code">'+m.code+'</span><b>'+m.name+'</b><small>'+m.desc+'</small>'+st+'</button>';
+  };
+  const docKeys=Object.keys(MODS).filter(k=>MODS[k].grp==='doc'),bizKeys=Object.keys(MODS).filter(k=>MODS[k].grp==='biz');
+  const cust=S.customers.find(c=>c.id===o.customerId);
+  return topbar(crumbOrder(o))+
+  '<main class="wrap">'+
+  '<div class="ord-head"><div><div class="eyebrow">订单 '+esc(o.no)+'</div><input class="title-in" id="in-name" data-p="name" value="'+esc(o.name)+'" aria-label="订单名称"><p>'+esc(o.buyer.name||'未选择客户')+' · 创建于 '+esc(o.created)+' · 更新于 '+esc(o.updated)+'</p></div>'+
+  '<div class="ord-head-r"><button class="btn" data-act="copyOrder" data-id="'+o.id+'">复制为新订单</button><button class="btn pri" data-act="openMod" data-mod="export">单据导出</button></div></div>'+
+  '<div class="track" aria-label="订单状态">'+track+'</div>'+
+  '<div class="sum">'+
+    '<div class="panel"><h3>客户 <button class="btn ghost sm" data-act="pickCustomer">'+(o.customerId?'更换':'从客户库选择')+'</button></h3><div class="big">'+esc(o.buyer.name||'—')+'</div><div class="kv"><span>联系人</span><b>'+esc(o.buyer.contact||'—')+'</b><span>国家</span><b>'+esc(cust?cust.country:'—')+'</b><span>档案</span><b>'+(cust?'客户库 · '+esc(cust.level)+' 级':'未入库')+'</b></div></div>'+
+    '<div class="panel"><h3>贸易条款</h3><div class="big">'+esc(o.terms.incoterm+' '+o.terms.place)+'</div><div class="kv"><span>付款</span><b>'+esc(o.terms.payment)+'</b><span>航线</span><b>'+esc((o.terms.pol||'—')+' → '+(o.terms.pod||'—'))+'</b><span>运输</span><b>'+esc(o.terms.transport)+'</b></div></div>'+
+    '<div class="panel"><h3>货物合计</h3><div class="big num">'+orderAmount(o)+'</div><div class="kv"><span>数量</span><b class="num">'+k.qty.toLocaleString('en-US')+'</b><span>箱数</span><b class="num">'+k.ctns+' CTNS</b><span>毛重 / 体积</span><b class="num">'+fx(k.gw,1)+' kg / '+fx(k.cbm,2)+' m³</b></div></div>'+
+    '<div class="panel"><h3>合作方</h3><div class="kv" style="grid-template-columns:52px 1fr;align-items:center;gap:6px 8px"><span>货代</span><select id="in-partners-forwarder" data-p="partners.forwarder">'+pOpt('货代',o.partners.forwarder)+'</select><span>报关行</span><select id="in-partners-broker" data-p="partners.broker">'+pOpt('报关行',o.partners.broker)+'</select><span>工厂</span><select id="in-partners-factory" data-p="partners.factory">'+pOpt('工厂',o.partners.factory)+'</select></div></div>'+
+  '</div>'+
+  '<div class="mgroup"><div class="sec-title"><h2>单据</h2><span class="muted" style="font-size:12.5px">按本单的运输方式和付款方式标出需要的单据；所有单据共用本订单数据</span></div><div class="mods">'+docKeys.map(card).join('')+'</div></div>'+
+  '<div class="mgroup"><div class="sec-title"><h2>业务</h2></div><div class="mods">'+bizKeys.map(card).join('')+'</div></div>'+
+  '</main>';
+}
+
+/* ---------- 模块页 ---------- */
+function pageModule(){
+  const o=CUR,m=MODS[V.mod];
+  if(m.ph)return pagePlaceholder(o,m);
+  if(m.special)return pageExport(o);
+  if(!m.steps.includes(V.step))V.step=m.steps[0];
+  if(!m.docs.includes(V.doc))V.doc=m.docs[0];
+  const tabs=m.docs.map(d=>'<button class="tab'+(V.doc===d?' on':'')+'" data-act="doc" data-doc="'+d+'">'+DOCNAMES[d]+'</button>').join('');
+  return topbar(crumbOrder(o,m.name))+
+  '<div class="mod-head"><button class="btn ghost sm" data-act="openOrder" data-id="'+o.id+'">← 订单菜单</button><h1><span class="code">'+m.code+'</span>'+m.name+'</h1><span class="ord">'+esc(o.no+' · '+(o.buyer.name||'未选择客户'))+'</span>'+
+  '<div class="r"><button class="btn" data-act="exportDoc" data-fmt="Excel">导出 Excel</button><button class="btn pri" data-act="exportDoc" data-fmt="PDF">导出 PDF</button></div></div>'+
+  '<div class="mod'+(V.expand?' expand':'')+'" id="mod"><aside class="steps" id="steps"></aside><section class="form" id="form"></section>'+
+  '<section class="pv"><div class="pv-bar">'+tabs+'<div class="r"><span class="tip">点单据上的内容可直接跳到输入框</span><button class="btn ghost sm" data-act="expand">'+(V.expand?'收起预览':'放大预览')+'</button></div></div>'+
+  '<div class="pv-wrap" id="pvwrap"><div class="pv-hold" id="pvhold"><div class="pv-scale" id="pvscale"></div></div></div></section></div>';
+}
+let RO=null;
+function afterModule(){
+  if(!document.getElementById('form'))return;
+  renderNav();renderForm();renderPreview();
+  const w=document.getElementById('pvwrap');
+  if(RO)RO.disconnect();
+  if(window.ResizeObserver){RO=new ResizeObserver(fit);RO.observe(w)}
+}
+function renderNav(){
+  const el=document.getElementById('steps');if(!el)return;
+  const m=MODS[V.mod],o=CUR;
+  el.innerHTML='<div class="lbl">填写步骤</div>'+m.steps.map(s=>{const mi=missing(o,s);return '<button class="step'+(V.step===s?' on':'')+'" data-act="step" data-step="'+s+'"><b>'+STEPS[s].label+'</b>'+(mi.length?'<small class="warn">缺 '+mi.length+' 项</small>':'<small class="ok">✓ 已完成</small>')+'</button>'}).join('')+
+  '<div class="hint">数据属于订单 <b>'+esc(o.no)+'</b>，这里改的内容会同步到本单所有单据。</div>';
+}
+function fieldHTML(o,f){
+  if(f.h)return '<div class="sub w2"><span>'+f.h+'</span>'+(f.tools==='buyer'?'<span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-act="pickCustomer">从客户库选择</button><button class="btn sm" data-act="saveCustomer">保存到客户库</button></span>':'')+'</div>';
+  const v=getP(o,f.p),id=idOf(f.p),tag=f.src?'<span class="tag '+f.src+'" title="由'+({S:'卖方',B:'买方',FF:'货代',CB:'报关行',F:'工厂'}[f.src])+'提供">'+f.src+'</span>':'';
+  const lab='<label for="'+id+'">'+esc(f.l)+(f.req?'<span class="req">*</span>':'')+tag+'</label>';
+  let inp;
+  if(f.type==='textarea')inp='<textarea id="'+id+'" data-p="'+f.p+'" rows="3">'+esc(v)+'</textarea>';
+  else if(f.type==='select'){const opts=f.opts.slice();if(v&&!opts.includes(v))opts.unshift(v);inp='<select id="'+id+'" data-p="'+f.p+'">'+opts.map(x=>'<option'+(x===v?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'}
+  else if(f.type==='checkbox')return '<div class="fi chk'+(f.w?' w2':'')+'"><input type="checkbox" id="'+id+'" data-p="'+f.p+'"'+(v?' checked':'')+'><label for="'+id+'">'+esc(f.l)+'</label></div>';
+  else inp='<input id="'+id+'" data-p="'+f.p+'" type="'+(f.type==='date'?'date':'text')+'" value="'+esc(v)+'">';
+  return '<div class="fi'+(f.w?' w2':'')+'">'+lab+inp+'</div>';
+}
+function tableHTML(o,t){
+  const cols=TABLES[t];
+  const head='<tr><th class="ix">#</th>'+cols.map(c=>'<th style="min-width:'+c.w+'px">'+c.l+'</th>').join('')+(t==='items'?'<th></th>':'')+'</tr>';
+  const body=o.items.map((it,i)=>'<tr><td class="ix">'+(i+1)+'</td>'+cols.map(c=>c.k?'<td><input class="cell'+(c.num?' num':'')+'" id="'+idOf('items.'+i+'.'+c.k)+'" data-p="items.'+i+'.'+c.k+'" value="'+esc(it[c.k])+'"'+(c.num?' inputmode="decimal"':'')+' aria-label="'+c.l+'"></td>':'<td class="calc" data-calc="'+i+':'+c.c+'"></td>').join('')+(t==='items'?'<td><button class="del" data-act="delItem" data-i="'+i+'" title="删除此行">✕</button></td>':'')+'</tr>').join('');
+  let foot='';
+  if(t==='items')foot='<tfoot><tr><td></td><td colspan="5">合计</td><td data-calc="t:qty" style="text-align:right"></td><td></td><td data-calc="t:amount" style="text-align:right"></td><td></td></tr></tfoot>';
+  if(t==='packing')foot='<tfoot><tr><td></td><td colspan="6">合计</td><td data-calc="t:nw" style="text-align:right"></td><td data-calc="t:gw" style="text-align:right"></td><td data-calc="t:ctns" style="text-align:right"></td><td></td><td data-calc="t:cbm" style="text-align:right"></td></tr></tfoot>';
+  let tools='';
+  if(t==='items')tools='<div class="tbl-tools"><button class="btn sm" data-act="addItem">＋ 添加一行</button><button class="btn sm" data-act="pickProducts">从产品库添加</button><button class="btn sm" data-act="soon" data-t="粘贴 Excel 多行 / 导入客户 Excel PO">粘贴 Excel / 导入 PO</button></div>';
+  if(t==='packing')tools='<div class="note">箱数 = 数量 ÷ 每箱装（向上取整）；箱号段按行顺序连续编号；净毛重、体积按箱数累计。<br>总毛重、总体积会同步到发票、报关单和唛头。</div>';
+  if(t==='customsItems')tools='<div class="note">申报要素格式示例：品牌类型|出口享惠情况|用途|材质|品牌|型号。录入后自动存入 HS 记忆库，下次同品名自动带出。</div>';
+  return '<div class="tbl-wrap"><table class="tbl"><thead>'+head+'</thead><tbody>'+body+'</tbody>'+foot+'</table></div>'+tools;
+}
+function renderForm(){
+  const el=document.getElementById('form');if(!el)return;
+  const o=CUR,s=STEPS[V.step],m=MODS[V.mod],i=m.steps.indexOf(V.step);
+  let h='<div class="form-head"><h2>'+s.label+'</h2><p>'+s.hint+'</p></div>';
+  if(s.fields)h+='<div class="grid">'+s.fields.map(f=>fieldHTML(o,f)).join('')+'</div>';
+  if(s.table)h+=tableHTML(o,s.table);
+  if(V.step==='marks')h+='<div class="tbl-tools"><button class="btn sm" data-act="autoMarks">按客户习惯重新生成唛头</button></div>';
+  h+='<div class="form-foot">'+(i>0?'<button class="btn" data-act="step" data-step="'+m.steps[i-1]+'">← 上一步</button>':'<span></span>')+(i<m.steps.length-1?'<button class="btn pri" data-act="step" data-step="'+m.steps[i+1]+'">下一步：'+STEPS[m.steps[i+1]].label+' →</button>':'<button class="btn pri" data-act="exportDoc" data-fmt="PDF">完成，导出 PDF</button>')+'</div>';
+  el.innerHTML=h;
+  updateCalcs();
+}
+function updateCalcs(){
+  const k=calc(CUR);
+  document.querySelectorAll('[data-calc]').forEach(td=>{
+    const [a,b]=td.dataset.calc.split(':');
+    if(a==='t'){td.textContent=b==='amount'?(SYM[CUR.terms.currency]||'')+money(k.amount):b==='cbm'?fx(k.cbm,3):b==='ctns'?k.ctns:b==='qty'?k.qty.toLocaleString('en-US'):fx(k[b],2);return}
+    const r=k.rows[+a];if(!r)return;
+    td.textContent=b==='a'?money(r.a):b==='q'?r.q.toLocaleString('en-US'):b==='n'?r.n:b==='cno'?(r.n?r.from+'–'+r.to:'—'):b==='cbmT'?fx(r.cbmT,3):'';
+  });
+}
+function renderPreview(){
+  const el=document.getElementById('pvscale');if(!el)return;
+  el.innerHTML=DOCS[V.doc](CUR);fit();
+}
+function fit(){
+  const w=document.getElementById('pvwrap'),s=document.getElementById('pvscale'),h=document.getElementById('pvhold');
+  if(!w||!s||!h||!s.firstElementChild)return;
+  const sc=Math.min(1.25,Math.max(.3,(w.clientWidth-24)/794));
+  s.style.transform='scale('+sc+')';h.style.width=(794*sc)+'px';h.style.height=(s.firstElementChild.offsetHeight*sc)+'px';
+}
+function jumpTo(path){
+  const m=MODS[V.mod];if(!m||!m.steps)return;
+  const norm=path.replace(/^items\.\d+\./,'items.*.');
+  const step=m.steps.find(s=>stepPaths(s).includes(norm));
+  if(!step){toast('这一项在本订单的其它模块里填写（如「合同 / PI」的货物明细）');return}
+  if(V.expand){V.expand=false;V.step=step;render()}
+  else if(V.step!==step){V.step=step;renderNav();renderForm()}
+  const el=document.getElementById(idOf(path));
+  if(el){el.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});el.focus({preventScroll:true});el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash')}
+}
+
+/* ---------- 单据模板 ---------- */
+function F(p,ph){const v=getP(CUR,p);return FV(p,v,ph)}
+function FV(p,v,ph){const e=v==null||String(v).trim()==='';return '<span class="fld'+(e?' miss':'')+'" data-f="'+p+'">'+(e?esc(ph||'待填写'):esc(v).replace(/\n/g,'<br>'))+'</span>'}
+function O(p){const v=getP(CUR,p);return v==null||String(v).trim()===''?'':F(p)}
+function paper(o,inner){return '<div class="paper" style="--acc:'+(THEMES[o.docset.theme]||'#1d3f72')+'">'+inner+'</div>'}
+function head(o,title,meta){
+  return '<div class="d-head"><div class="d-seller"><div class="d-co">'+F('seller.name')+'</div><div>'+F('seller.address')+'</div><div>Tel: '+F('seller.phone')+' &nbsp; Email: '+F('seller.email')+'</div></div><div class="d-title"><h1>'+title+'</h1><table class="d-meta">'+meta.map(r=>'<tr><th>'+r[0]+'</th><td>'+r[1]+'</td></tr>').join('')+'</table></div></div><div class="d-rule"></div>';
+}
+function buyerBox(label){return '<div class="d-box"><div class="d-lab">'+label+'</div><div class="d-strong">'+F('buyer.name','[买方公司名称]')+'</div><div>'+F('buyer.address','[买方地址]')+'</div><div>Attn: '+F('buyer.contact','—')+' &nbsp; Tel: '+F('buyer.phone','—')+'</div><div>'+O('buyer.email')+'</div>'+(CUR.buyer.tax?'<div>Tax/VAT: '+F('buyer.tax')+'</div>':'')+'</div>'}
+function sign(o,l,r){return '<div class="d-sign"><div><div class="d-sigline">'+(o.docset.stamp?'<span class="stamp-slot">公章位置</span>':'')+'</div><div>'+l+'</div></div><div><div class="d-sigline"></div><div>'+r+'</div></div></div>'}
+function clauses(o){const ls=String(o.docset.clauses||'').split('\n').filter(x=>x.trim());return ls.length?'<div class="d-sec"><h4>TERMS &amp; CONDITIONS</h4><ol>'+ls.map(x=>'<li><span class="fld" data-f="docset.clauses">'+esc(x)+'</span></li>').join('')+'</ol></div>':''}
+function itemRowsPI(o,k){
+  return k.rows.map((r,i)=>'<tr><td class="c">'+(i+1)+'</td><td>'+FV('items.'+i+'.model',r.model)+'</td><td>'+FV('items.'+i+'.nameEn',r.nameEn,'[品名]')+'<div class="d-sub">'+FV('items.'+i+'.spec',r.spec,'规格')+'</div></td><td class="c">'+FV('items.'+i+'.unit',r.unit)+'</td><td class="r">'+FV('items.'+i+'.qty',r.q?r.q.toLocaleString('en-US'):'','0')+'</td><td class="r">'+FV('items.'+i+'.price',r.p?money(r.p):'','0.00')+'</td><td class="r b">'+money(r.a)+'</td></tr>').join('')||'<tr><td colspan="7" class="c" style="color:#999;padding:18px">尚未添加货物</td></tr>';
+}
+function docQuotePI(o,kind){
+  const k=calc(o),c=o.terms.currency,sym=SYM[c]||'';
+  const meta=kind==='quote'?[['No.',F('numbers.quote')],['Date',F('numbers.date')],['Valid Until',F('numbers.validUntil','—')]]:[['No.',F('numbers.pi')],['Date',F('numbers.date')],['PO No.',F('numbers.po','—')]];
+  return paper(o,head(o,kind==='quote'?'QUOTATION':'PROFORMA INVOICE',meta)+
+  '<div class="d-two">'+buyerBox('TO / BUYER')+'<div class="d-box"><div class="d-lab">BANK INFORMATION</div><div class="d-pre">'+F('seller.bank','[收款银行信息]')+'</div></div></div>'+
+  '<div class="d-terms"><div><span>Incoterms 2020</span>'+F('terms.incoterm')+' '+F('terms.place')+'</div><div><span>Payment</span>'+F('terms.payment')+' '+O('terms.paymentDetail')+'</div><div><span>Lead Time</span>'+F('terms.leadTime','—')+'</div><div><span>Port of Loading</span>'+F('terms.pol')+'</div><div><span>Destination</span>'+F('terms.pod','[目的港]')+'</div><div><span>Currency</span>'+F('terms.currency')+'</div></div>'+
+  '<table class="d-tbl"><thead><tr><th style="width:26px">No.</th><th style="width:78px">Model</th><th>Description</th><th style="width:42px">Unit</th><th style="width:58px">Qty</th><th style="width:76px">Unit Price<br>('+c+')</th><th style="width:88px">Amount<br>('+c+')</th></tr></thead><tbody>'+itemRowsPI(o,k)+
+  '<tr class="tot"><td colspan="4">TOTAL &nbsp;'+esc((o.terms.incoterm+' '+o.terms.place).toUpperCase())+'</td><td class="r">'+k.qty.toLocaleString('en-US')+'</td><td></td><td class="r">'+sym+money(k.amount)+'</td></tr></tbody></table>'+
+  '<div class="d-words">'+amountWords(k.amount,c)+'</div>'+
+  '<div style="color:#666">Packing: '+k.ctns+' cartons &nbsp;·&nbsp; G.W. '+fx(k.gw,2)+' kg &nbsp;·&nbsp; Meas. '+fx(k.cbm,3)+' m³</div>'+
+  (o.docset.remarks?'<div class="d-sec"><h4>REMARKS</h4>'+F('docset.remarks')+'</div>':'')+clauses(o)+
+  sign(o,'For and on behalf of <b>'+esc(o.seller.name)+'</b>','Accepted by <b>'+esc(o.buyer.name||'the Buyer')+'</b>'));
+}
+function docContract(o){
+  const k=calc(o),c=o.terms.currency,sym=SYM[c]||'';
+  const rows=k.rows.map((r,i)=>'<tr><td class="c">'+(i+1)+'</td><td>'+FV('items.'+i+'.nameEn',r.nameEn,'[品名]')+'<div class="d-sub">'+FV('items.'+i+'.model',r.model)+' · '+FV('items.'+i+'.spec',r.spec,'规格')+'</div></td><td class="r">'+FV('items.'+i+'.qty',r.q?r.q.toLocaleString('en-US'):'','0')+' '+esc(r.unit)+'</td><td class="r">'+FV('items.'+i+'.price',r.p?money(r.p):'','0.00')+'</td><td class="r b">'+money(r.a)+'</td></tr>').join('');
+  const cl=[['1. 装运港 Port of Loading',F('terms.pol')],['2. 目的港 Port of Destination',F('terms.pod','[目的港]')],['3. 成交方式 Terms',F('terms.incoterm')+' '+F('terms.place')+' (Incoterms 2020)'],['4. 包装 Packing',F('terms.packing')],['5. 唛头 Shipping Marks',F('shipping.marks','N/M')],['6. 付款方式 Payment',F('terms.payment')+' '+O('terms.paymentDetail')],['7. 装运期限 Shipment',F('terms.shipment')+'；分批 Partial: '+F('terms.partial')+'；转运 Transshipment: '+F('terms.transship')],['8. 保险 Insurance',F('terms.insurance')],['9. 检验 Inspection','以卖方出厂检验为准，买方可在装运前自费验货。 The Seller\'s factory inspection shall be final; the Buyer may inspect before shipment at its own cost.'],['10. 不可抗力 Force Majeure','因不可抗力导致延迟或无法交货，卖方不承担责任。 The Seller shall not be liable for delay or non-delivery caused by force majeure.'],['11. 仲裁 Arbitration','争议提交中国国际经济贸易仲裁委员会仲裁，裁决为终局。 Disputes shall be submitted to CIETAC for arbitration; the award is final.']];
+  return paper(o,'<div class="d-center"><div class="d-ctitle" style="color:var(--acc)">销售合同</div><div class="d-csub">SALES CONTRACT</div></div><div class="d-rule" style="height:2px"></div>'+
+  '<div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:10px"><div><b>合同号 Contract No.:</b> '+F('numbers.contract')+'<br><b>签约地 Signed at:</b> '+F('numbers.signedAt')+'</div><div style="text-align:right"><b>日期 Date:</b> '+F('numbers.date')+'</div></div>'+
+  '<div style="margin-bottom:6px"><b>卖方 SELLER:</b> '+F('seller.name')+'<br>地址 Address: '+F('seller.address')+'<br>电话 Tel: '+F('seller.phone')+'</div>'+
+  '<div style="margin-bottom:10px"><b>买方 BUYER:</b> '+F('buyer.name','[买方公司名称]')+'<br>地址 Address: '+F('buyer.address','[买方地址]')+'<br>电话 Tel: '+F('buyer.phone','—')+'</div>'+
+  '<div style="margin-bottom:10px">双方同意按下列条款由卖方出售、买方购进下述商品：<br><i style="color:#555">This Contract is made by and between the Buyer and the Seller, whereby the Buyer agrees to buy and the Seller agrees to sell the under-mentioned goods on the terms and conditions stated below:</i></div>'+
+  '<table class="d-tbl"><thead><tr><th style="width:30px">序号<br>No.</th><th>品名及规格<br>Commodity &amp; Specification</th><th style="width:90px">数量<br>Quantity</th><th style="width:80px">单价 ('+c+')<br>Unit Price</th><th style="width:96px">金额 ('+c+')<br>Amount</th></tr></thead><tbody>'+rows+
+  '<tr class="tot"><td colspan="2">总计 TOTAL '+esc((o.terms.incoterm+' '+o.terms.place).toUpperCase())+'</td><td class="r">'+k.ctns+' CTNS</td><td></td><td class="r">'+sym+money(k.amount)+'</td></tr></tbody></table>'+
+  '<div class="d-words">金额大写 Amount in Words: '+amountWords(k.amount,c)+'</div>'+
+  '<dl class="d-cl">'+cl.map(r=>'<dt>'+r[0]+'</dt><dd>'+r[1]+'</dd>').join('')+'</dl>'+
+  sign(o,'卖方 THE SELLER','买方 THE BUYER'));
+}
+function shipBox(){return '<div class="d-box"><div class="d-lab">SHIPMENT</div><div>From '+F('terms.pol')+' to '+F('terms.pod','[目的港]')+'</div><div>By '+F('shipping.vessel','[船名航次]')+'</div><div>B/L No.: '+F('shipping.blNo','[提单号]')+' &nbsp; ETD: '+F('shipping.etd','—')+'</div><div>Container: '+F('shipping.container','—')+'</div></div>'}
+function docCI(o){
+  const k=calc(o),c=o.terms.currency,sym=SYM[c]||'';
+  const rows=k.rows.map((r,i)=>'<tr>'+(i===0?'<td rowspan="'+k.rows.length+'" class="d-pre" style="width:110px;font-size:9.5px">'+F('shipping.marks','N/M')+'</td>':'')+'<td>'+FV('items.'+i+'.nameEn',r.nameEn,'[品名]')+'<div class="d-sub">'+FV('items.'+i+'.model',r.model)+' · HS '+FV('items.'+i+'.hs',r.hs,'—')+'</div></td><td class="r">'+FV('items.'+i+'.qty',r.q?r.q.toLocaleString('en-US'):'','0')+' '+esc(r.unit)+'</td><td class="r">'+FV('items.'+i+'.price',r.p?money(r.p):'','0.00')+'</td><td class="r b">'+money(r.a)+'</td></tr>').join('');
+  return paper(o,head(o,'COMMERCIAL INVOICE',[['Invoice No.',F('numbers.ci')],['Date',F('numbers.date')],['Contract No.',F('numbers.contract')],['PO No.',F('numbers.po','—')]])+
+  '<div class="d-two">'+buyerBox('SOLD TO / CONSIGNEE')+shipBox()+'</div>'+
+  '<div class="d-terms"><div><span>Terms</span>'+F('terms.incoterm')+' '+F('terms.place')+'</div><div><span>Payment</span>'+F('terms.payment')+'</div><div><span>Country of Origin</span>'+F('shipping.origin')+'</div></div>'+
+  '<table class="d-tbl"><thead><tr><th>Marks &amp; Nos.</th><th>Description of Goods</th><th style="width:88px">Quantity</th><th style="width:76px">Unit Price ('+c+')</th><th style="width:90px">Amount ('+c+')</th></tr></thead><tbody>'+(rows||'<tr><td colspan="5" class="c" style="color:#999;padding:18px">尚未添加货物</td></tr>')+
+  '<tr class="tot"><td colspan="2">TOTAL</td><td class="r">'+k.qty.toLocaleString('en-US')+'</td><td></td><td class="r">'+sym+money(k.amount)+'</td></tr></tbody></table>'+
+  '<div class="d-words">'+amountWords(k.amount,c)+'</div>'+
+  '<div class="d-sec"><h4>DECLARATION</h4>We hereby certify that the information on this invoice is true and correct and that the contents of this shipment are as stated above.</div>'+
+  sign(o,'For and on behalf of <b>'+esc(o.seller.name)+'</b>','Authorized Signature'));
+}
+function docPL(o){
+  const k=calc(o);
+  const rows=k.rows.map((r,i)=>'<tr>'+(i===0?'<td rowspan="'+k.rows.length+'" class="d-pre" style="width:100px;font-size:9.5px">'+F('shipping.marks','N/M')+'</td>':'')+'<td class="c">'+(r.n?r.from+'-'+r.to:'—')+'</td><td>'+FV('items.'+i+'.nameEn',r.nameEn,'[品名]')+'<div class="d-sub">'+esc(r.model)+' · '+FV('items.'+i+'.pcsPerCtn',r.pcsPerCtn?r.pcsPerCtn+' '+r.unit+'/CTN':'','[每箱装]')+'</div></td><td class="r">'+r.q.toLocaleString('en-US')+'</td><td class="r">'+r.n+'</td><td class="r">'+FV('items.'+i+'.nw',r.nwT?fx(r.nwT,2):'','0')+'</td><td class="r">'+FV('items.'+i+'.gw',r.gwT?fx(r.gwT,2):'','0')+'</td><td class="r">'+FV('items.'+i+'.l',r.cbmT?fx(r.cbmT,3):'','0')+'</td></tr>').join('');
+  return paper(o,head(o,'PACKING LIST',[['Invoice No.',F('numbers.ci')],['Date',F('numbers.date')],['Contract No.',F('numbers.contract')]])+
+  '<div class="d-two">'+buyerBox('CONSIGNEE')+shipBox()+'</div>'+
+  '<table class="d-tbl"><thead><tr><th>Marks</th><th style="width:52px">C/No.</th><th>Description</th><th style="width:56px">Qty</th><th style="width:44px">CTNs</th><th style="width:62px">N.W. (kg)</th><th style="width:62px">G.W. (kg)</th><th style="width:60px">Meas. (m³)</th></tr></thead><tbody>'+(rows||'<tr><td colspan="8" class="c" style="color:#999;padding:18px">尚未添加货物</td></tr>')+
+  '<tr class="tot"><td colspan="3">TOTAL</td><td class="r">'+k.qty.toLocaleString('en-US')+'</td><td class="r">'+k.ctns+'</td><td class="r">'+fx(k.nw,2)+'</td><td class="r">'+fx(k.gw,2)+'</td><td class="r">'+fx(k.cbm,3)+'</td></tr></tbody></table>'+
+  '<div class="d-words">SAY TOTAL '+intWords(k.ctns)+' ('+k.ctns+') CARTONS ONLY</div>'+
+  sign(o,'For and on behalf of <b>'+esc(o.seller.name)+'</b>','Authorized Signature'));
+}
+function docCustoms(o){
+  const k=calc(o),c=o.terms.currency;
+  const cell=(l,v,cls)=>'<div class="'+(cls||'')+'"><span>'+l+'</span>'+v+'</div>';
+  const rows=k.rows.map((r,i)=>'<tr><td class="c">'+(i+1)+'</td><td>'+FV('items.'+i+'.hs',r.hs,'[编码]')+'</td><td>'+FV('items.'+i+'.nameCn',r.nameCn,'[中文品名]')+'<div class="d-sub">'+FV('items.'+i+'.elements',r.elements,'[申报要素]')+'</div></td><td class="r">'+r.q.toLocaleString('en-US')+' '+esc(r.unit)+'</td><td class="r">'+money(r.p)+'<br>'+money(r.a)+'<br>'+c+'</td><td class="c">中国</td><td class="c">'+F('customs.destCountry','—')+'</td><td class="c">'+F('customs.sourceArea','—')+'</td><td class="c">照章征税</td></tr>').join('');
+  return paper(o,'<div class="d-center" style="margin-bottom:6px"><div style="font-size:17px;font-weight:700;letter-spacing:.2em">出口报关资料预录入表</div><div class="d-csub" style="letter-spacing:.1em">草稿 · 供报关行申报参考 · 以海关系统录入为准</div></div>'+
+  '<div style="display:flex;justify-content:space-between;margin:10px 0 6px;font-size:9.5px;color:#555"><span>合同协议号 '+F('numbers.contract')+'</span><span>发票号 '+F('numbers.ci')+'</span><span>订单 '+esc(o.no)+'</span></div>'+
+  '<div class="cd-grid">'+
+  cell('境内发货人',F('seller.nameCn','[中文名称]')+'<br><small>'+F('seller.tax','[信用代码]')+'</small>','s2')+cell('出境关别',F('customs.exportPort'))+cell('出口日期',F('shipping.etd','—'))+
+  cell('境外收货人',F('buyer.name','[境外收货人]'),'s2')+cell('运输方式',esc(TRANSPORT_CD[o.terms.transport]||'—'))+cell('运输工具名称及航次号',F('shipping.vessel','—'))+
+  cell('生产销售单位',F('seller.nameCn','[中文名称]'),'s2')+cell('监管方式',F('customs.supervision'))+cell('征免性质',F('customs.exemption'))+
+  cell('提运单号',F('shipping.blNo','—'))+cell('许可证号',F('customs.license','—'))+cell('贸易国（地区）',F('customs.tradeCountry','—'))+cell('运抵国（地区）',F('customs.destCountry','—'))+
+  cell('指运港',F('terms.pod','—'))+cell('离境口岸',F('terms.pol'))+cell('包装种类',F('customs.packageType'))+cell('件数',k.ctns+' 箱')+
+  cell('毛重（千克）',fx(k.gw,2))+cell('净重（千克）',fx(k.nw,2))+cell('成交方式',F('terms.incoterm'))+cell('运费 / 保费',F('customs.freight','—')+' / '+F('customs.insFee','—'))+
+  cell('随附单证',F('customs.docs','—'),'s4')+
+  cell('标记唛码及备注','<div class="d-pre">'+F('shipping.marks','N/M')+'</div>','s4')+
+  '</div>'+
+  '<table class="d-tbl" style="margin-top:12px"><thead><tr><th style="width:26px">项号</th><th style="width:78px">商品编号</th><th>商品名称及规格型号</th><th style="width:70px">数量及单位</th><th style="width:70px">单价/总价/币制</th><th style="width:40px">原产国</th><th style="width:52px">最终目的国</th><th style="width:52px">境内货源地</th><th style="width:44px">征免</th></tr></thead><tbody>'+(rows||'<tr><td colspan="9" class="c" style="color:#999;padding:18px">尚未添加货物</td></tr>')+'</tbody></table>'+
+  '<div style="margin-top:14px;color:#666;font-size:9.5px">说明：本表由外贸超级工作台根据订单数据生成，供报关行核对与录入，不作为海关正式单证。</div>');
+}
+function docMarks(o){
+  const k=calc(o),r=k.rows[0];
+  const side=o.shipping.side||(r?'DESCRIPTION: '+String(r.nameEn||'').toUpperCase()+'\nQTY: '+r.pcsPerCtn+' '+r.unit+'/CTN\nN.W.: '+fx(r.nw,2)+' KGS\nG.W.: '+fx(r.gw,2)+' KGS\nMEAS: '+r.l+'×'+r.w+'×'+r.h+' CM':'');
+  return paper(o,head(o,'SHIPPING MARKS',[['Order',esc(o.no)],['PO No.',F('numbers.po','—')],['Cartons',k.ctns+' CTNS']])+
+  '<div class="mk"><div><div class="mk-box">'+F('shipping.marks','[正唛]')+'</div><div class="mk-cap">正唛 MAIN MARK</div></div><div><div class="mk-box" style="font-size:13px;text-align:left">'+FV('shipping.side',side,'[侧唛]')+'</div><div class="mk-cap">侧唛 SIDE MARK</div></div></div>'+
+  '<div class="d-sec" style="margin-top:26px"><h4>PRINT PLAN</h4><table class="d-tbl"><thead><tr><th>品名</th><th style="width:80px">箱号段</th><th style="width:60px">张数</th></tr></thead><tbody>'+k.rows.map(r=>'<tr><td>'+esc(r.nameEn)+'</td><td class="c">'+(r.n?r.from+'-'+r.to:'—')+'</td><td class="r">'+r.n+'</td></tr>').join('')+'<tr class="tot"><td>合计（每箱一张，A4 每页 4 张）</td><td></td><td class="r">'+k.ctns+'</td></tr></tbody></table></div>');
+}
+const DOCS={quote:o=>docQuotePI(o,'quote'),pi:o=>docQuotePI(o,'pi'),contract:docContract,ci:docCI,pl:docPL,customs:docCustoms,marks:docMarks};
+const DOCNO={quote:'numbers.quote',pi:'numbers.pi',contract:'numbers.contract',ci:'numbers.ci',pl:'numbers.ci',customs:'numbers.contract',marks:'no'};
+
+/* ---------- 规划中模块 ---------- */
+function pagePlaceholder(o,m){
+  return topbar(crumbOrder(o,m.name))+
+  '<div class="mod-head"><button class="btn ghost sm" data-act="openOrder" data-id="'+o.id+'">← 订单菜单</button><h1><span class="code">'+m.code+'</span>'+m.name+'</h1><span class="pill s-确认">规划中 · '+m.ph+'</span></div>'+
+  '<div class="ph-body"><div class="panel" style="padding:22px 24px"><div class="eyebrow">这个模块会做什么</div><h2 style="font-size:19px;margin:6px 0 10px">'+m.desc+'</h2><ul>'+m.plan.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>'+
+  '<div class="note">它会直接使用本订单 <b>'+esc(o.no)+'</b> 已有的客户、货物、条款和装箱数据，不需要重新录入。</div></div></div>';
+}
+
+/* ---------- 单据导出中心 ---------- */
+const EXPDOCS=[['quote','报价单'],['pi','PI 形式发票'],['contract','销售合同'],['ci','商业发票'],['pl','装箱单'],['customs','报关预录入表'],['marks','唛头'],['poa','报关委托书','M2'],['booking','订舱委托书','M2'],['si','SI 提单补料','M2'],['po','采购单（给工厂）','M2']];
+const BUNDLES={'客户':['pi','contract','ci','pl'],'工厂':['po','marks','pl'],'报关行':['customs','ci','pl','contract','poa'],'货代':['pl','booking','si']};
+function mailText(o,b){
+  const k=calc(o),sel=(V.expSel||[]).map(d=>(EXPDOCS.find(x=>x[0]===d)||[])[1]).filter(Boolean);
+  const pid=o.partners[b==='报关行'?'broker':b==='货代'?'forwarder':'factory'];
+  const pt=S.partners.find(p=>p.id===pid);
+  if(b==='客户'){const first=(o.buyer.contact||'Sir/Madam').split(' ')[0];return 'Dear '+first+',\n\nPlease find attached the documents for order '+(o.numbers.po||o.no)+':\n'+sel.map(x=>'- '+x).join('\n')+'\n\nTotal amount: '+o.terms.currency+' '+money(k.amount)+' ('+o.terms.incoterm+' '+o.terms.place+')\nPayment: '+o.terms.payment+(o.terms.paymentDetail?', '+o.terms.paymentDetail:'')+'\nPacking: '+k.ctns+' cartons, G.W. '+fx(k.gw,2)+' kg, '+fx(k.cbm,2)+' CBM\n\nPlease check and confirm at your earliest convenience.\n\nBest regards,\n'+o.seller.name}
+  const who=pt?pt.contact:'您';
+  return who+'您好：\n\n附件是订单 '+o.no+'（'+(o.buyer.name||'')+'）的资料，请查收：\n'+sel.map(x=>'· '+x).join('\n')+'\n\n共 '+k.ctns+' 箱，毛重 '+fx(k.gw,2)+' KG，体积 '+fx(k.cbm,2)+' CBM，'+o.terms.pol+' → '+(o.terms.pod||'—')+'。\n'+(b==='报关行'?'请安排申报，有问题随时联系，谢谢！':b==='货代'?'请安排订舱，确认船期后回传提单草稿，谢谢！':'请按唛头和包装要求安排生产包装，谢谢！')+'\n\n'+(o.seller.nameCn||o.seller.name);
+}
+function pageExport(o){
+  const avail=EXPDOCS.filter(d=>!d[2]).map(d=>d[0]);
+  if(!V.expSel)V.expSel=BUNDLES[V.bundle].filter(d=>avail.includes(d));
+  if(!V.expDoc||!avail.includes(V.expDoc))V.expDoc=V.expSel.find(d=>avail.includes(d))||'pi';
+  const seg=Object.keys(BUNDLES).map(b=>'<button class="'+(V.bundle===b?'on':'')+'" data-act="bundle" data-b="'+b+'">'+b+'</button>').join('');
+  const list=EXPDOCS.map(d=>'<label class="'+(V.expDoc===d[0]?'foc':'')+'"><input type="checkbox" data-exp="'+d[0]+'"'+(V.expSel.includes(d[0])?' checked':'')+(d[2]?' disabled':'')+'> '+d[1]+(d[2]?'<span class="ph">'+d[2]+' 开发</span>':'<button class="eye" data-act="expDoc" data-doc="'+d[0]+'">预览</button>')+'</label>').join('');
+  return topbar(crumbOrder(o,'单据导出'))+
+  '<div class="mod-head"><button class="btn ghost sm" data-act="openOrder" data-id="'+o.id+'">← 订单菜单</button><h1><span class="code">ZIP</span>单据导出</h1><span class="ord">'+esc(o.no+' · '+(o.buyer.name||''))+'</span></div>'+
+  '<div class="exp"><section class="exp-l"><div class="eyebrow" style="margin-bottom:8px">发给谁</div><div class="seg">'+seg+'</div>'+
+  '<div class="eyebrow" style="margin-bottom:8px">包含单据</div><div class="dl">'+list+'</div>'+
+  '<div class="eyebrow" style="margin-bottom:8px">格式</div><div class="seg" style="max-width:240px"><button class="on">PDF</button><button data-act="soon" data-t="Excel 格式导出">Excel</button></div>'+
+  '<button class="btn pri" style="width:100%;justify-content:center;margin-bottom:18px" data-act="genBundle">生成并打包（'+V.expSel.length+' 份）</button>'+
+  '<div class="eyebrow" style="margin-bottom:8px;display:flex;justify-content:space-between">邮件正文<button class="btn ghost sm" data-act="copyMail">复制</button></div><textarea class="mail" id="mail" aria-label="邮件正文">'+esc(mailText(o,V.bundle))+'</textarea></section>'+
+  '<section class="pv"><div class="pv-bar"><span class="tab on">'+DOCNAMES[V.expDoc]+'</span><div class="r"><span class="tip">预览</span></div></div><div class="pv-wrap" id="pvwrap"><div class="pv-hold" id="pvhold"><div class="pv-scale" id="pvscale"></div></div></div></section></div>';
+}
+
+/* ---------- 客户库 ---------- */
+function custStats(c){const os=S.orders.filter(o=>o.customerId===c.id);const by={};os.forEach(o=>{const k=calc(o);by[o.terms.currency]=(by[o.terms.currency]||0)+k.amount});return {os,total:Object.keys(by).map(x=>(SYM[x]||'')+money(by[x])).join(' + ')||'—',last:os.map(o=>o.created).sort().pop()||'—'}}
+function pageCustomers(){
+  const q=V.cq.trim().toLowerCase();
+  const list=S.customers.filter(c=>!q||(c.name+c.country+c.contacts.map(x=>x.name).join(' ')).toLowerCase().includes(q));
+  let c=S.customers.find(x=>x.id===V.custId);if(!c){c=list[0];V.custId=c&&c.id}
+  const items=list.map(x=>{const st=custStats(x);return '<button class="citem'+(c&&x.id===c.id?' on':'')+'" data-act="custSel" data-id="'+x.id+'"><b id="cn-'+x.id+'">'+esc(x.name)+'</b><small>'+esc(x.country)+' · '+esc(x.level)+' 级 · '+st.os.length+' 单</small></button>'}).join('');
+  let det='<div class="empty">还没有客户</div>';
+  if(c){
+    const st=custStats(c),h=c.habits||{};
+    const fi=(p,l,opt)=>{const v=getP(c,p);const id='cp-'+p.replace(/\./g,'-');return '<div class="fi'+(opt&&opt.w?' w2':'')+'"><label for="'+id+'">'+l+'</label>'+(opt&&opt.opts?'<select id="'+id+'" data-cp="'+p+'">'+opt.opts.map(x=>'<option'+(x===v?' selected':'')+'>'+x+'</option>').join('')+'</select>':opt&&opt.ta?'<textarea id="'+id+'" data-cp="'+p+'" rows="3">'+esc(v)+'</textarea>':'<input id="'+id+'" data-cp="'+p+'" value="'+esc(v)+'">')+'</div>'};
+    const contacts=c.contacts.map((k,i)=>'<tr><td><input class="cell" data-cp="contacts.'+i+'.name" value="'+esc(k.name)+'" aria-label="姓名"></td><td><input class="cell" data-cp="contacts.'+i+'.title" value="'+esc(k.title)+'" aria-label="职位"></td><td><input class="cell" data-cp="contacts.'+i+'.email" value="'+esc(k.email)+'" aria-label="邮箱"></td><td><input class="cell" data-cp="contacts.'+i+'.phone" value="'+esc(k.phone)+'" aria-label="电话"></td></tr>').join('');
+    const hist=st.os.map(o=>'<div class="orow" style="grid-template-columns:90px 1fr 70px 110px;min-width:0" data-act="openOrder" data-id="'+o.id+'"><span class="no">'+esc(o.no)+'</span><span class="nm"><b>'+esc(o.name)+'</b><small>'+esc(o.items.map(i=>i.model).join(' · '))+'</small></span><span><span class="pill s-'+o.status+'">'+o.status+'</span></span><span class="amt">'+orderAmount(o)+'</span></div>').join('');
+    det='<div class="cdet"><div class="cdet-h"><div><div class="eyebrow">客户档案</div><h2>'+esc(c.name)+'<span class="lvl">'+esc(c.level)+'</span></h2><div class="muted" style="font-size:13px">'+esc(c.country)+' · 来源：'+esc(c.source||'—')+'</div></div><button class="btn pri" data-act="orderForCustomer" data-id="'+c.id+'">为该客户新建订单</button></div>'+
+    '<div class="cstats"><div class="stat"><b>'+st.os.length+'</b><span>历史订单</span></div><div class="stat"><b>'+st.total+'</b><span>累计金额</span></div><div class="stat"><b>'+st.last+'</b><span>最近下单</span></div></div>'+
+    '<div class="cblock"><h3>基本信息</h3><div class="grid">'+fi('name','公司名称',{w:1})+fi('address','地址',{w:1,ta:1})+fi('country','国家')+fi('tax','税号 / VAT / EORI')+fi('notify','通知方')+fi('level','客户等级',{opts:['A','B','C']})+'</div></div>'+
+    '<div class="cblock"><h3>联系人</h3><div class="tbl-wrap"><table class="tbl" style="min-width:560px"><thead><tr><th>姓名</th><th>职位</th><th>邮箱</th><th>电话 / WhatsApp</th></tr></thead><tbody>'+contacts+'</tbody></table></div></div>'+
+    '<div class="cblock"><h3>默认交易习惯 <span class="muted" style="font-weight:400">· 新建订单时自动带入</span></h3><div class="grid">'+fi('habits.incoterm','贸易术语',{opts:INCOTERMS})+fi('habits.place','指定地点')+fi('habits.payment','付款方式',{opts:PAYMENTS})+fi('habits.currency','币种',{opts:['USD','EUR','CNY','GBP']})+fi('habits.paymentDetail','付款说明',{w:1})+fi('habits.pod','目的港')+'<div></div>'+fi('habits.marks','唛头模板（{PO} {CTNS} 自动替换）',{w:1,ta:1})+'</div></div>'+
+    '<div class="cblock"><h3>历史订单</h3><div class="panel">'+(hist||'<div class="empty">暂无订单</div>')+'</div></div>'+
+    '<div class="cblock"><h3>跟进记录</h3><ul class="follow">'+(c.follow||[]).map(f=>'<li><span class="num">'+esc(f.d)+'</span><span>'+esc(f.t)+'</span></li>').join('')+'</ul><div style="display:flex;gap:8px;margin-top:10px"><input class="cell" style="border-color:var(--line-2)" id="follow-in" placeholder="记录一次沟通，如：客户要求改交期到 11 月初"><button class="btn" data-act="addFollow">添加</button></div></div>'+
+    '<div class="cblock"><h3>备注</h3><div class="grid">'+fi('notes','',{w:1,ta:1})+'</div></div></div>';
+  }
+  return topbar('<button data-act="go" data-page="home">首页</button><span>/</span><span class="cur">客户库</span>')+
+  '<main class="wrap"><div class="sec-title"><div><div class="eyebrow">资料库</div><h1 style="font-size:22px">客户库</h1></div><button class="btn" data-act="newCustomer">＋ 新建客户</button></div>'+
+  '<div class="cust"><div class="panel"><div class="toolbar"><label class="search"><span class="muted">搜索</span><input id="cust-q" placeholder="公司 / 国家 / 联系人" value="'+esc(V.cq)+'"></label></div><div class="clist">'+items+'</div></div><div class="panel">'+det+'</div></div></main>';
+}
+
+/* ---------- 其它资料库 ---------- */
+function libPage(title,right,body){return topbar('<button data-act="go" data-page="home">首页</button><span>/</span><span class="cur">'+title+'</span>')+'<main class="wrap"><div class="sec-title"><div><div class="eyebrow">资料库</div><h1 style="font-size:22px">'+title+'</h1></div><div style="display:flex;gap:8px;flex-wrap:wrap">'+right+'</div></div>'+body+'</main>'}
+function pagePartners(){
+  const types=['货代','报关行','工厂','船公司'];
+  const seg='<div class="chips" style="margin-bottom:12px">'+types.map(t=>'<button class="chip'+(V.ptype===t?' on':'')+'" data-act="ptype" data-t="'+t+'">'+t+'</button>').join('')+'</div>';
+  const rows=S.partners.filter(p=>p.type===V.ptype).map(p=>'<tr><td><b>'+esc(p.name)+'</b></td><td>'+esc(p.contact)+'</td><td class="num">'+esc(p.phone)+'</td><td class="muted">'+esc(p.note)+'</td><td class="num">'+S.orders.filter(o=>Object.values(o.partners).includes(p.id)).length+'</td></tr>').join('');
+  return libPage('合作方库','<button class="btn" data-act="soon" data-t="新增合作方">＋ 新增</button>',seg+'<div class="tbl-wrap"><table class="tbl"><thead><tr><th>名称</th><th>联系人</th><th>电话</th><th>备注</th><th>合作订单</th></tr></thead><tbody>'+(rows||'<tr><td colspan="5" class="empty">暂无</td></tr>')+'</tbody></table></div>');
+}
+function pageProducts(){
+  const rows=S.products.map(p=>'<tr><td><span class="ic" style="display:grid;place-items:center;width:34px;height:34px;border-radius:5px;background:var(--surface-2);color:var(--ink-3);font-size:10px">图</span></td><td class="num">'+esc(p.model)+'</td><td><b>'+esc(p.nameCn)+'</b><div class="muted" style="font-size:12px">'+esc(p.nameEn)+'</div></td><td>'+esc(p.spec)+'</td><td class="num">'+esc(p.hs)+'</td><td>'+esc(p.unit)+'</td><td class="num" style="text-align:right">$'+money(p.price)+'</td><td class="num">'+p.pcsPerCtn+'</td><td class="num">'+p.l+'×'+p.w+'×'+p.h+'</td><td class="num">'+p.nw+' / '+p.gw+'</td></tr>').join('');
+  return libPage('产品库','<button class="btn" data-act="soon" data-t="批量导入 CSV / Excel">批量导入</button><button class="btn" data-act="soon" data-t="导出产品图册（含图片）">导出图册</button><button class="btn pri" data-act="soon" data-t="新增产品">＋ 新增产品</button>','<div class="tbl-wrap"><table class="tbl" style="min-width:960px"><thead><tr><th>图片</th><th>型号</th><th>品名</th><th>规格</th><th>HS 编码</th><th>单位</th><th style="text-align:right">单价</th><th>每箱装</th><th>箱规 cm</th><th>净/毛重 kg</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
+}
+function pageHS(){
+  const rows=S.products.map(p=>'<tr><td><b>'+esc(p.nameCn)+'</b></td><td class="num">'+esc(p.hs)+'</td><td>'+esc(p.elements)+'</td><td class="num">13%</td><td class="muted">订单录入自动记忆</td></tr>').join('');
+  return libPage('HS 记忆库','<button class="btn" data-act="soon" data-t="HS 编码查询（本地税则库）">查询税则</button>','<div class="tbl-wrap"><table class="tbl"><thead><tr><th>中文品名</th><th>商品编号</th><th>申报要素</th><th>退税率（示例）</th><th>来源</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="note">M2 起内置本地海关税则库（编码、申报要素模板、监管条件、退税率），随软件更新包更新；退税率为示例值，以当期政策为准。</div>');
+}
+function pageClauses(){
+  const g={'付款条款':['30% T/T deposit, 70% T/T before shipment.','100% irrevocable L/C at sight.','100% T/T within 30 days after B/L date.'],'交货条款':['Shipment within 30 days after receipt of deposit.','Partial shipment not allowed, transshipment allowed.'],'质量与异议':['Claims must be raised within 7 days after receipt of goods.','Quality based on the approved sample.'],'其他':['Force majeure events excuse any delay in performance.','All prices are subject to change without prior notice.']};
+  return libPage('条款库','<button class="btn" data-act="soon" data-t="新增条款">＋ 新增条款</button>',Object.keys(g).map(k=>'<div class="cblock"><h3>'+k+'</h3><div class="panel">'+g[k].map(x=>'<div class="orow" style="grid-template-columns:1fr auto;min-width:0;cursor:default"><span>'+esc(x)+'</span><button class="btn ghost sm" data-act="soon" data-t="插入到当前订单">插入订单</button></div>').join('')+'</div></div>').join(''));
+}
+
+/* ---------- 报价计算器 ---------- */
+const CALC_F=[['buy','采购单价（含税）','CNY / 件',45],['pack','包装成本','CNY / 件',3],['qty','数量','件',1000],['inland','国内运费（整票）','CNY',800],['port','报关 / 港杂（整票）','CNY',650],['freight','海运费（整票）','USD',1200],['ins','保险费率','%',0.3],['vat','增值税率','%',13],['rebate','出口退税率','%',13],['rate','汇率','CNY / USD',7.1],['margin','目标利润率','%',15],['quoteFob','客户还价（FOB 单价，可选）','USD',0]];
+function pageCalc(){
+  return topbar('<button data-act="go" data-page="home">首页</button><span>/</span><span class="cur">报价计算器</span>')+
+  '<main class="wrap"><div class="sec-title"><div><div class="eyebrow">小工具</div><h1 style="font-size:22px">报价计算器</h1></div></div><div class="calc-g">'+
+  '<div class="panel"><div class="grid">'+CALC_F.map(f=>'<div class="fi'+(f[0]==='quoteFob'?' w2':'')+'"><label for="q-'+f[0]+'">'+f[1]+' <span class="muted">'+f[2]+'</span></label><input id="q-'+f[0]+'" class="num" data-q="'+f[0]+'" inputmode="decimal" value="'+f[3]+'"></div>').join('')+'</div></div>'+
+  '<div class="panel" id="calc-out"></div></div></main>';
+}
+function runCalc(){
+  const g=k=>{const el=document.getElementById('q-'+k);return el?(+el.value||0):0};
+  const qty=Math.max(1,g('qty')),rate=g('rate')||1,m=g('margin')/100;
+  const rebate=g('buy')/(1+g('vat')/100)*g('rebate')/100;
+  const exwCost=g('buy')+g('pack')-rebate;
+  const fobCost=exwCost+(g('inland')+g('port'))/qty;
+  const exw=exwCost/(1-m)/rate,fob=fobCost/(1-m)/rate,cfr=fob+g('freight')/qty,cif=cfr/(1-1.1*g('ins')/100);
+  const profit=(fob*rate-fobCost)*qty;
+  const row=(n,v,desc,hl)=>'<tr'+(hl?' class="hl"':'')+'><td><b style="font-family:var(--f-ui);color:var(--ink);font-size:14px">'+n+'</b><div class="muted" style="font-size:12px;font-family:var(--f-ui)">'+desc+'</div></td><td><b>$'+money(v)+'</b></td><td>$'+money(v*qty)+'</td></tr>';
+  let rev='';
+  const qf=g('quoteFob');
+  if(qf>0){const mm=1-fobCost/(qf*rate);rev='<div class="note" style="margin-top:14px">按客户还价 FOB $'+money(qf)+'：利润率 <b>'+fx(mm*100,1)+'%</b>，整单利润约 <b>¥'+money((qf*rate-fobCost)*qty)+'</b>'+(mm<0.05?'，<b style="color:var(--stamp)">低于 5%，建议谨慎</b>':'')+'。</div>'}
+  document.getElementById('calc-out').innerHTML='<div class="eyebrow" style="margin-bottom:6px">按目标利润率 '+fx(m*100,1)+'% 报价</div><table class="qt"><thead><tr><th>贸易术语</th><th>单价</th><th>整单</th></tr></thead><tbody>'+
+  row('EXW',exw,'工厂交货，不含国内运费和报关')+row('FOB',fob,'含国内运费、报关港杂',1)+row('CFR',cfr,'FOB + 海运费')+row('CIF',cif,'CFR + 保险（110% 投保）')+'</tbody></table>'+
+  '<div class="note" style="margin-top:14px">单件成本 ¥'+money(fobCost)+'（其中退税抵减 ¥'+money(rebate)+'）· FOB 整单利润约 <b>¥'+money(profit)+'</b></div>'+rev;
+}
+
+/* ---------- 事件 ---------- */
+function openOrder(id){V.orderId=id;V.page='order';V.expSel=null;render()}
+function createOrder(custId,name){
+  const n=S.seq++;const no='2026-'+String(n).padStart(3,'0');
+  const o=blankOrder(S.seller,no,name||('外贸订单'+n),today());
+  const c=S.customers.find(x=>x.id===custId);
+  if(c){applyCustomer(o,c);o.shipping.marks=fillMarks(c.habits.marks,o)}
+  S.orders.push(o);save();closeModal();openOrder(o.id);
+  toast(c?'已新建 '+no+'，已带入 '+c.name+' 的客户信息和交易习惯':'已新建 '+no);
+}
+const ACT={
+  go:d=>{V.page=d.page;render()},
+  openOrder:d=>openOrder(d.id),
+  openMod:d=>{V.mod=d.mod;V.step=null;V.doc=null;V.expSel=null;V.page='module';render()},
+  step:d=>{V.step=d.step;renderNav();renderForm();document.getElementById('form').scrollTop=0},
+  doc:d=>{V.doc=d.doc;document.querySelectorAll('.pv-bar .tab').forEach(t=>t.classList.toggle('on',t.dataset.doc===d.doc));renderPreview()},
+  expand:()=>{V.expand=!V.expand;render()},
+  filter:d=>{V.status=d.s;render()},
+  setStatus:d=>{CUR.status=d.s;CUR.updated=today();save();render();toast('订单状态已改为「'+d.s+'」')},
+  newOrder:()=>{
+    const opts=S.customers.map((c,i)=>'<label class="opt"><input type="radio" name="nc" value="'+c.id+'"'+(i===0?' checked':'')+'><span><b>'+esc(c.name)+'</b><small>'+esc(c.country)+' · 默认 '+esc(c.habits.incoterm+' / '+c.habits.payment+' / '+c.habits.currency)+'</small></span></label>').join('');
+    modal('新建订单','<div class="fi" style="margin-bottom:14px"><label for="nc-name">订单名称</label><input id="nc-name" value="外贸订单'+S.seq+'"></div><div class="eyebrow" style="margin-bottom:8px">选择客户（客户信息和交易习惯会自动带入）</div>'+opts+'<label class="opt"><input type="radio" name="nc" value=""><span><b>新客户，稍后填写</b><small>在订单里填完后可一键保存到客户库</small></span></label>','<button class="btn" data-act="closeModal">取消</button><button class="btn pri" data-act="createOrder">创建订单</button>');
+  },
+  createOrder:()=>{const r=document.querySelector('input[name="nc"]:checked');createOrder(r?r.value:'',document.getElementById('nc-name').value.trim())},
+  orderForCustomer:d=>createOrder(d.id,''),
+  copyOrder:d=>{
+    const src=S.orders.find(o=>o.id===d.id);const n=S.seq++;const no='2026-'+String(n).padStart(3,'0');
+    const o=clone(src);o.id=uid();o.no=no;o.name=src.name+'（返单）';o.status='询价';o.created=o.updated=today();
+    o.numbers=Object.assign(o.numbers,{quote:'QT-'+no,pi:'PI-'+no,contract:'SC-'+no,ci:'CI-'+no,po:'',date:today()});
+    o.shipping=Object.assign(o.shipping,{vessel:'',blNo:'',container:'',seal:'',etd:''});
+    o.items.forEach(i=>i.id=uid());
+    S.orders.push(o);save();openOrder(o.id);toast('已复制为 '+no+'：客户、货物、条款已带入，船名提单号已清空');
+  },
+  pickCustomer:()=>{
+    modal('从客户库选择',S.customers.map(c=>'<button class="opt" style="width:100%;text-align:left;background:none" data-act="applyCustomer" data-id="'+c.id+'"><span><b>'+esc(c.name)+'</b><small>'+esc(c.country)+' · '+esc(c.contacts[0]?c.contacts[0].name:'')+' · 默认 '+esc(c.habits.incoterm+' '+c.habits.place+' / '+c.habits.payment)+'</small></span></button>').join(''));
+  },
+  applyCustomer:d=>{const c=S.customers.find(x=>x.id===d.id);applyCustomer(CUR,c);CUR.shipping.marks=fillMarks(c.habits.marks,CUR);CUR.updated=today();save();closeModal();if(V.page==='module'){renderNav();renderForm();renderPreview()}else render();toast('已带入 '+c.name+' 的客户信息和默认交易习惯')},
+  saveCustomer:()=>{
+    const b=CUR.buyer;if(!b.name){toast('请先填写买方公司名称');return}
+    let c=S.customers.find(x=>x.id===CUR.customerId);
+    if(c){c.name=b.name;c.address=b.address;c.tax=b.tax;c.notify=b.notify;if(c.contacts[0])Object.assign(c.contacts[0],{name:b.contact,phone:b.phone,email:b.email});toast('已同步更新客户库：'+c.name)}
+    else{c={id:uid(),name:b.name,short:'',country:'',address:b.address,tax:b.tax,notify:b.notify,level:'B',source:'',contacts:[{name:b.contact,title:'',email:b.email,phone:b.phone}],habits:{incoterm:CUR.terms.incoterm,place:CUR.terms.place,payment:CUR.terms.payment,paymentDetail:CUR.terms.paymentDetail,currency:CUR.terms.currency,pod:CUR.terms.pod,marks:CUR.shipping.marks},notes:'',follow:[]};S.customers.push(c);CUR.customerId=c.id;toast('已保存到客户库，下次可直接调用')}
+    save();
+  },
+  addItem:()=>{CUR.items.push({id:uid(),model:'',nameEn:'',nameCn:'',spec:'',hs:'',unit:'PCS',qty:'',price:'',pcsPerCtn:'',l:'',w:'',h:'',nw:'',gw:'',elements:''});save();renderForm();renderNav();renderPreview();const el=document.getElementById(idOf('items.'+(CUR.items.length-1)+'.model'));if(el)el.focus()},
+  delItem:d=>{CUR.items.splice(+d.i,1);save();renderForm();renderNav();renderPreview()},
+  pickProducts:()=>{modal('从产品库添加',S.products.map(p=>'<label class="opt"><input type="checkbox" value="'+p.id+'" name="pp"><span><b>'+esc(p.model+' · '+p.nameCn)+'</b><small>'+esc(p.nameEn)+' · $'+money(p.price)+' / '+p.unit+' · '+p.pcsPerCtn+' '+p.unit+'/箱</small></span></label>').join(''),'<button class="btn" data-act="closeModal">取消</button><button class="btn pri" data-act="addProducts">添加所选</button>')},
+  addProducts:()=>{const ids=[...document.querySelectorAll('input[name="pp"]:checked')].map(x=>x.value);ids.forEach(id=>{const p=S.products.find(x=>x.id===id);CUR.items.push({id:uid(),model:p.model,nameEn:p.nameEn,nameCn:p.nameCn,spec:p.spec,hs:p.hs,unit:p.unit,qty:'',price:p.price,pcsPerCtn:p.pcsPerCtn,l:p.l,w:p.w,h:p.h,nw:p.nw,gw:p.gw,elements:p.elements})});save();closeModal();renderForm();renderNav();renderPreview();if(ids.length)toast('已添加 '+ids.length+' 个产品，请填写数量')},
+  autoMarks:()=>{const c=S.customers.find(x=>x.id===CUR.customerId);CUR.shipping.marks=fillMarks(c?c.habits.marks:'{PO}\nC/NO. 1-{CTNS}\nMADE IN CHINA',CUR);save();renderForm();renderPreview();toast('已按客户唛头模板重新生成')},
+  exportDoc:d=>{const no=V.doc==='marks'?'Marks-'+CUR.no:getP(CUR,DOCNO[V.doc]);toast('原型演示：正式版会把「'+DOCNAMES[V.doc]+'」保存为 '+no+'.'+(d.fmt==='PDF'?'pdf':'xlsx')+' 到电脑')},
+  bundle:d=>{V.bundle=d.b;V.expSel=null;V.expDoc=null;render()},
+  expDoc:d=>{V.expDoc=d.doc;render()},
+  genBundle:()=>{const names=V.expSel.map(d=>(EXPDOCS.find(x=>x[0]===d)||[])[1]);toast('原型演示：正式版会生成 '+CUR.name+'_'+V.bundle+'.zip，含 '+names.join('、'))},
+  copyMail:()=>{const t=document.getElementById('mail');const done=()=>toast('邮件正文已复制');if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t.value).then(done).catch(()=>{t.select();toast('已选中，按 Ctrl+C 复制')});else{t.select();toast('已选中，按 Ctrl+C 复制')}},
+  custSel:d=>{V.custId=d.id;render()},
+  newCustomer:()=>{const c={id:uid(),name:'New Customer Co., Ltd.',short:'',country:'',address:'',tax:'',notify:'',level:'B',source:'',contacts:[{name:'',title:'',email:'',phone:''}],habits:{incoterm:'FOB',place:'Qingdao',payment:'T/T',paymentDetail:'',currency:'USD',pod:'',marks:''},notes:'',follow:[]};S.customers.unshift(c);V.custId=c.id;save();render();toast('已新建客户，请完善资料')},
+  addFollow:()=>{const el=document.getElementById('follow-in');const c=S.customers.find(x=>x.id===V.custId);if(!el.value.trim()||!c)return;c.follow=c.follow||[];c.follow.unshift({d:today(),t:el.value.trim()});save();render()},
+  ptype:d=>{V.ptype=d.t;render()},
+  soon:d=>toast('「'+d.t+'」在正式版中提供，原型暂不演示'),
+  resetDemo:()=>{S=seed();save();V=Object.assign(V,{page:'home',orderId:null,mod:null,q:'',status:'all',custId:null,expSel:null});render();toast('已恢复示例数据')},
+  closeModal:(d,t,e)=>{if(e.target===t)closeModal()}
+};
+function afterExport(){if(V.page==='module'&&MODS[V.mod].special){const el=document.getElementById('pvscale');if(el){el.innerHTML=DOCS[V.expDoc](CUR);fit();const w=document.getElementById('pvwrap');if(RO)RO.disconnect();if(window.ResizeObserver){RO=new ResizeObserver(fit);RO.observe(w)}}}}
+
+app.addEventListener('click',e=>{
+  const f=e.target.closest('.paper [data-f]');
+  if(f&&V.page==='module'&&MODS[V.mod].steps){jumpTo(f.dataset.f);return}
+  const t=e.target.closest('[data-act]');
+  if(t&&ACT[t.dataset.act]){e.preventDefault();ACT[t.dataset.act](t.dataset,t,e)}
+});
+app.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('orow')){e.preventDefault();e.target.click()}});
+document.getElementById('modal-root').addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(t&&ACT[t.dataset.act]){ACT[t.dataset.act](t.dataset,t,e)}});
+function onEdit(e){
+  const t=e.target;
+  if(t.id==='home-q'){if(e.type!=='input')return;V.q=t.value;const pos=t.selectionStart;render();const n=document.getElementById('home-q');n.focus();n.setSelectionRange(pos,pos);return}
+  if(t.id==='cust-q'){if(e.type!=='input')return;V.cq=t.value;const pos=t.selectionStart;render();const n=document.getElementById('cust-q');n.focus();n.setSelectionRange(pos,pos);return}
+  if(t.dataset.q!=null){runCalc();return}
+  if(t.dataset.exp!=null){if(e.type!=='change')return;const k=t.dataset.exp;V.expSel=t.checked?V.expSel.concat(k):V.expSel.filter(x=>x!==k);if(t.checked)V.expDoc=k;render();return}
+  if(t.dataset.cp!=null){const c=S.customers.find(x=>x.id===V.custId);if(!c)return;setP(c,t.dataset.cp,t.value);save();if(t.dataset.cp==='name'){const n=document.getElementById('cn-'+c.id);if(n)n.textContent=t.value}return}
+  if(t.dataset.p!=null&&CUR){
+    if(t.type==='checkbox'&&e.type!=='change')return;
+    setP(CUR,t.dataset.p,t.type==='checkbox'?t.checked:t.value);CUR.updated=today();save();
+    if(V.page==='module'){renderPreview();renderNav();updateCalcs()}
+  }
+}
+app.addEventListener('input',onEdit);
+app.addEventListener('change',onEdit);
+window.addEventListener('resize',fit);
+
+render();
+})();
+</script>
