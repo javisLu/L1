@@ -83,6 +83,13 @@ jobs:
           npx tauri build --no-bundle --config src-tauri/tauri.smoke.json
           $env:SMOKE_OUT = "smoke"
           $p = Start-Process -FilePath "src-tauri/target/release/trade-workbench.exe" -PassThru
+          # 等调试端口就绪（最多 90 秒），期间若程序退出则打印退出码
+          $ready = $false
+          for ($i = 0; $i -lt 90 -and -not $ready; $i++) {
+            if ($p.HasExited) { Write-Host "程序已退出，退出码 $($p.ExitCode)"; break }
+            try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:9222/json/version | Out-Null; $ready = $true } catch { Start-Sleep -Seconds 1 }
+          }
+          Write-Host "调试端口就绪: $ready，用时约 $i 秒，程序仍在运行: $(-not $p.HasExited)"
           node scripts/smoke-cdp.mjs
           $code = $LASTEXITCODE
           Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
