@@ -1,5 +1,6 @@
 import { OrderCrumbs, TopBar } from '../components/common';
 import { openCustomerPicker } from '../components/form';
+import { confirmAction } from '../components/confirm';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { calc, fixed, int } from '../domain/calc';
@@ -10,7 +11,7 @@ import type { Order, PartnerType } from '../domain/types';
 
 export function OrderMenu({ order: o }: { order: Order }) {
   const ui = useUI();
-  const { customers, partners, setOrderField, duplicateOrder } = useData();
+  const { customers, partners, setOrderField, duplicateOrder, deleteOrder } = useData();
   const k = calc(o.items);
   const need = neededMods(o);
   const cur = STATUSES.indexOf(o.status);
@@ -54,6 +55,13 @@ export function OrderMenu({ order: o }: { order: Order }) {
             <p>{o.buyer.name || '未选择客户'} · 创建于 {o.created} · 更新于 {o.updated}</p>
           </div>
           <div className="ord-head-r">
+            <button
+              className="btn ghost danger-t"
+              onClick={async () => {
+                const ok = await confirmAction({ title: '删除订单', danger: true, ok: '删除订单', body: <p>删除订单「{o.no} {o.name}」？订单里的全部单据资料都会删除，已导出到电脑上的文件不受影响。</p> });
+                if (ok) { deleteOrder(o.id); ui.go('home'); toast(`已删除订单 ${o.no}`); }
+              }}
+            >删除</button>
             <button className="btn" onClick={() => { const n = duplicateOrder(o.id); ui.openOrder(n.id); toast(`已复制为 ${n.no}：客户、货物、条款已带入，船名提单号已清空`); }}>复制为新订单</button>
             <button className="btn pri" onClick={() => ui.openMod('export')}>单据导出</button>
           </div>

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { Bundle, DocKey, ExpKey, ModKey, StepKey } from '../modules/defs';
 import type { OrderStatus, PartnerType } from '../domain/types';
 
-export type Page = 'home' | 'order' | 'module' | 'customers' | 'partners' | 'products' | 'hs' | 'clauses' | 'calc';
+export type Page = 'home' | 'order' | 'module' | 'customers' | 'partners' | 'products' | 'hs' | 'clauses' | 'calc' | 'settings';
 
 export interface ToastAction { label: string; run: () => void }
 interface Toast { id: number; text: string; action?: ToastAction }

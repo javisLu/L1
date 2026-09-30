@@ -9,6 +9,8 @@ import { Placeholder, Workbench } from './pages/Workbench';
 import { ExportCenter } from './pages/ExportCenter';
 import { Clauses, Customers, HsMemory, Partners, Products } from './pages/Libraries';
 import { QuoteCalc } from './pages/QuoteCalc';
+import { Settings } from './pages/Settings';
+import { autoBackupIfDue } from './io/backupService';
 import { MODS } from './modules/defs';
 
 /** 等待本地数据载入；订阅后再检查一次，避免载入在订阅之前就已完成 */
@@ -53,12 +55,16 @@ function Screen() {
     case 'hs': return <HsMemory />;
     case 'clauses': return <Clauses />;
     case 'calc': return <QuoteCalc />;
+    case 'settings': return <Settings />;
     default: return <Home />;
   }
 }
 
 export function App() {
   const hydrated = useHydrated();
+  useEffect(() => {
+    if (hydrated === 'ok') void autoBackupIfDue();
+  }, [hydrated]);
   if (hydrated === 'loading') return <div className="empty">正在载入本地数据…</div>;
   if (hydrated === 'error')
     return (

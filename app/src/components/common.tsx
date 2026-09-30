@@ -5,8 +5,8 @@ import type { Order } from '../domain/types';
 
 export function TopBar({ children }: { children?: ReactNode }) {
   const go = useUI((s) => s.go);
-  const ui = useUI();
-  const reset = useData((s) => s.resetDemo);
+  const page = useUI((s) => s.page);
+  const hasLogo = useData((s) => !!s.settings.assets.logo);
   return (
     <header className="top">
       <button className="brand" onClick={() => go('home')} aria-label="返回首页">
@@ -15,17 +15,8 @@ export function TopBar({ children }: { children?: ReactNode }) {
       </button>
       <nav className="crumbs">{children}</nav>
       <div className="top-r">
-        <span className="proto">M1 开发版 · 示例数据</span>
-        <button
-          className="btn ghost sm"
-          onClick={() => {
-            reset();
-            ui.set({ page: 'home', orderId: null, mod: null, q: '', status: 'all', custId: null, expSel: null });
-            ui.toast('已恢复示例数据');
-          }}
-        >
-          重置示例
-        </button>
+        <span className="proto">M1 开发版</span>
+        <button className={'btn ghost sm' + (page === 'settings' ? ' on' : '')} onClick={() => go('settings')} title={hasLogo ? '设置' : '设置公司信息、Logo 与公章'}>设置</button>
       </div>
     </header>
   );

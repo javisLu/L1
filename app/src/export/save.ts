@@ -22,7 +22,9 @@ function download(f: OutFile) {
   const a = document.createElement('a');
   a.href = url;
   a.download = f.name;
+  document.body.appendChild(a);
   a.click();
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 

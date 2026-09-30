@@ -1,5 +1,6 @@
 import { applyCustomer, blankOrder, productToItem } from './factory';
 import { uid } from './calc';
+import { defaultSettings } from './settings';
 import type { Customer, DataState, Order, Partner, Product, Seller } from './types';
 
 /** 首次启动的示例数据（全部为虚构公司），可在首页「重置示例」恢复 */
@@ -72,5 +73,5 @@ export function seed(): DataState {
       o.partners = { forwarder: 'p2', broker: 'p3', factory: '' };
     }),
   ];
-  return { seller, products, customers, partners, orders, seq: 4 };
+  return { settings: defaultSettings(), seller, products, customers, partners, orders, seq: 4 };
 }

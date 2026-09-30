@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { DocView } from '../docs/templates';
 import type { DocKey } from '../modules/defs';
+import { useData } from '../store/data';
 import type { Order } from '../domain/types';
 
 const PAGE_W = 595;
@@ -11,6 +12,7 @@ export function Preview({ order, doc, bar, onJump }: { order: Order; doc: DocKey
   const page = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [height, setHeight] = useState(842);
+  const assets = useData((s) => s.settings.assets);
 
   useEffect(() => {
     const el = wrap.current;
@@ -40,7 +42,7 @@ export function Preview({ order, doc, bar, onJump }: { order: Order; doc: DocKey
               if (f && onJump) onJump(f.dataset.f!);
             }}
           >
-            <DocView doc={doc} order={order} />
+            <DocView doc={doc} order={order} assets={assets} />
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { DOCNAMES, EXT, docFile, type DocKey, type Fmt } from '../modules/defs';
 import { saveFiles, type OutFile, type SaveResult } from './save';
+import { useData } from '../store/data';
 import type { Order } from '../domain/types';
 
 export const orderFolder = (o: Order) => `${o.no} ${o.name}`;
@@ -10,7 +11,7 @@ export async function buildFile(o: Order, doc: DocKey, fmt: Fmt): Promise<OutFil
   const name = `${docFile(o, doc)}.${EXT[fmt]}`;
   if (fmt === 'PDF') {
     const { renderPdf } = await import('./pdf');
-    return { name, data: await renderPdf(o, doc) };
+    return { name, data: await renderPdf(o, doc, useData.getState().settings.assets) };
   }
   if (fmt === 'Excel') {
     if (doc === 'contract' || doc === 'marks') throw new Error(`${DOCNAMES[doc]}不支持导出 Excel`);

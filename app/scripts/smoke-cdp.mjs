@@ -1,7 +1,8 @@
 // 冒烟测试：连接正在运行的桌面程序（WebView2 远程调试端口），依次点开订单、模块、资料库，
 // 收集页面报错并截图。用法：先以 --remote-debugging-port=9222 启动程序，再运行本脚本。
 import { chromium } from 'playwright-core';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const out = process.env.SMOKE_OUT || 'smoke';
 mkdirSync(out, { recursive: true });
@@ -64,6 +65,28 @@ await step('09-export-word', async () => {
 await step('10-export-zip', async () => {
   await page.click('button:has-text("← 订单菜单")'); await page.click('.mcard:has-text("单据导出")');
   await page.click('button:has-text("生成并打包")'); await waitToast('已打包');
+});
+
+// M1-3：设置、产品导入、删除订单
+await step('11-settings', async () => {
+  await page.click('.top-r button:has-text("设置")'); await page.waitForSelector('#company', { timeout: 5000 });
+  await page.fill('#set-seller-name', 'Smoke Test Co., Ltd.');
+});
+await step('12-import-products', async () => {
+  const csv = resolve(out, 'products.csv');
+  writeFileSync(csv, '型号,中文品名,单价,外箱尺寸\nSMOKE-1,冒烟测试货架,9.9,60x40x30\n');
+  await page.click('.brand'); await page.click('.lib button:has-text("产品库")');
+  const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.click('button:has-text("导入 Excel / CSV")')]);
+  await fc.setFiles(csv);
+  await page.waitForSelector('.modal'); await page.click('.modal .btn.pri'); await waitToast('导入完成：新增 1');
+  await page.waitForSelector('.tbl tbody tr:has-text("SMOKE-1")', { timeout: 5000 });
+});
+await step('13-new-and-delete-order', async () => {
+  await page.click('.brand'); await page.click('button:has-text("＋ 新建订单")'); await page.click('.modal .btn.pri');
+  await page.waitForSelector('.mcard'); await page.waitForSelector('.paper, .mcard');
+  const no = (await page.textContent('.ord-head .eyebrow')).replace('订单 ', '').trim();
+  await page.click('.ord-head-r button:has-text("删除")'); await page.click('.modal .btn.danger');
+  await waitToast('已删除订单 ' + no);
 });
 
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));

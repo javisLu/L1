@@ -19,3 +19,15 @@ describe('PDF 导出', () => {
     }, 30000);
   }
 });
+
+describe('PDF 带 Logo、公章、签名', () => {
+  it('图片嵌入 PDF', async () => {
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==';
+    const order = seed().orders[0];
+    const plain = await renderToBuffer(buildPdf(order, 'pi'));
+    const buf = await renderToBuffer(buildPdf(order, 'pi', { logo: png, stamp: png, signature: png }));
+    expect(buf.toString('latin1')).toContain('/Subtype /Image');
+    expect(plain.toString('latin1')).not.toContain('/Subtype /Image');
+  }, 30000);
+});
+

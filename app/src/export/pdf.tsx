@@ -1,6 +1,6 @@
-import { Document, Font, Page, Text, View, pdf } from '@react-pdf/renderer';
+import { Document, Font, Image, Page, Text, View, pdf } from '@react-pdf/renderer';
 import type { ReactElement } from 'react';
-import { PdfProvider, type PdfImpl, type St } from '../docs/primitives';
+import { PdfProvider, type DocAssets, type PdfImpl, type St } from '../docs/primitives';
 import { DocView } from '../docs/templates';
 import { DOCNAMES, docFile, type DocKey } from '../modules/defs';
 import type { Order } from '../domain/types';
@@ -48,21 +48,22 @@ const impl: PdfImpl = {
   Page: ((props: { style?: unknown; children?: React.ReactNode }) => (
     <Page size="A4" style={[props.style, { fontFamily: FONT }] as never}>{props.children}</Page>
   )) as PdfImpl['Page'],
+  Image: Image as unknown as PdfImpl['Image'],
   style: toPdfStyle,
 };
 
-export function buildPdf(order: Order, doc: DocKey): ReactElement {
+export function buildPdf(order: Order, doc: DocKey, assets?: DocAssets): ReactElement {
   return (
     <Document title={`${DOCNAMES[doc]} ${docFile(order, doc)}`} author={order.seller.name} creator="外贸超级工作台" producer="外贸超级工作台">
       <PdfProvider value={impl}>
-        <DocView doc={doc} order={order} />
+        <DocView doc={doc} order={order} assets={assets} />
       </PdfProvider>
     </Document>
   );
 }
 
-export async function renderPdf(order: Order, doc: DocKey): Promise<Uint8Array> {
+export async function renderPdf(order: Order, doc: DocKey, assets?: DocAssets): Promise<Uint8Array> {
   registerFonts();
-  const blob = await pdf(buildPdf(order, doc)).toBlob();
+  const blob = await pdf(buildPdf(order, doc, assets)).toBlob();
   return new Uint8Array(await blob.arrayBuffer());
 }

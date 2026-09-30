@@ -87,7 +87,7 @@ export function Home() {
                     </div>
                   );
                 })}
-                {!list.length && <div className="empty">没有符合条件的订单</div>}
+                {!list.length && <div className="empty">{orders.length ? '没有符合条件的订单' : '还没有订单：先到「设置」填好公司信息和公章，再点右上角「新建订单」'}</div>}
               </div>
             </div>
           </section>
@@ -98,6 +98,7 @@ export function Home() {
               {lib('products', '产品', '产品库', '型号、HS、箱规、重量', products.length)}
               {lib('clauses', '条款', '条款库', '合同条款、付款、交货等')}
               {lib('hs', 'HS', 'HS 记忆库', '品名 ↔ 编码 ↔ 申报要素', products.length)}
+              {lib('settings', '设置', '设置', '公司信息、Logo、公章、编号、备份')}
             </div></div>
             <div className="side-group"><h3>小工具</h3><div className="lib">
               {lib('calc', '¥→$', '报价计算器', '成本 + 运费 + 退税 → FOB / CIF')}

@@ -1,6 +1,7 @@
 import { CONTRACT_LIB, DEFAULT_CLAUSES, ORIGIN_TERMS } from './constants';
 import { fillMarks, payText, today, uid } from './calc';
-import type { Buyer, Customer, Item, Order, Product, Seller } from './types';
+import { defaultSettings, docNumbers, formatOrderNo } from './settings';
+import type { Buyer, Customer, Item, Numbering, Order, Product, Seller, Settings } from './types';
 
 export function clausesFromLib(keys: string[]) {
   return keys.map((k) => {
@@ -9,29 +10,30 @@ export function clausesFromLib(keys: string[]) {
   });
 }
 
-export function blankOrder(seller: Seller, no: string, name: string, created = today()): Order {
+export function blankOrder(seller: Seller, no: string, name: string, created = today(), settings: Settings = defaultSettings()): Order {
+  const d = settings.defaults;
   const order: Order = {
     id: uid(), no, name, status: '询价', created, updated: created, customerId: '',
     seller: { ...seller },
     buyer: { name: '', address: '', contact: '', phone: '', email: '', tax: '', notify: '' },
     terms: {
-      incoterm: 'FOB', place: 'Qingdao', deliveryAddress: '', currency: 'USD',
+      incoterm: 'FOB', place: d.place, deliveryAddress: '', currency: 'USD',
       payment: 'T/T 电汇', payDeposit: 30, payBalanceAt: 'before shipment', payDays: '', payCustom: '',
       paymentText: '', paymentManual: false,
-      pol: 'Qingdao, China', pod: '', transport: '海运', leadTime: '20-25 working days',
-      shipment: 'Within 30 days after receipt of deposit', partial: 'Not Allowed', transship: 'Allowed',
-      insurance: 'To be covered by the Buyer', packing: 'Export standard cartons, suitable for ocean transportation',
+      pol: d.pol, pod: '', transport: d.transport, leadTime: d.leadTime,
+      shipment: d.shipment, partial: 'Not Allowed', transship: 'Allowed',
+      insurance: 'To be covered by the Buyer', packing: d.packing,
     },
-    numbers: { quote: 'QT-' + no, pi: 'PI-' + no, contract: 'SC-' + no, ci: 'CI-' + no, po: '', date: created, validUntil: '', signedAt: 'Qingdao, China' },
+    numbers: { ...docNumbers(settings.numbering, no), po: '', date: created, validUntil: '', signedAt: d.signedAt },
     items: [],
     shipping: { vessel: '', blNo: '', container: '', seal: '', etd: '', origin: 'CHINA', marks: '', side: '' },
     customs: {
-      exportPort: '青岛大港海关', supervision: '0110 一般贸易', exemption: '101 一般征税', license: '',
-      tradeCountry: '', destCountry: '', sourceArea: '青岛', packageType: '纸制或纤维板制盒/箱', freight: '', insFee: '', docs: '',
+      exportPort: d.exportPort, supervision: '0110 一般贸易', exemption: '101 一般征税', license: '',
+      tradeCountry: '', destCountry: '', sourceArea: d.sourceArea, packageType: '纸制或纤维板制盒/箱', freight: '', insFee: '', docs: '',
     },
     partners: { forwarder: '', broker: '', factory: '' },
     docset: {
-      theme: '藏青', stamp: true,
+      theme: d.theme, stamp: d.stamp,
       remarks: 'Prices are based on current material costs. Goods are inspected before shipment.',
       clauses: 'All prices are subject to change without prior notice.\nClaims must be raised within 7 days after receipt of goods.\nForce majeure events excuse any delay in performance.',
     },
@@ -95,12 +97,12 @@ export function productToItem(p: Product, qty: number | string = ''): Item {
   };
 }
 
-export function orderNo(seq: number, year = new Date().getFullYear()) {
-  return `${year}-${String(seq).padStart(3, '0')}`;
+export function orderNo(seq: number, numbering: Numbering = defaultSettings().numbering, date = new Date()) {
+  return formatOrderNo(numbering, seq, date);
 }
 
 /** 返单：复制客户、货物、条款，清空船名提单号，编号按新单号派生 */
-export function copyOrder(src: Order, no: string): Order {
+export function copyOrder(src: Order, no: string, numbering: Numbering = defaultSettings().numbering): Order {
   const o: Order = JSON.parse(JSON.stringify(src));
   const d = today();
   o.id = uid();
@@ -108,7 +110,7 @@ export function copyOrder(src: Order, no: string): Order {
   o.name = src.name + '（返单）';
   o.status = '询价';
   o.created = o.updated = d;
-  o.numbers = { ...o.numbers, quote: 'QT-' + no, pi: 'PI-' + no, contract: 'SC-' + no, ci: 'CI-' + no, po: '', date: d };
+  o.numbers = { ...o.numbers, ...docNumbers(numbering, no), po: '', date: d };
   o.shipping = { ...o.shipping, vessel: '', blNo: '', container: '', seal: '', etd: '' };
   o.items.forEach((i) => (i.id = uid()));
   o.contractClauses.forEach((c) => (c.id = uid()));

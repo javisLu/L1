@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Box, Fld, Page, Row, Table, Txt, useIsPdf, type St } from './primitives';
+import { AssetsProvider, Box, Fld, Img, Page, Row, Table, Txt, useAssets, useIsPdf, type DocAssets, type St } from './primitives';
 import { THEMES, TRANSPORT_CD } from '../domain/constants';
 import { amountWords, calc, fixed, int, intWords, money, needAddr, sym } from '../domain/calc';
 import { getPath } from '../store/data';
@@ -13,14 +13,18 @@ const B = ({ children }: { children: ReactNode }) => <Txt style={{ fontWeight: 7
 
 function Head({ o, title, meta }: { o: Order; title: string; meta: [string, ReactNode][] }) {
   const a = accent(o);
+  const { logo } = useAssets();
   return (
     <>
       <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box style={{ width: '52%', color: '#444' }}>
-          <Txt style={{ fontSize: 11, fontWeight: 700, color: a, marginBottom: 3 }}>{F(o, 'seller.name')}</Txt>
-          <Txt>{F(o, 'seller.address')}</Txt>
-          <Txt>Tel: {F(o, 'seller.phone')}   Email: {F(o, 'seller.email')}</Txt>
-        </Box>
+        <Row style={{ width: '56%', alignItems: 'flex-start' }}>
+          {!!logo && <Img src={logo} style={{ height: 40, maxWidth: 110, marginRight: 10 }} />}
+          <Box style={{ flexGrow: 1, flexShrink: 1, color: '#444' }}>
+            <Txt style={{ fontSize: 11, fontWeight: 700, color: a, marginBottom: 3 }}>{F(o, 'seller.name')}</Txt>
+            <Txt>{F(o, 'seller.address')}</Txt>
+            <Txt>Tel: {F(o, 'seller.phone')}   Email: {F(o, 'seller.email')}</Txt>
+          </Box>
+        </Row>
         <Box style={{ alignItems: 'flex-end' }}>
           <Txt style={{ fontSize: 16, fontWeight: 700, letterSpacing: 1, color: a, marginBottom: 6 }}>{title}</Txt>
           {meta.map(([l, v]) => (
@@ -88,11 +92,19 @@ function Section({ o, title, children }: { o: Order; title: string; children: Re
 
 function Sign({ o, left, right }: { o: Order; left: ReactNode; right: ReactNode }) {
   const isPdf = useIsPdf();
-  const line = (stamp: boolean) => (
+  const assets = useAssets();
+  const line = (seller: boolean) => (
     <Box style={{ height: 42, borderBottom: '0.75px solid #333', marginBottom: 3, position: 'relative' }}>
-      {stamp && o.docset.stamp && !isPdf && (
+      {seller && o.docset.stamp && !!assets.stamp && (
+        <Img src={assets.stamp} style={{ position: 'absolute', left: 8, bottom: -18, width: 76, height: 76 }} />
+      )}
+      {seller && o.docset.stamp && !!assets.signature && (
+        <Img src={assets.signature} style={{ position: 'absolute', left: 96, bottom: 3, height: 30, maxWidth: 120 }} />
+      )}
+      {/* 未上传公章时，预览里提示位置；导出的 PDF 不打印占位 */}
+      {seller && o.docset.stamp && !assets.stamp && !isPdf && (
         <Box style={{ position: 'absolute', left: 14, bottom: 4, width: 52, height: 52, border: '1px dashed #b8322a', borderRadius: 26, alignItems: 'center', justifyContent: 'center', opacity: 0.75 }}>
-          <Txt style={{ color: '#b8322a', fontSize: 6.5 }}>公章位置</Txt>
+          <Txt style={{ color: '#b8322a', fontSize: 6, textAlign: 'center' }}>{'公章位置\n设置里上传'}</Txt>
         </Box>
       )}
     </Box>
@@ -384,7 +396,13 @@ function Marks({ o }: { o: Order }) {
   );
 }
 
-export function DocView({ doc, order }: { doc: DocKey; order: Order }) {
+const NO_ASSETS: DocAssets = { logo: '', stamp: '', signature: '' };
+
+export function DocView({ doc, order, assets = NO_ASSETS }: { doc: DocKey; order: Order; assets?: DocAssets }) {
+  return <AssetsProvider value={assets}><DocBody doc={doc} order={order} /></AssetsProvider>;
+}
+
+function DocBody({ doc, order }: { doc: DocKey; order: Order }) {
   switch (doc) {
     case 'quote': return <QuotePI o={order} kind="quote" />;
     case 'pi': return <QuotePI o={order} kind="pi" />;

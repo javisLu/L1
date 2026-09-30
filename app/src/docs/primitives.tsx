@@ -12,10 +12,23 @@ export interface PdfImpl {
   View: ComponentType<{ style?: unknown; wrap?: boolean; children?: ReactNode }>;
   Text: ComponentType<{ style?: unknown; children?: ReactNode }>;
   Page: ComponentType<{ size?: string; style?: unknown; children?: ReactNode }>;
+  Image: ComponentType<{ src: string; style?: unknown }>;
   style: (s: St) => unknown;
 }
 const Pdf = createContext<PdfImpl | null>(null);
 export const PdfProvider = Pdf.Provider;
+
+/** 公司 Logo、公章、签名图片（来自「设置」），预览与 PDF 共用 */
+export interface DocAssets { logo: string; stamp: string; signature: string }
+const AssetsCtx = createContext<DocAssets>({ logo: '', stamp: '', signature: '' });
+export const AssetsProvider = AssetsCtx.Provider;
+export const useAssets = () => useContext(AssetsCtx);
+
+export function Img({ src, style }: { src: string; style?: St }) {
+  const pdf = useContext(Pdf);
+  if (pdf) return <pdf.Image src={src} style={pdf.style(style ?? {})} />;
+  return <img src={src} alt="" style={{ display: 'block', objectFit: 'contain', ...style }} />;
+}
 /** 是否在渲染导出用的 PDF（预览专用的提示元素在 PDF 里不输出） */
 export const useIsPdf = () => useContext(Pdf) != null;
 

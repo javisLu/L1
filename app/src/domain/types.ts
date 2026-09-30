@@ -205,7 +205,49 @@ export interface Product {
   cat: string;
 }
 
+/** 编号规则：订单号按模板生成，各单据编号 = 前缀 + 订单号 */
+export interface Numbering {
+  /** 可用：{YYYY} {YY} {MM} {SEQ} */
+  orderPattern: string;
+  seqDigits: number;
+  quote: string;
+  pi: string;
+  contract: string;
+  ci: string;
+}
+
+/** 新建订单时带入的默认值 */
+export interface OrderDefaults {
+  pol: string;
+  place: string;
+  transport: string;
+  leadTime: string;
+  shipment: string;
+  packing: string;
+  signedAt: string;
+  exportPort: string;
+  sourceArea: string;
+  theme: string;
+  stamp: boolean;
+}
+
+/** 图片以 data URL 保存（已压缩），用于单据抬头与签章 */
+export interface Assets {
+  logo: string;
+  stamp: string;
+  signature: string;
+}
+
+export interface Settings {
+  numbering: Numbering;
+  defaults: OrderDefaults;
+  assets: Assets;
+  /** 上次自动备份的日期 YYYY-MM-DD */
+  lastAutoBackup: string;
+}
+
 export interface DataState {
+  settings: Settings;
   seller: Seller;
   products: Product[];
   customers: Customer[];
