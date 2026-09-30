@@ -233,7 +233,7 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .d-lab{font-size:9px;letter-spacing:.14em;color:var(--acc);font-weight:700;margin-bottom:4px}
 .d-strong{font-weight:700}
 .d-terms{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 14px;background:#f4f6f9;padding:10px 12px;margin-bottom:14px}
-.d-terms span{display:block;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:#7b8594}
+.d-terms>div>span:first-child{display:block;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:#7b8594}
 .d-tbl{width:100%;border:1px solid #cfd4db}
 .d-tbl th{background:var(--acc);color:#fff;font-weight:600;font-size:9.5px;padding:6px 5px;text-align:center;border:1px solid var(--acc)}
 .d-tbl td{border:1px solid #d9dde3;padding:5px;vertical-align:top}
@@ -377,14 +377,38 @@ const ONES=['','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN','EIGHT','NINE','T
 const TENS=['','','TWENTY','THIRTY','FORTY','FIFTY','SIXTY','SEVENTY','EIGHTY','NINETY'];
 function chunk(n){let s='';if(n>=100){s+=ONES[Math.floor(n/100)]+' HUNDRED';n%=100;if(n)s+=' AND '}if(n>=20){s+=TENS[Math.floor(n/10)];if(n%10)s+='-'+ONES[n%10]}else if(n>0)s+=ONES[n];return s}
 function intWords(n){n=Math.floor(n);if(!n)return 'ZERO';const u=['',' THOUSAND',' MILLION',' BILLION'];const parts=[];let i=0;while(n>0){const c=n%1000;if(c)parts.unshift(chunk(c)+u[i]);n=Math.floor(n/1000);i++}return parts.join(' ')}
-const CUR_NAME={USD:'US DOLLARS',EUR:'EUROS',CNY:'CHINESE YUAN',GBP:'POUNDS STERLING'};
+const CUR_NAME={USD:'US DOLLARS',EUR:'EUROS',GBP:'POUNDS STERLING',CNY:'CHINESE YUAN',JPY:'JAPANESE YEN',AUD:'AUSTRALIAN DOLLARS',CAD:'CANADIAN DOLLARS',HKD:'HONG KONG DOLLARS',AED:'UAE DIRHAMS'};
 function amountWords(a,c){const cents=Math.round(a*100)%100;return 'SAY '+(CUR_NAME[c]||c)+' '+intWords(a)+(cents?' AND CENTS '+intWords(cents):'')+' ONLY'}
 
 /* ---------- 常量 ---------- */
 const INCOTERMS=['EXW','FCA','FAS','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP'];
-const PAYMENTS=['T/T','L/C at sight','L/C 30 days after B/L','D/P at sight','D/A 60 days','O/A 30 days'];
+const PAYMENTS=['T/T 电汇','L/C 信用证','T/T + L/C 组合','D/P 付款交单','D/A 承兑交单','O/A 赊销','CAD 交单付现','信保订单 Trade Assurance','西联 Western Union','PayPal','信用卡 Credit Card','自定义'];
+const BALANCE_AT=['before shipment','against copy of B/L','within N days after B/L date','upon arrival at destination port','upon receipt of goods'];
+const BALANCE_CN={'before shipment':'发货前付清','against copy of B/L':'见提单副本付款','within N days after B/L date':'提单日后 N 天内','upon arrival at destination port':'货到目的港后','upon receipt of goods':'收货后'};
+const CURRENCIES=['USD','EUR','GBP','CNY','JPY','AUD','CAD','HKD','AED'];
+const PAYF=['payment','payDeposit','payBalanceAt','payDays','payCustom'];
+function payText(t){
+  const dep=Math.max(0,Math.min(100,+t.payDeposit||0)),days=+t.payDays||0;
+  const bal=(t.payBalanceAt||'before shipment').replace('N days',(days||30)+' days');
+  switch(t.payment){
+    case 'T/T 电汇':return dep>=100?'100% T/T in advance':dep>0?dep+'% T/T deposit in advance, '+(100-dep)+'% T/T balance '+bal:'100% T/T '+bal;
+    case 'L/C 信用证':return days>0?'100% irrevocable L/C at '+days+' days after B/L date':'100% irrevocable L/C at sight';
+    case 'T/T + L/C 组合':return (dep||30)+'% T/T deposit in advance, '+(100-(dep||30))+'% by irrevocable L/C at '+(days>0?days+' days after B/L date':'sight');
+    case 'D/P 付款交单':return days>0?'D/P at '+days+' days after sight':'D/P at sight';
+    case 'D/A 承兑交单':return 'D/A at '+(days||60)+' days after sight';
+    case 'O/A 赊销':return 'O/A, 100% within '+(days||30)+' days after B/L date';
+    case 'CAD 交单付现':return 'Cash against documents (CAD)';
+    case '信保订单 Trade Assurance':return 'Payment via Alibaba.com Trade Assurance';
+    case '西联 Western Union':return '100% by Western Union in advance';
+    case 'PayPal':return '100% by PayPal in advance';
+    case '信用卡 Credit Card':return '100% by credit card in advance';
+    case '自定义':return t.payCustom||'';
+    default:return t.payment||'';
+  }
+}
+function syncPay(o){if(!o.terms.paymentManual)o.terms.paymentText=payText(o.terms)}
 const STATUSES=['询价','报价','确认','生产','出货','收款','完结'];
-const SYM={USD:'$',EUR:'€',CNY:'¥',GBP:'£'};
+const SYM={USD:'$',EUR:'€',GBP:'£',CNY:'¥',JPY:'JPY ',AUD:'A$',CAD:'C$',HKD:'HK$',AED:'AED '};
 const THEMES={'藏青':'#1d3f72','墨黑':'#262626','港绿':'#16615a','酒红':'#7a1f2b'};
 const TRANSPORT_CD={'海运':'水路运输','空运':'航空运输','铁路':'铁路运输','陆运':'公路运输','快递':'其他运输'};
 
@@ -400,15 +424,15 @@ function seed(){
   const customers=[
     {id:'c1',name:'Global Ventures Pte. Ltd.',short:'GV',country:'新加坡',address:'88 Cross Street, #05-01, Singapore 048445',tax:'UEN 201912345K',notify:'SAME AS CONSIGNEE',level:'A',source:'展会 · 广交会',
      contacts:[{name:'David Kim',title:'Purchasing Manager',email:'purchase@globalventures-demo.sg',phone:'+65 6123 4567'},{name:'Grace Tan',title:'Logistics',email:'logistics@globalventures-demo.sg',phone:'+65 6123 4570'}],
-     habits:{incoterm:'FOB',place:'Qingdao',payment:'T/T',paymentDetail:'30% deposit, 70% before shipment',currency:'USD',pod:'Singapore',marks:'G.V.\nPO NO.: {PO}\nSINGAPORE\nC/NO. 1-{CTNS}\nMADE IN CHINA'},
+     habits:{incoterm:'FOB',place:'Qingdao',payment:'T/T 电汇',payDeposit:30,payBalanceAt:'before shipment',payDays:'',payCustom:'',currency:'USD',pod:'Singapore',marks:'G.V.\nPO NO.: {PO}\nSINGAPORE\nC/NO. 1-{CTNS}\nMADE IN CHINA'},
      notes:'要求中性包装，外箱印 PO 号；付款准时。',follow:[{d:'2026-09-20',t:'询价 3 款铝合金展架，要求 10 月底前出货'},{d:'2026-08-02',t:'外贸订单1 已收尾款，客户反馈包装良好'}]},
     {id:'c2',name:'ABC Trading LLC',short:'ABC',country:'美国',address:'123 Main St, Los Angeles, CA 90001, USA',tax:'EIN 95-1234567',notify:'ABC Logistics Inc., same address',level:'A',source:'阿里巴巴国际站',
      contacts:[{name:'John Miller',title:'Owner',email:'john@abctrading-demo.com',phone:'+1 213 555 0100'}],
-     habits:{incoterm:'CIF',place:'Los Angeles',payment:'L/C at sight',paymentDetail:'Irrevocable L/C at sight',currency:'USD',pod:'Los Angeles',marks:'ABC\nLOS ANGELES\nC/NO. 1-{CTNS}\nMADE IN CHINA'},
+     habits:{incoterm:'CIF',place:'Los Angeles',payment:'L/C 信用证',payDeposit:'',payBalanceAt:'',payDays:0,payCustom:'',currency:'USD',pod:'Los Angeles',marks:'ABC\nLOS ANGELES\nC/NO. 1-{CTNS}\nMADE IN CHINA'},
      notes:'信用证付款，单据要求严格，货描须与 L/C 一致。',follow:[{d:'2026-09-02',t:'L/C 已开到，最迟装期 10-15'}]},
     {id:'c3',name:'Nordhavn Supply ApS',short:'NS',country:'丹麦',address:'Havnegade 12, 1058 Copenhagen K, Denmark',tax:'VAT DK12345678',notify:'SAME AS CONSIGNEE',level:'B',source:'LinkedIn',
      contacts:[{name:'Mette Larsen',title:'Buyer',email:'mette@nordhavn-demo.dk',phone:'+45 33 12 34 56'}],
-     habits:{incoterm:'CFR',place:'Aarhus',payment:'O/A 30 days',paymentDetail:'100% within 30 days after B/L date',currency:'EUR',pod:'Aarhus',marks:'NORDHAVN\nAARHUS\nC/NO. 1-{CTNS}'},
+     habits:{incoterm:'CFR',place:'Aarhus',payment:'O/A 赊销',payDeposit:'',payBalanceAt:'',payDays:30,payCustom:'',currency:'EUR',pod:'Aarhus',marks:'NORDHAVN\nAARHUS\nC/NO. 1-{CTNS}'},
      notes:'欧元结算，需 EORI 号。',follow:[]}
   ];
   const partners=[
@@ -438,7 +462,7 @@ function blankOrder(seller,no,name,created){
   return {id:uid(),no,name,status:'询价',created:created||today(),updated:created||today(),customerId:'',
     seller:clone(seller),
     buyer:{name:'',address:'',contact:'',phone:'',email:'',tax:'',notify:''},
-    terms:{incoterm:'FOB',place:'Qingdao',currency:'USD',payment:'T/T',paymentDetail:'',pol:'Qingdao, China',pod:'',transport:'海运',leadTime:'20-25 working days',shipment:'Within 30 days after receipt of deposit',partial:'Not Allowed',transship:'Allowed',insurance:'To be covered by the Buyer',packing:'Export standard cartons, suitable for ocean transportation'},
+    terms:{incoterm:'FOB',place:'Qingdao',currency:'USD',payment:'T/T 电汇',payDeposit:30,payBalanceAt:'before shipment',payDays:'',payCustom:'',paymentText:'30% T/T deposit in advance, 70% T/T balance before shipment',paymentManual:false,pol:'Qingdao, China',pod:'',transport:'海运',leadTime:'20-25 working days',shipment:'Within 30 days after receipt of deposit',partial:'Not Allowed',transship:'Allowed',insurance:'To be covered by the Buyer',packing:'Export standard cartons, suitable for ocean transportation'},
     numbers:{quote:'QT-'+no,pi:'PI-'+no,contract:'SC-'+no,ci:'CI-'+no,po:'',date:created||today(),validUntil:'',signedAt:'Qingdao, China'},
     items:[],
     shipping:{vessel:'',blNo:'',container:'',seal:'',etd:'',origin:'CHINA',marks:'',side:''},
@@ -450,14 +474,15 @@ function snapCustomer(c){const k=c.contacts[0]||{};return {name:c.name,address:c
 function applyCustomer(o,c){
   o.customerId=c.id;o.buyer=snapCustomer(c);
   const h=c.habits||{};
-  ['incoterm','place','payment','paymentDetail','currency','pod'].forEach(k=>{if(h[k])o.terms[k]=h[k]});
+  ['incoterm','place','currency','pod'].concat(PAYF).forEach(k=>{if(h[k]!=null&&h[k]!=='')o.terms[k]=h[k]});
+  o.terms.paymentManual=false;syncPay(o);
   o.terms.insurance=['CIF','CIP'].includes(h.incoterm)?'To be covered by the Seller for 110% of invoice value against All Risks':'To be covered by the Buyer';
   const map={'新加坡':'新加坡','美国':'美国','丹麦':'丹麦'};
   if(map[c.country]){o.customs.tradeCountry=map[c.country];o.customs.destCountry=map[c.country]}
 }
 function fillMarks(t,o){if(!t)return '';const k=calc(o);return t.replace('{PO}',o.numbers.po||'—').replace('{CTNS}',k.ctns||'UP')}
 
-const LS='ftw-proto-m0-v1';
+const LS='ftw-proto-m0-v2';
 let S;
 try{S=JSON.parse(localStorage.getItem(LS)||'null')}catch(e){S=null}
 if(!S||!S.orders)S=seed();
@@ -512,15 +537,20 @@ const STEPS={
     {p:'buyer.email',l:'邮箱',src:'B'},{p:'buyer.tax',l:'税号 / VAT / EORI',src:'B'},
     {p:'buyer.notify',l:'通知方 Notify Party',w:2,src:'B'}
   ]},
-  items:{label:'货物明细',hint:'可从产品库批量添加；金额自动计算。',table:'items'},
+  items:{label:'货物明细',hint:'先选币种，单价和金额都按这个币种；本订单所有单据统一使用。',fields:[{p:'terms.currency',l:'币种',type:'select',opts:CURRENCIES,labels:{USD:'USD 美元',EUR:'EUR 欧元',GBP:'GBP 英镑',CNY:'CNY 人民币',JPY:'JPY 日元',AUD:'AUD 澳元',CAD:'CAD 加元',HKD:'HKD 港币',AED:'AED 迪拉姆'},req:1,src:'S',rr:1}],table:'items'},
   packing:{label:'包装装箱',hint:'填每箱装量和箱规，箱数、箱号段、净毛重、体积自动算。',table:'packing'},
-  customsItems:{label:'申报商品',hint:'中文品名、HS 编码、申报要素；录过的会进 HS 记忆库。',table:'customsItems'},
+  customsItems:{label:'申报商品',hint:'中文品名、HS 编码、申报要素；录过的会进 HS 记忆库。',fields:[{p:'terms.currency',l:'币制',type:'select',opts:CURRENCIES,req:1,src:'S',rr:1}],table:'customsItems'},
   terms:{label:'贸易条款',hint:'选好客户后，默认交易习惯已自动带入。',fields:[
     {p:'terms.incoterm',l:'贸易术语 Incoterms 2020',type:'select',opts:INCOTERMS,req:1,src:'S'},
     {p:'terms.place',l:'指定地点',req:1,src:'S'},
-    {p:'terms.currency',l:'币种',type:'select',opts:['USD','EUR','CNY','GBP'],req:1,src:'S'},
-    {p:'terms.payment',l:'付款方式',type:'select',opts:PAYMENTS,req:1,src:'B'},
-    {p:'terms.paymentDetail',l:'付款说明',w:2,src:'B'},
+    {h:'付款'},
+    {p:'terms.payment',l:'付款方式',type:'select',opts:PAYMENTS,req:1,src:'B',rr:1},
+    {p:'terms.payCustom',l:'自定义付款方式',req:1,src:'B',show:o=>o.terms.payment==='自定义'},
+    {p:'terms.payDeposit',l:'定金比例 %',src:'B',show:o=>/T\/T/.test(o.terms.payment)},
+    {p:'terms.payBalanceAt',l:'尾款支付节点',type:'select',opts:BALANCE_AT,labels:BALANCE_CN,src:'B',rr:1,show:o=>o.terms.payment==='T/T 电汇'&&(+o.terms.payDeposit||0)<100},
+    {p:'terms.payDays',l:'天数',src:'B',show:o=>['L/C 信用证','T/T + L/C 组合','D/P 付款交单','D/A 承兑交单','O/A 赊销'].includes(o.terms.payment)||(o.terms.payment==='T/T 电汇'&&o.terms.payBalanceAt==='within N days after B/L date')},
+    {p:'terms.paymentText',l:'单据上显示的付款条款',type:'textarea',w:2,req:1,tool:'payreset'},
+    {h:'交货'},
     {p:'terms.pol',l:'装运港 POL',req:1,src:'FF'},{p:'terms.pod',l:'目的港 POD',req:1,src:'B'},
     {p:'terms.transport',l:'运输方式',type:'select',opts:['海运','空运','铁路','陆运','快递'],src:'FF'},
     {p:'terms.leadTime',l:'交期 Lead Time',src:'F'},
@@ -565,7 +595,7 @@ const STEPS={
   ]}
 };
 const TABLES={
-  items:[{k:'model',l:'型号',w:92},{k:'nameEn',l:'品名（英文）',w:210},{k:'spec',l:'规格',w:140},{k:'hs',l:'HS 编码',w:110},{k:'unit',l:'单位',w:70},{k:'qty',l:'数量',w:80,num:1},{k:'price',l:'单价',w:84,num:1},{c:'a',l:'金额',w:96}],
+  items:[{k:'model',l:'型号',w:92},{k:'nameEn',l:'品名（英文）',w:210},{k:'spec',l:'规格',w:140},{k:'hs',l:'HS 编码',w:110},{k:'unit',l:'单位',w:70},{k:'qty',l:'数量',w:80,num:1},{k:'price',l:'单价 ({CUR})',w:92,num:1},{c:'a',l:'金额 ({CUR})',w:104}],
   packing:[{k:'nameEn',l:'品名',w:190},{c:'q',l:'数量',w:64},{k:'pcsPerCtn',l:'每箱装',w:64,num:1},{k:'l',l:'长 cm',w:60,num:1},{k:'w',l:'宽 cm',w:60,num:1},{k:'h',l:'高 cm',w:60,num:1},{k:'nw',l:'净重/箱',w:70,num:1},{k:'gw',l:'毛重/箱',w:70,num:1},{c:'n',l:'箱数',w:54},{c:'cno',l:'箱号',w:74},{c:'cbmT',l:'体积 m³',w:70}],
   customsItems:[{k:'nameCn',l:'中文品名',w:170},{k:'hs',l:'商品编号',w:110},{k:'elements',l:'申报要素',w:250},{k:'model',l:'型号',w:90},{c:'q',l:'数量',w:64}]
 };
@@ -576,7 +606,7 @@ function stepPaths(step){
 }
 function missing(o,step){
   const s=STEPS[step],out=[];
-  (s.fields||[]).forEach(f=>{if(f.req&&!String(getP(o,f.p)==null?'':getP(o,f.p)).trim())out.push(f.l)});
+  (s.fields||[]).forEach(f=>{if(f.show&&!f.show(o))return;if(f.req&&!String(getP(o,f.p)==null?'':getP(o,f.p)).trim())out.push(f.l)});
   if(s.table==='items'){if(!o.items.length)out.push('至少一行货物');o.items.forEach((it,i)=>{if(!it.nameEn)out.push('第'+(i+1)+'行品名');if(!(+it.qty))out.push('第'+(i+1)+'行数量');if(!(+it.price))out.push('第'+(i+1)+'行单价')})}
   if(s.table==='packing')o.items.forEach((it,i)=>{if(!(+it.pcsPerCtn))out.push('第'+(i+1)+'行每箱装');if(!(+it.gw))out.push('第'+(i+1)+'行毛重');if(!(+it.l&&+it.w&&+it.h))out.push('第'+(i+1)+'行箱规')});
   if(s.table==='customsItems')o.items.forEach((it,i)=>{if(!it.nameCn)out.push('第'+(i+1)+'行中文品名');if(!it.hs)out.push('第'+(i+1)+'行商品编号')});
@@ -723,18 +753,22 @@ function renderNav(){
 }
 function fieldHTML(o,f){
   if(f.h)return '<div class="sub w2"><span>'+f.h+'</span>'+(f.tools==='buyer'?'<span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-act="pickCustomer">从客户库选择</button><button class="btn sm" data-act="saveCustomer">保存到客户库</button></span>':'')+'</div>';
+  if(f.show&&!f.show(o))return '';
   const v=getP(o,f.p),id=idOf(f.p),tag=f.src?'<span class="tag '+f.src+'" title="由'+({S:'卖方',B:'买方',FF:'货代',CB:'报关行',F:'工厂'}[f.src])+'提供">'+f.src+'</span>':'';
-  const lab='<label for="'+id+'">'+esc(f.l)+(f.req?'<span class="req">*</span>':'')+tag+'</label>';
+  const tool=f.tool==='payreset'?(o.terms.paymentManual?'<button class="btn ghost sm" data-act="payReset" style="margin-left:auto">恢复自动生成</button>':'<span class="muted" style="margin-left:auto;font-size:11.5px">根据上面的选项自动生成，可直接修改</span>'):'';
+  const rr=f.rr?' data-rr="1"':'';
+  const lab='<label for="'+id+'">'+esc(f.l)+(f.req?'<span class="req">*</span>':'')+tag+tool+'</label>';
   let inp;
   if(f.type==='textarea')inp='<textarea id="'+id+'" data-p="'+f.p+'" rows="3">'+esc(v)+'</textarea>';
-  else if(f.type==='select'){const opts=f.opts.slice();if(v&&!opts.includes(v))opts.unshift(v);inp='<select id="'+id+'" data-p="'+f.p+'">'+opts.map(x=>'<option'+(x===v?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'}
+  else if(f.type==='select'&&f.labels){inp='<select id="'+id+'" data-p="'+f.p+'"'+rr+'>'+f.opts.map(x=>'<option value="'+esc(x)+'"'+(x===v?' selected':'')+'>'+esc(f.labels[x]||x)+'</option>').join('')+'</select>'}
+  else if(f.type==='select'){const opts=f.opts.slice();if(v&&!opts.includes(v))opts.unshift(v);inp='<select id="'+id+'" data-p="'+f.p+'"'+rr+'>'+opts.map(x=>'<option'+(x===v?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'}
   else if(f.type==='checkbox')return '<div class="fi chk'+(f.w?' w2':'')+'"><input type="checkbox" id="'+id+'" data-p="'+f.p+'"'+(v?' checked':'')+'><label for="'+id+'">'+esc(f.l)+'</label></div>';
   else inp='<input id="'+id+'" data-p="'+f.p+'" type="'+(f.type==='date'?'date':'text')+'" value="'+esc(v)+'">';
   return '<div class="fi'+(f.w?' w2':'')+'">'+lab+inp+'</div>';
 }
 function tableHTML(o,t){
   const cols=TABLES[t];
-  const head='<tr><th class="ix">#</th>'+cols.map(c=>'<th style="min-width:'+c.w+'px">'+c.l+'</th>').join('')+(t==='items'?'<th></th>':'')+'</tr>';
+  const head='<tr><th class="ix">#</th>'+cols.map(c=>'<th style="min-width:'+c.w+'px">'+c.l.replace('{CUR}',o.terms.currency)+'</th>').join('')+(t==='items'?'<th></th>':'')+'</tr>';
   const body=o.items.map((it,i)=>'<tr><td class="ix">'+(i+1)+'</td>'+cols.map(c=>c.k?'<td><input class="cell'+(c.num?' num':'')+'" id="'+idOf('items.'+i+'.'+c.k)+'" data-p="items.'+i+'.'+c.k+'" value="'+esc(it[c.k])+'"'+(c.num?' inputmode="decimal"':'')+' aria-label="'+c.l+'"></td>':'<td class="calc" data-calc="'+i+':'+c.c+'"></td>').join('')+(t==='items'?'<td><button class="del" data-act="delItem" data-i="'+i+'" title="删除此行">✕</button></td>':'')+'</tr>').join('');
   let foot='';
   if(t==='items')foot='<tfoot><tr><td></td><td colspan="5">合计</td><td data-calc="t:qty" style="text-align:right"></td><td></td><td data-calc="t:amount" style="text-align:right"></td><td></td></tr></tfoot>';
@@ -805,7 +839,7 @@ function docQuotePI(o,kind){
   const meta=kind==='quote'?[['No.',F('numbers.quote')],['Date',F('numbers.date')],['Valid Until',F('numbers.validUntil','—')]]:[['No.',F('numbers.pi')],['Date',F('numbers.date')],['PO No.',F('numbers.po','—')]];
   return paper(o,head(o,kind==='quote'?'QUOTATION':'PROFORMA INVOICE',meta)+
   '<div class="d-two">'+buyerBox('TO / BUYER')+'<div class="d-box"><div class="d-lab">BANK INFORMATION</div><div class="d-pre">'+F('seller.bank','[收款银行信息]')+'</div></div></div>'+
-  '<div class="d-terms"><div><span>Incoterms 2020</span>'+F('terms.incoterm')+' '+F('terms.place')+'</div><div><span>Payment</span>'+F('terms.payment')+' '+O('terms.paymentDetail')+'</div><div><span>Lead Time</span>'+F('terms.leadTime','—')+'</div><div><span>Port of Loading</span>'+F('terms.pol')+'</div><div><span>Destination</span>'+F('terms.pod','[目的港]')+'</div><div><span>Currency</span>'+F('terms.currency')+'</div></div>'+
+  '<div class="d-terms"><div><span>Incoterms 2020</span>'+F('terms.incoterm')+' '+F('terms.place')+'</div><div style="grid-column:span 2"><span>Payment</span>'+F('terms.paymentText')+'</div><div><span>Lead Time</span>'+F('terms.leadTime','—')+'</div><div><span>Port of Loading</span>'+F('terms.pol')+'</div><div><span>Destination</span>'+F('terms.pod','[目的港]')+'</div><div><span>Currency</span>'+F('terms.currency')+'</div></div>'+
   '<table class="d-tbl"><thead><tr><th style="width:26px">No.</th><th style="width:78px">Model</th><th>Description</th><th style="width:42px">Unit</th><th style="width:58px">Qty</th><th style="width:76px">Unit Price<br>('+c+')</th><th style="width:88px">Amount<br>('+c+')</th></tr></thead><tbody>'+itemRowsPI(o,k)+
   '<tr class="tot"><td colspan="4">TOTAL &nbsp;'+esc((o.terms.incoterm+' '+o.terms.place).toUpperCase())+'</td><td class="r">'+k.qty.toLocaleString('en-US')+'</td><td></td><td class="r">'+sym+money(k.amount)+'</td></tr></tbody></table>'+
   '<div class="d-words">'+amountWords(k.amount,c)+'</div>'+
@@ -816,7 +850,7 @@ function docQuotePI(o,kind){
 function docContract(o){
   const k=calc(o),c=o.terms.currency,sym=SYM[c]||'';
   const rows=k.rows.map((r,i)=>'<tr><td class="c">'+(i+1)+'</td><td>'+FV('items.'+i+'.nameEn',r.nameEn,'[品名]')+'<div class="d-sub">'+FV('items.'+i+'.model',r.model)+' · '+FV('items.'+i+'.spec',r.spec,'规格')+'</div></td><td class="r">'+FV('items.'+i+'.qty',r.q?r.q.toLocaleString('en-US'):'','0')+' '+esc(r.unit)+'</td><td class="r">'+FV('items.'+i+'.price',r.p?money(r.p):'','0.00')+'</td><td class="r b">'+money(r.a)+'</td></tr>').join('');
-  const cl=[['1. 装运港 Port of Loading',F('terms.pol')],['2. 目的港 Port of Destination',F('terms.pod','[目的港]')],['3. 成交方式 Terms',F('terms.incoterm')+' '+F('terms.place')+' (Incoterms 2020)'],['4. 包装 Packing',F('terms.packing')],['5. 唛头 Shipping Marks',F('shipping.marks','N/M')],['6. 付款方式 Payment',F('terms.payment')+' '+O('terms.paymentDetail')],['7. 装运期限 Shipment',F('terms.shipment')+'；分批 Partial: '+F('terms.partial')+'；转运 Transshipment: '+F('terms.transship')],['8. 保险 Insurance',F('terms.insurance')],['9. 检验 Inspection','以卖方出厂检验为准，买方可在装运前自费验货。 The Seller\'s factory inspection shall be final; the Buyer may inspect before shipment at its own cost.'],['10. 不可抗力 Force Majeure','因不可抗力导致延迟或无法交货，卖方不承担责任。 The Seller shall not be liable for delay or non-delivery caused by force majeure.'],['11. 仲裁 Arbitration','争议提交中国国际经济贸易仲裁委员会仲裁，裁决为终局。 Disputes shall be submitted to CIETAC for arbitration; the award is final.']];
+  const cl=[['1. 装运港 Port of Loading',F('terms.pol')],['2. 目的港 Port of Destination',F('terms.pod','[目的港]')],['3. 成交方式 Terms',F('terms.incoterm')+' '+F('terms.place')+' (Incoterms 2020)'],['4. 包装 Packing',F('terms.packing')],['5. 唛头 Shipping Marks',F('shipping.marks','N/M')],['6. 付款方式 Payment',F('terms.paymentText')],['7. 装运期限 Shipment',F('terms.shipment')+'；分批 Partial: '+F('terms.partial')+'；转运 Transshipment: '+F('terms.transship')],['8. 保险 Insurance',F('terms.insurance')],['9. 检验 Inspection','以卖方出厂检验为准，买方可在装运前自费验货。 The Seller\'s factory inspection shall be final; the Buyer may inspect before shipment at its own cost.'],['10. 不可抗力 Force Majeure','因不可抗力导致延迟或无法交货，卖方不承担责任。 The Seller shall not be liable for delay or non-delivery caused by force majeure.'],['11. 仲裁 Arbitration','争议提交中国国际经济贸易仲裁委员会仲裁，裁决为终局。 Disputes shall be submitted to CIETAC for arbitration; the award is final.']];
   return paper(o,'<div class="d-center"><div class="d-ctitle" style="color:var(--acc)">销售合同</div><div class="d-csub">SALES CONTRACT</div></div><div class="d-rule" style="height:2px"></div>'+
   '<div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:10px"><div><b>合同号 Contract No.:</b> '+F('numbers.contract')+'<br><b>签约地 Signed at:</b> '+F('numbers.signedAt')+'</div><div style="text-align:right"><b>日期 Date:</b> '+F('numbers.date')+'</div></div>'+
   '<div style="margin-bottom:6px"><b>卖方 SELLER:</b> '+F('seller.name')+'<br>地址 Address: '+F('seller.address')+'<br>电话 Tel: '+F('seller.phone')+'</div>'+
@@ -834,7 +868,7 @@ function docCI(o){
   const rows=k.rows.map((r,i)=>'<tr>'+(i===0?'<td rowspan="'+k.rows.length+'" class="d-pre" style="width:110px;font-size:9.5px">'+F('shipping.marks','N/M')+'</td>':'')+'<td>'+FV('items.'+i+'.nameEn',r.nameEn,'[品名]')+'<div class="d-sub">'+FV('items.'+i+'.model',r.model)+' · HS '+FV('items.'+i+'.hs',r.hs,'—')+'</div></td><td class="r">'+FV('items.'+i+'.qty',r.q?r.q.toLocaleString('en-US'):'','0')+' '+esc(r.unit)+'</td><td class="r">'+FV('items.'+i+'.price',r.p?money(r.p):'','0.00')+'</td><td class="r b">'+money(r.a)+'</td></tr>').join('');
   return paper(o,head(o,'COMMERCIAL INVOICE',[['Invoice No.',F('numbers.ci')],['Date',F('numbers.date')],['Contract No.',F('numbers.contract')],['PO No.',F('numbers.po','—')]])+
   '<div class="d-two">'+buyerBox('SOLD TO / CONSIGNEE')+shipBox()+'</div>'+
-  '<div class="d-terms"><div><span>Terms</span>'+F('terms.incoterm')+' '+F('terms.place')+'</div><div><span>Payment</span>'+F('terms.payment')+'</div><div><span>Country of Origin</span>'+F('shipping.origin')+'</div></div>'+
+  '<div class="d-terms"><div><span>Terms</span>'+F('terms.incoterm')+' '+F('terms.place')+'</div><div><span>Payment</span>'+F('terms.paymentText')+'</div><div><span>Country of Origin</span>'+F('shipping.origin')+'</div></div>'+
   '<table class="d-tbl"><thead><tr><th>Marks &amp; Nos.</th><th>Description of Goods</th><th style="width:88px">Quantity</th><th style="width:76px">Unit Price ('+c+')</th><th style="width:90px">Amount ('+c+')</th></tr></thead><tbody>'+(rows||'<tr><td colspan="5" class="c" style="color:#999;padding:18px">尚未添加货物</td></tr>')+
   '<tr class="tot"><td colspan="2">TOTAL</td><td class="r">'+k.qty.toLocaleString('en-US')+'</td><td></td><td class="r">'+sym+money(k.amount)+'</td></tr></tbody></table>'+
   '<div class="d-words">'+amountWords(k.amount,c)+'</div>'+
@@ -895,7 +929,7 @@ function mailText(o,b){
   const k=calc(o),sel=(V.expSel||[]).map(d=>(EXPDOCS.find(x=>x[0]===d)||[])[1]).filter(Boolean);
   const pid=o.partners[b==='报关行'?'broker':b==='货代'?'forwarder':'factory'];
   const pt=S.partners.find(p=>p.id===pid);
-  if(b==='客户'){const first=(o.buyer.contact||'Sir/Madam').split(' ')[0];return 'Dear '+first+',\n\nPlease find attached the documents for order '+(o.numbers.po||o.no)+':\n'+sel.map(x=>'- '+x).join('\n')+'\n\nTotal amount: '+o.terms.currency+' '+money(k.amount)+' ('+o.terms.incoterm+' '+o.terms.place+')\nPayment: '+o.terms.payment+(o.terms.paymentDetail?', '+o.terms.paymentDetail:'')+'\nPacking: '+k.ctns+' cartons, G.W. '+fx(k.gw,2)+' kg, '+fx(k.cbm,2)+' CBM\n\nPlease check and confirm at your earliest convenience.\n\nBest regards,\n'+o.seller.name}
+  if(b==='客户'){const first=(o.buyer.contact||'Sir/Madam').split(' ')[0];return 'Dear '+first+',\n\nPlease find attached the documents for order '+(o.numbers.po||o.no)+':\n'+sel.map(x=>'- '+x).join('\n')+'\n\nTotal amount: '+o.terms.currency+' '+money(k.amount)+' ('+o.terms.incoterm+' '+o.terms.place+')\nPayment: '+o.terms.paymentText+'\nPacking: '+k.ctns+' cartons, G.W. '+fx(k.gw,2)+' kg, '+fx(k.cbm,2)+' CBM\n\nPlease check and confirm at your earliest convenience.\n\nBest regards,\n'+o.seller.name}
   const who=pt?pt.contact:'您';
   return who+'您好：\n\n附件是订单 '+o.no+'（'+(o.buyer.name||'')+'）的资料，请查收：\n'+sel.map(x=>'· '+x).join('\n')+'\n\n共 '+k.ctns+' 箱，毛重 '+fx(k.gw,2)+' KG，体积 '+fx(k.cbm,2)+' CBM，'+o.terms.pol+' → '+(o.terms.pod||'—')+'。\n'+(b==='报关行'?'请安排申报，有问题随时联系，谢谢！':b==='货代'?'请安排订舱，确认船期后回传提单草稿，谢谢！':'请按唛头和包装要求安排生产包装，谢谢！')+'\n\n'+(o.seller.nameCn||o.seller.name);
 }
@@ -932,7 +966,7 @@ function pageCustomers(){
     '<div class="cstats"><div class="stat"><b>'+st.os.length+'</b><span>历史订单</span></div><div class="stat"><b>'+st.total+'</b><span>累计金额</span></div><div class="stat"><b>'+st.last+'</b><span>最近下单</span></div></div>'+
     '<div class="cblock"><h3>基本信息</h3><div class="grid">'+fi('name','公司名称',{w:1})+fi('address','地址',{w:1,ta:1})+fi('country','国家')+fi('tax','税号 / VAT / EORI')+fi('notify','通知方')+fi('level','客户等级',{opts:['A','B','C']})+'</div></div>'+
     '<div class="cblock"><h3>联系人</h3><div class="tbl-wrap"><table class="tbl" style="min-width:560px"><thead><tr><th>姓名</th><th>职位</th><th>邮箱</th><th>电话 / WhatsApp</th></tr></thead><tbody>'+contacts+'</tbody></table></div></div>'+
-    '<div class="cblock"><h3>默认交易习惯 <span class="muted" style="font-weight:400">· 新建订单时自动带入</span></h3><div class="grid">'+fi('habits.incoterm','贸易术语',{opts:INCOTERMS})+fi('habits.place','指定地点')+fi('habits.payment','付款方式',{opts:PAYMENTS})+fi('habits.currency','币种',{opts:['USD','EUR','CNY','GBP']})+fi('habits.paymentDetail','付款说明',{w:1})+fi('habits.pod','目的港')+'<div></div>'+fi('habits.marks','唛头模板（{PO} {CTNS} 自动替换）',{w:1,ta:1})+'</div></div>'+
+    '<div class="cblock"><h3>默认交易习惯 <span class="muted" style="font-weight:400">· 新建订单时自动带入</span></h3><div class="grid">'+fi('habits.incoterm','贸易术语',{opts:INCOTERMS})+fi('habits.place','指定地点')+fi('habits.currency','币种',{opts:CURRENCIES})+fi('habits.pod','目的港')+fi('habits.payment','付款方式',{opts:PAYMENTS})+fi('habits.payCustom','自定义付款方式（选「自定义」时填）')+fi('habits.payDeposit','定金比例 %')+fi('habits.payDays','天数（信用证远期 / 赊销等）')+'<div class="fi w2"><label>付款条款预览</label><div class="note" style="margin:0" id="cust-paytext">'+esc(payText(h))+'</div></div>'+fi('habits.marks','唛头模板（{PO} {CTNS} 自动替换）',{w:1,ta:1})+'</div></div>'+
     '<div class="cblock"><h3>历史订单</h3><div class="panel">'+(hist||'<div class="empty">暂无订单</div>')+'</div></div>'+
     '<div class="cblock"><h3>跟进记录</h3><ul class="follow">'+(c.follow||[]).map(f=>'<li><span class="num">'+esc(f.d)+'</span><span>'+esc(f.t)+'</span></li>').join('')+'</ul><div style="display:flex;gap:8px;margin-top:10px"><input class="cell" style="border-color:var(--line-2)" id="follow-in" placeholder="记录一次沟通，如：客户要求改交期到 11 月初"><button class="btn" data-act="addFollow">添加</button></div></div>'+
     '<div class="cblock"><h3>备注</h3><div class="grid">'+fi('notes','',{w:1,ta:1})+'</div></div></div>';
@@ -1029,7 +1063,7 @@ const ACT={
     const b=CUR.buyer;if(!b.name){toast('请先填写买方公司名称');return}
     let c=S.customers.find(x=>x.id===CUR.customerId);
     if(c){c.name=b.name;c.address=b.address;c.tax=b.tax;c.notify=b.notify;if(c.contacts[0])Object.assign(c.contacts[0],{name:b.contact,phone:b.phone,email:b.email});toast('已同步更新客户库：'+c.name)}
-    else{c={id:uid(),name:b.name,short:'',country:'',address:b.address,tax:b.tax,notify:b.notify,level:'B',source:'',contacts:[{name:b.contact,title:'',email:b.email,phone:b.phone}],habits:{incoterm:CUR.terms.incoterm,place:CUR.terms.place,payment:CUR.terms.payment,paymentDetail:CUR.terms.paymentDetail,currency:CUR.terms.currency,pod:CUR.terms.pod,marks:CUR.shipping.marks},notes:'',follow:[]};S.customers.push(c);CUR.customerId=c.id;toast('已保存到客户库，下次可直接调用')}
+    else{c={id:uid(),name:b.name,short:'',country:'',address:b.address,tax:b.tax,notify:b.notify,level:'B',source:'',contacts:[{name:b.contact,title:'',email:b.email,phone:b.phone}],habits:{incoterm:CUR.terms.incoterm,place:CUR.terms.place,payment:CUR.terms.payment,payDeposit:CUR.terms.payDeposit,payBalanceAt:CUR.terms.payBalanceAt,payDays:CUR.terms.payDays,payCustom:CUR.terms.payCustom,currency:CUR.terms.currency,pod:CUR.terms.pod,marks:CUR.shipping.marks},notes:'',follow:[]};S.customers.push(c);CUR.customerId=c.id;toast('已保存到客户库，下次可直接调用')}
     save();
   },
   addItem:()=>{CUR.items.push({id:uid(),model:'',nameEn:'',nameCn:'',spec:'',hs:'',unit:'PCS',qty:'',price:'',pcsPerCtn:'',l:'',w:'',h:'',nw:'',gw:'',elements:''});save();renderForm();renderNav();renderPreview();const el=document.getElementById(idOf('items.'+(CUR.items.length-1)+'.model'));if(el)el.focus()},
@@ -1037,13 +1071,14 @@ const ACT={
   pickProducts:()=>{modal('从产品库添加',S.products.map(p=>'<label class="opt"><input type="checkbox" value="'+p.id+'" name="pp"><span><b>'+esc(p.model+' · '+p.nameCn)+'</b><small>'+esc(p.nameEn)+' · $'+money(p.price)+' / '+p.unit+' · '+p.pcsPerCtn+' '+p.unit+'/箱</small></span></label>').join(''),'<button class="btn" data-act="closeModal">取消</button><button class="btn pri" data-act="addProducts">添加所选</button>')},
   addProducts:()=>{const ids=[...document.querySelectorAll('input[name="pp"]:checked')].map(x=>x.value);ids.forEach(id=>{const p=S.products.find(x=>x.id===id);CUR.items.push({id:uid(),model:p.model,nameEn:p.nameEn,nameCn:p.nameCn,spec:p.spec,hs:p.hs,unit:p.unit,qty:'',price:p.price,pcsPerCtn:p.pcsPerCtn,l:p.l,w:p.w,h:p.h,nw:p.nw,gw:p.gw,elements:p.elements})});save();closeModal();renderForm();renderNav();renderPreview();if(ids.length)toast('已添加 '+ids.length+' 个产品，请填写数量')},
   autoMarks:()=>{const c=S.customers.find(x=>x.id===CUR.customerId);CUR.shipping.marks=fillMarks(c?c.habits.marks:'{PO}\nC/NO. 1-{CTNS}\nMADE IN CHINA',CUR);save();renderForm();renderPreview();toast('已按客户唛头模板重新生成')},
+  payReset:()=>{CUR.terms.paymentManual=false;syncPay(CUR);save();renderForm();renderPreview();toast('已按付款方式重新生成付款条款')},
   exportDoc:d=>{const no=V.doc==='marks'?'Marks-'+CUR.no:getP(CUR,DOCNO[V.doc]);toast('原型演示：正式版会把「'+DOCNAMES[V.doc]+'」保存为 '+no+'.'+(d.fmt==='PDF'?'pdf':'xlsx')+' 到电脑')},
   bundle:d=>{V.bundle=d.b;V.expSel=null;V.expDoc=null;render()},
   expDoc:d=>{V.expDoc=d.doc;render()},
   genBundle:()=>{const names=V.expSel.map(d=>(EXPDOCS.find(x=>x[0]===d)||[])[1]);toast('原型演示：正式版会生成 '+CUR.name+'_'+V.bundle+'.zip，含 '+names.join('、'))},
   copyMail:()=>{const t=document.getElementById('mail');const done=()=>toast('邮件正文已复制');if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t.value).then(done).catch(()=>{t.select();toast('已选中，按 Ctrl+C 复制')});else{t.select();toast('已选中，按 Ctrl+C 复制')}},
   custSel:d=>{V.custId=d.id;render()},
-  newCustomer:()=>{const c={id:uid(),name:'New Customer Co., Ltd.',short:'',country:'',address:'',tax:'',notify:'',level:'B',source:'',contacts:[{name:'',title:'',email:'',phone:''}],habits:{incoterm:'FOB',place:'Qingdao',payment:'T/T',paymentDetail:'',currency:'USD',pod:'',marks:''},notes:'',follow:[]};S.customers.unshift(c);V.custId=c.id;save();render();toast('已新建客户，请完善资料')},
+  newCustomer:()=>{const c={id:uid(),name:'New Customer Co., Ltd.',short:'',country:'',address:'',tax:'',notify:'',level:'B',source:'',contacts:[{name:'',title:'',email:'',phone:''}],habits:{incoterm:'FOB',place:'Qingdao',payment:'T/T 电汇',payDeposit:30,payBalanceAt:'before shipment',payDays:'',payCustom:'',currency:'USD',pod:'',marks:''},notes:'',follow:[]};S.customers.unshift(c);V.custId=c.id;save();render();toast('已新建客户，请完善资料')},
   addFollow:()=>{const el=document.getElementById('follow-in');const c=S.customers.find(x=>x.id===V.custId);if(!el.value.trim()||!c)return;c.follow=c.follow||[];c.follow.unshift({d:today(),t:el.value.trim()});save();render()},
   ptype:d=>{V.ptype=d.t;render()},
   soon:d=>toast('「'+d.t+'」在正式版中提供，原型暂不演示'),
@@ -1066,11 +1101,15 @@ function onEdit(e){
   if(t.id==='cust-q'){if(e.type!=='input')return;V.cq=t.value;const pos=t.selectionStart;render();const n=document.getElementById('cust-q');n.focus();n.setSelectionRange(pos,pos);return}
   if(t.dataset.q!=null){runCalc();return}
   if(t.dataset.exp!=null){if(e.type!=='change')return;const k=t.dataset.exp;V.expSel=t.checked?V.expSel.concat(k):V.expSel.filter(x=>x!==k);if(t.checked)V.expDoc=k;render();return}
-  if(t.dataset.cp!=null){const c=S.customers.find(x=>x.id===V.custId);if(!c)return;setP(c,t.dataset.cp,t.value);save();if(t.dataset.cp==='name'){const n=document.getElementById('cn-'+c.id);if(n)n.textContent=t.value}return}
+  if(t.dataset.cp!=null){const c=S.customers.find(x=>x.id===V.custId);if(!c)return;setP(c,t.dataset.cp,t.value);save();const pt=document.getElementById('cust-paytext');if(pt)pt.textContent=payText(c.habits);if(t.dataset.cp==='name'){const n=document.getElementById('cn-'+c.id);if(n)n.textContent=t.value}return}
   if(t.dataset.p!=null&&CUR){
     if(t.type==='checkbox'&&e.type!=='change')return;
-    setP(CUR,t.dataset.p,t.type==='checkbox'?t.checked:t.value);CUR.updated=today();save();
-    if(V.page==='module'){renderPreview();renderNav();updateCalcs()}
+    setP(CUR,t.dataset.p,t.type==='checkbox'?t.checked:t.value);CUR.updated=today();
+    const key=t.dataset.p.split('.')[1];
+    if(t.dataset.p==='terms.paymentText'){if(!CUR.terms.paymentManual){CUR.terms.paymentManual=true;const lb=document.querySelector('label[for="in-terms-paymentText"] .muted');if(lb)lb.outerHTML='<button class="btn ghost sm" data-act="payReset" style="margin-left:auto">恢复自动生成</button>'}}
+    else if(t.dataset.p.startsWith('terms.')&&PAYF.includes(key)){syncPay(CUR);const ta=document.getElementById('in-terms-paymentText');if(ta&&!CUR.terms.paymentManual)ta.value=CUR.terms.paymentText}
+    save();
+    if(V.page==='module'){if(t.dataset.rr&&e.type==='change'){const fm=document.getElementById('form'),y=fm.scrollTop;renderForm();fm.scrollTop=y}renderPreview();renderNav();updateCalcs()}
   }
 }
 app.addEventListener('input',onEdit);
