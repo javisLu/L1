@@ -1,19 +1,15 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import { del, get, set } from 'idb-keyval';
+import { appStorage } from './storage';
 import { PAYMENT_KEYS } from './paths';
 import { seed } from '../domain/seed';
 import { applyCustomer, autoPlace, blankOrder, copyOrder, orderNo, syncPay } from '../domain/factory';
 import { today, uid } from '../domain/calc';
 import type { Customer, DataState, Order } from '../domain/types';
 
-/** 数据保存在本机 IndexedDB（桌面版同样保存在本机应用目录），不上传任何服务器 */
-const idbStorage: StateStorage = {
-  getItem: async (k) => (await get<string>(k)) ?? null,
-  setItem: (k, v) => set(k, v),
-  removeItem: (k) => del(k),
-};
+/** 数据只保存在本机（桌面版为应用数据目录下的文件），不上传任何服务器 */
+export let hydrationError: unknown = null;
 
 export function setPath(obj: unknown, path: string, value: unknown) {
   const ks = path.split('.');
@@ -160,7 +156,10 @@ export const useData = create<DataStore>()(
     {
       name: 'trade-workbench-data',
       version: 1,
-      storage: createJSONStorage(() => idbStorage),
+      storage: createJSONStorage(() => appStorage),
+      onRehydrateStorage: () => (_state, error) => {
+        if (error) hydrationError = error;
+      },
       partialize: (s) => ({ seller: s.seller, products: s.products, customers: s.customers, partners: s.partners, orders: s.orders, seq: s.seq }),
     },
   ),

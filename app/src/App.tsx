@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ModalHost, Toasts } from './components/common';
-import { useData } from './store/data';
+import { hydrationError, useData } from './store/data';
 import { useUI } from './store/ui';
 import { Home } from './pages/Home';
 import { OrderMenu } from './pages/OrderMenu';
@@ -10,10 +10,22 @@ import { Clauses, Customers, HsMemory, Partners, Products } from './pages/Librar
 import { QuoteCalc } from './pages/QuoteCalc';
 import { MODS } from './modules/defs';
 
-function useHydrated() {
-  const [ok, setOk] = useState(useData.persist.hasHydrated());
-  useEffect(() => useData.persist.onFinishHydration(() => setOk(true)), []);
-  return ok;
+/** 等待本地数据载入；订阅后再检查一次，避免载入在订阅之前就已完成 */
+function useHydrated(): 'loading' | 'ok' | 'error' {
+  const [st, setSt] = useState<'loading' | 'ok' | 'error'>(useData.persist.hasHydrated() ? 'ok' : 'loading');
+  useEffect(() => {
+    const unsub = useData.persist.onFinishHydration(() => setSt('ok'));
+    if (useData.persist.hasHydrated()) setSt('ok');
+    const t = setInterval(() => {
+      if (useData.persist.hasHydrated()) setSt('ok');
+      else if (hydrationError) setSt('error');
+    }, 200);
+    return () => {
+      unsub();
+      clearInterval(t);
+    };
+  }, []);
+  return st;
 }
 
 function Screen() {
@@ -43,7 +55,15 @@ function Screen() {
 
 export function App() {
   const hydrated = useHydrated();
-  if (!hydrated) return <div className="empty">正在载入本地数据…</div>;
+  if (hydrated === 'loading') return <div className="empty">正在载入本地数据…</div>;
+  if (hydrated === 'error')
+    return (
+      <div className="empty">
+        本地数据读取失败：{String(hydrationError)}
+        <br />
+        <button className="btn" style={{ marginTop: 12 }} onClick={() => location.reload()}>重试</button>
+      </div>
+    );
   return (
     <>
       <Screen />
