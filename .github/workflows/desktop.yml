@@ -74,3 +74,23 @@ jobs:
           path: ${{ matrix.bundle }}
           if-no-files-found: error
           retention-days: 30
+      - name: Windows 冒烟测试（启动程序并点开各页面）
+        if: matrix.name == 'Windows'
+        working-directory: app
+        shell: pwsh
+        run: |
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=9222"
+          $env:SMOKE_OUT = "smoke"
+          $p = Start-Process -FilePath "src-tauri/target/release/trade-workbench.exe" -PassThru
+          node scripts/smoke-cdp.mjs
+          $code = $LASTEXITCODE
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          exit $code
+      - name: 上传冒烟测试截图
+        if: always() && matrix.name == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-screenshots
+          path: app/smoke/*.png
+          if-no-files-found: ignore
+          retention-days: 7

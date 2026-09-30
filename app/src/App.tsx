@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ModalHost, Toasts } from './components/common';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { hydrationError, useData } from './store/data';
 import { useUI } from './store/ui';
 import { Home } from './pages/Home';
@@ -66,7 +67,9 @@ export function App() {
     );
   return (
     <>
-      <Screen />
+      <ErrorBoundary>
+        <Screen />
+      </ErrorBoundary>
       <ModalHost />
       <Toasts />
     </>
