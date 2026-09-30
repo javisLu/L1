@@ -15,7 +15,13 @@ for (let i = 0; i < 30 && !browser; i++) {
   }
 }
 if (!browser) throw new Error('连接不上桌面程序的调试端口 9222');
-const page = browser.contexts()[0].pages()[0];
+// 程序窗口的页面可能比调试端口晚就绪，最多等 30 秒
+let page;
+for (let i = 0; i < 60 && !page; i++) {
+  page = browser.contexts()[0]?.pages()[0];
+  if (!page) await new Promise((r) => setTimeout(r, 500));
+}
+if (!page) throw new Error('桌面程序窗口没有出现');
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + '\n' + (e.stack || '')));
 page.on('console', (m) => m.type() === 'error' && errors.push('console: ' + m.text()));
 
