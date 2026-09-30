@@ -79,7 +79,8 @@ jobs:
         working-directory: app
         shell: pwsh
         run: |
-          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=9222"
+          # 仅测试用：带调试端口重新编译一份（发布的安装包不含调试端口）
+          npx tauri build --no-bundle --config src-tauri/tauri.smoke.json
           $env:SMOKE_OUT = "smoke"
           $p = Start-Process -FilePath "src-tauri/target/release/trade-workbench.exe" -PassThru
           node scripts/smoke-cdp.mjs
