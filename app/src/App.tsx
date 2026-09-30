@@ -32,7 +32,10 @@ function useHydrated(): 'loading' | 'ok' | 'error' {
 function Screen() {
   const { page, orderId, mod } = useUI();
   const order = useData((s) => s.orders.find((o) => o.id === orderId));
-  useEffect(() => window.scrollTo(0, 0), [page, orderId, mod]);
+  // 注意用花括号：新版 WebView2 的 scrollTo 返回 Promise，若直接返回会被 React 当成清理函数调用而崩溃
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [page, orderId, mod]);
 
   if ((page === 'order' || page === 'module') && !order) return <Home />;
   switch (page) {
