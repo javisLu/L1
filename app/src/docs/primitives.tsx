@@ -1,22 +1,44 @@
-import { createContext, useContext, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useContext, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 
 /**
- * 单据排版积木。模板只用 Box / Row / Txt / Fld 书写，样式限定在 flex 布局子集，
- * 坐标单位按 A4 = 595 × 842 计。现在渲染为 DOM 预览，M1-2 以同一套模板渲染矢量 PDF。
+ * 单据排版积木。模板只用 Box / Row / Txt / Fld / Page 书写，样式限定在 flex 布局子集，
+ * 坐标单位按 A4 = 595 × 842（pt）计。默认渲染为 DOM 预览；
+ * 在 PdfProvider 内渲染时改用 @react-pdf/renderer 的组件，输出矢量 PDF —— 预览与导出共用同一套模板。
  */
 export type St = CSSProperties;
 
+/** PDF 渲染实现（由导出模块在运行时注入，避免主包加载 PDF 库） */
+export interface PdfImpl {
+  View: ComponentType<{ style?: unknown; wrap?: boolean; children?: ReactNode }>;
+  Text: ComponentType<{ style?: unknown; children?: ReactNode }>;
+  Page: ComponentType<{ size?: string; style?: unknown; children?: ReactNode }>;
+  style: (s: St) => unknown;
+}
+const Pdf = createContext<PdfImpl | null>(null);
+export const PdfProvider = Pdf.Provider;
+/** 是否在渲染导出用的 PDF（预览专用的提示元素在 PDF 里不输出） */
+export const useIsPdf = () => useContext(Pdf) != null;
+
 const InText = createContext(false);
 
-export function Box({ style, children }: { style?: St; children?: ReactNode }) {
-  return <div style={{ display: 'flex', flexDirection: 'column', ...style }}>{children}</div>;
+export function Box({ style, children, keep }: { style?: St; children?: ReactNode; keep?: boolean }) {
+  const pdf = useContext(Pdf);
+  const st: St = { display: 'flex', flexDirection: 'column', ...style };
+  if (pdf) return <pdf.View style={pdf.style(st)} wrap={keep ? false : undefined}>{children}</pdf.View>;
+  return <div style={st}>{children}</div>;
 }
 
-export function Row({ style, children }: { style?: St; children?: ReactNode }) {
-  return <div style={{ display: 'flex', flexDirection: 'row', ...style }}>{children}</div>;
+/** keep：PDF 分页时整行不拆开（表格行、签字栏） */
+export function Row({ style, children, keep }: { style?: St; children?: ReactNode; keep?: boolean }) {
+  const pdf = useContext(Pdf);
+  const st: St = { display: 'flex', flexDirection: 'row', ...style };
+  if (pdf) return <pdf.View style={pdf.style(st)} wrap={keep ? false : undefined}>{children}</pdf.View>;
+  return <div style={st}>{children}</div>;
 }
 
 export function Txt({ style, children }: { style?: St; children?: ReactNode }) {
+  const pdf = useContext(Pdf);
+  if (pdf) return <pdf.Text style={pdf.style(style ?? {})}>{children}</pdf.Text>;
   const nested = useContext(InText);
   const Tag = nested ? 'span' : 'div';
   return (
@@ -28,8 +50,11 @@ export function Txt({ style, children }: { style?: St; children?: ReactNode }) {
 
 /** 可点击字段：点预览上的内容跳到对应输入框；空值显示红色占位 */
 export function Fld({ p, v, ph = '待填写', style }: { p: string; v: unknown; ph?: string; style?: St }) {
+  const pdf = useContext(Pdf);
   const s = v == null ? '' : String(v);
   const empty = !s.trim();
+  // 导出的 PDF 里空字段留白，不打印占位提示
+  if (pdf) return <pdf.Text style={pdf.style(style ?? {})}>{empty ? '' : s}</pdf.Text>;
   return (
     <span className={'fld' + (empty ? ' miss' : '')} data-f={p} style={{ whiteSpace: 'pre-line', ...style }}>
       {empty ? ph : s}
@@ -38,6 +63,14 @@ export function Fld({ p, v, ph = '待填写', style }: { p: string; v: unknown; 
 }
 
 export function Page({ accent, children }: { accent: string; children: ReactNode }) {
+  const pdf = useContext(Pdf);
+  if (pdf) {
+    return (
+      <pdf.Page size="A4" style={pdf.style({ padding: '38px 42px 44px', color: '#1a1d22', fontSize: 8, lineHeight: 1.45 })}>
+        {children}
+      </pdf.Page>
+    );
+  }
   return (
     <div
       className="paper"
@@ -86,7 +119,7 @@ export function Table({
   const body = (
     <Box style={{ width: bodyW }}>
       {rows.map((r, ri) => (
-        <Row key={ri} style={{ borderBottom: '0.75px solid #d6dae0' }}>
+        <Row key={ri} keep style={{ borderBottom: '0.75px solid #d6dae0' }}>
           {r.map((cell, ci) => (
             <Box key={ci} style={cellBase(colsIn[ci], accent, false)}><Txt style={{ textAlign: colsIn[ci].align ?? 'left', whiteSpace: 'pre-line' }}>{cell}</Txt></Box>
           ))}

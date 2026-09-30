@@ -3,7 +3,8 @@ import { Preview } from '../components/Preview';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { calc, fixed, money } from '../domain/calc';
-import { BUNDLES, DOCNAMES, DOC_FMT, EXPDOCS, EXT, docFile, type Bundle, type DocKey, type ExpKey, type Fmt } from '../modules/defs';
+import { BUNDLES, DOCNAMES, DOC_FMT, EXPDOCS, type Bundle, type DocKey, type ExpKey, type Fmt } from '../modules/defs';
+import { exportZip } from '../export/actions';
 import type { Order } from '../domain/types';
 
 const isDoc = (k: ExpKey): k is DocKey => k in DOC_FMT;
@@ -83,10 +84,8 @@ export function ExportCenter({ order: o }: { order: Order }) {
           <button
             className="btn pri"
             style={{ width: '100%', justifyContent: 'center', marginBottom: 18 }}
-            onClick={() => {
-              const files = sel.filter(isDoc).flatMap((d) => fmts(d).map((f) => `${docFile(o, d)}.${EXT[f]}`));
-              toast(`将生成 ${o.name}_${ui.bundle}.zip，含 ${files.length} 个文件：${files.join('、')}（打包导出在 M1-2 接入）`);
-            }}
+            disabled={ui.busy}
+            onClick={() => exportZip(o, sel.filter(isDoc).flatMap((d) => fmts(d).map((fmt) => ({ doc: d, fmt }))), ui.bundle)}
           >
             生成并打包（{sel.length} 份单据）
           </button>

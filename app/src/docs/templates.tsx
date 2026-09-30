@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Box, Fld, Page, Row, Table, Txt, type St } from './primitives';
+import { Box, Fld, Page, Row, Table, Txt, useIsPdf, type St } from './primitives';
 import { THEMES, TRANSPORT_CD } from '../domain/constants';
 import { amountWords, calc, fixed, int, intWords, money, needAddr, sym } from '../domain/calc';
 import { getPath } from '../store/data';
@@ -48,8 +48,8 @@ function BuyerBox({ o, label }: { o: Order; label: string }) {
       <Txt style={{ fontWeight: 700 }}>{F(o, 'buyer.name', '[买方公司名称]')}</Txt>
       <Txt>{F(o, 'buyer.address', '[买方地址]')}</Txt>
       <Txt>Attn: {F(o, 'buyer.contact', '—')}   Tel: {F(o, 'buyer.phone', '—')}</Txt>
-      {o.buyer.email && <Txt>{F(o, 'buyer.email')}</Txt>}
-      {o.buyer.tax && <Txt>Tax/VAT: {F(o, 'buyer.tax')}</Txt>}
+      {!!o.buyer.email && <Txt>{F(o, 'buyer.email')}</Txt>}
+      {!!o.buyer.tax && <Txt>Tax/VAT: {F(o, 'buyer.tax')}</Txt>}
     </Box>
   );
 }
@@ -62,7 +62,7 @@ function ShipBox({ o }: { o: Order }) {
       <Txt>By {F(o, 'shipping.vessel', '[船名航次]')}</Txt>
       <Txt>B/L No.: {F(o, 'shipping.blNo', '[提单号]')}   ETD: {F(o, 'shipping.etd', '—')}</Txt>
       <Txt>Container: {F(o, 'shipping.container', '—')}</Txt>
-      {o.terms.deliveryAddress && needAddr(o) && <Txt>Deliver to: {F(o, 'terms.deliveryAddress')}</Txt>}
+      {!!o.terms.deliveryAddress && needAddr(o) && <Txt>Deliver to: {F(o, 'terms.deliveryAddress')}</Txt>}
     </Box>
   );
 }
@@ -87,9 +87,10 @@ function Section({ o, title, children }: { o: Order; title: string; children: Re
 }
 
 function Sign({ o, left, right }: { o: Order; left: ReactNode; right: ReactNode }) {
+  const isPdf = useIsPdf();
   const line = (stamp: boolean) => (
     <Box style={{ height: 42, borderBottom: '0.75px solid #333', marginBottom: 3, position: 'relative' }}>
-      {stamp && o.docset.stamp && (
+      {stamp && o.docset.stamp && !isPdf && (
         <Box style={{ position: 'absolute', left: 14, bottom: 4, width: 52, height: 52, border: '1px dashed #b8322a', borderRadius: 26, alignItems: 'center', justifyContent: 'center', opacity: 0.75 }}>
           <Txt style={{ color: '#b8322a', fontSize: 6.5 }}>公章位置</Txt>
         </Box>
@@ -97,7 +98,7 @@ function Sign({ o, left, right }: { o: Order; left: ReactNode; right: ReactNode 
     </Box>
   );
   return (
-    <Row style={{ justifyContent: 'space-between', marginTop: 26 }}>
+    <Row keep style={{ justifyContent: 'space-between', marginTop: 26 }}>
       <Box style={{ width: '44%' }}>{line(true)}<Txt>{left}</Txt></Box>
       <Box style={{ width: '44%' }}>{line(false)}<Txt>{right}</Txt></Box>
     </Row>
@@ -142,7 +143,7 @@ function QuotePI({ o, kind }: { o: Order; kind: 'quote' | 'pi' }) {
         {term('Port of Loading', F(o, 'terms.pol'))}
         {term('Destination', F(o, 'terms.pod', '[目的港]'))}
         {term('Currency', F(o, 'terms.currency'))}
-        {(o.terms.deliveryAddress || needAddr(o)) && term('Place of Delivery', F(o, 'terms.deliveryAddress', '[交货地址]'), '66.6%')}
+        {(!!o.terms.deliveryAddress || needAddr(o)) && term('Place of Delivery', F(o, 'terms.deliveryAddress', '[交货地址]'), '66.6%')}
       </Row>
       <Table
         accent={a}
@@ -152,7 +153,7 @@ function QuotePI({ o, kind }: { o: Order; kind: 'quote' | 'pi' }) {
       />
       <Words o={o}>{amountWords(k.amount, c)}</Words>
       <Txt style={{ color: '#666' }}>Packing: {k.ctns} cartons  ·  G.W. {fixed(k.gw, 2)} kg  ·  Meas. {fixed(k.cbm, 3)} m³</Txt>
-      {o.docset.remarks && <Section o={o} title="REMARKS">{F(o, 'docset.remarks')}</Section>}
+      {!!o.docset.remarks && <Section o={o} title="REMARKS">{F(o, 'docset.remarks')}</Section>}
       {clauses.length > 0 && (
         <Section o={o} title="TERMS & CONDITIONS">
           {clauses.map((x, i) => <Txt key={i}>{i + 1}. <Fld p="docset.clauses" v={x} /></Txt>)}
@@ -192,9 +193,9 @@ function Contract({ o }: { o: Order }) {
   ]);
   return (
     <Page accent={a}>
-      <Box style={{ alignItems: 'center' }}>
-        <Txt style={{ fontSize: 18, fontWeight: 700, letterSpacing: 9, color: a }}>销售合同</Txt>
-        <Txt style={{ letterSpacing: 3, color: '#777', fontSize: 7.5, marginTop: 2 }}>SALES CONTRACT</Txt>
+      <Box>
+        <Txt style={{ width: '100%', textAlign: 'center', fontSize: 18, fontWeight: 700, letterSpacing: 9, color: a }}>销售合同</Txt>
+        <Txt style={{ width: '100%', textAlign: 'center', letterSpacing: 3, color: '#777', fontSize: 7.5, marginTop: 2 }}>SALES CONTRACT</Txt>
       </Box>
       <Box style={{ height: 1.5, background: a, margin: '10px 0 12px' }} />
       <Row style={{ justifyContent: 'space-between', marginBottom: 8 }}>
@@ -323,9 +324,9 @@ function CustomsDraft({ o }: { o: Order }) {
   ]);
   return (
     <Page accent={a}>
-      <Box style={{ alignItems: 'center', marginBottom: 6 }}>
-        <Txt style={{ fontSize: 13, fontWeight: 700, letterSpacing: 3 }}>出口报关资料预录入表</Txt>
-        <Txt style={{ color: '#777', fontSize: 7, letterSpacing: 1, marginTop: 2 }}>草稿 · 供报关行申报参考 · 以海关系统录入为准</Txt>
+      <Box style={{ marginBottom: 6 }}>
+        <Txt style={{ width: '100%', textAlign: 'center', fontSize: 13, fontWeight: 700, letterSpacing: 3 }}>出口报关资料预录入表</Txt>
+        <Txt style={{ width: '100%', textAlign: 'center', color: '#777', fontSize: 7, letterSpacing: 1, marginTop: 2 }}>草稿 · 供报关行申报参考 · 以海关系统录入为准</Txt>
       </Box>
       <Row style={{ justifyContent: 'space-between', margin: '8px 0 5px', fontSize: 7, color: '#555' }}>
         <Txt>合同协议号 {F(o, 'numbers.contract')}</Txt><Txt>发票号 {F(o, 'numbers.ci')}</Txt><Txt>订单 {o.no}</Txt>
@@ -359,7 +360,7 @@ function Marks({ o }: { o: Order }) {
   const box = (content: ReactNode, cap: string, small = false) => (
     <Box style={{ width: '48%' }}>
       <Box style={{ border: '2px solid #111', padding: '16px 12px', minHeight: 165, alignItems: small ? 'flex-start' : 'center', justifyContent: 'center' }}>
-        <Txt style={{ fontFamily: MONO, fontWeight: 700, fontSize: small ? 10 : 13, lineHeight: 1.7, textAlign: small ? 'left' : 'center' }}>{content}</Txt>
+        <Txt style={{ width: '100%', fontFamily: MONO, fontWeight: 700, fontSize: small ? 10 : 13, lineHeight: 1.7, textAlign: small ? 'left' : 'center' }}>{content}</Txt>
       </Box>
       <Txt style={{ fontSize: 7.5, color: '#666', marginTop: 4, textAlign: 'center', letterSpacing: 1 }}>{cap}</Txt>
     </Box>

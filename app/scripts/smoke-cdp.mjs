@@ -31,13 +31,34 @@ const step = async (name, fn) => {
   console.log(`[${name}] ${text}`);
 };
 
-await step('01-home', () => page.waitForSelector('.orow[role=button]', { timeout: 20000 }));
+await step('01-home', async () => {
+  try {
+    await page.waitForSelector('.orow[role=button]', { timeout: 10000 });
+  } catch {
+    await page.reload(); // 页面先于内容就绪打开时刷新一次
+    await page.waitForSelector('.orow[role=button]', { timeout: 20000 });
+  }
+});
 await step('02-order', async () => { await page.click('.orow[role=button]'); await page.waitForSelector('.mcard', { timeout: 5000 }); });
 await step('03-pi', async () => { await page.click('.mcard:has-text("合同 / PI")'); await page.waitForSelector('.paper', { timeout: 5000 }); });
 await step('04-back', async () => { await page.click('button:has-text("← 订单菜单")'); await page.waitForSelector('.mcard', { timeout: 5000 }); });
 await step('05-export', async () => { await page.click('.mcard:has-text("单据导出")'); await page.waitForSelector('.paper', { timeout: 5000 }); });
 await step('06-customers', async () => { await page.click('.brand'); await page.click('.lib button:has-text("客户库")'); await page.waitForSelector('.cdet', { timeout: 5000 }); });
 await step('07-calc', async () => { await page.click('.brand'); await page.click('.lib button:has-text("报价计算器")'); await page.waitForSelector('.qt', { timeout: 5000 }); });
+
+// 导出：PDF、合同 Word、按收件人打包（文件写入「文档/外贸超级工作台」）
+const waitToast = (re) => page.waitForFunction((src) => [...document.querySelectorAll('.toast')].some((t) => new RegExp(src).test(t.textContent)), re, { timeout: 60000 });
+await step('08-export-pdf', async () => {
+  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("合同 / PI")');
+  await page.click('button:has-text("导出 PDF")'); await waitToast('已保存 PI-.*\\.pdf');
+});
+await step('09-export-word', async () => {
+  await page.click('.pv-bar .tab:has-text("销售合同")'); await page.click('button:has-text("导出 Word")'); await waitToast('已保存 SC-.*\\.docx');
+});
+await step('10-export-zip', async () => {
+  await page.click('button:has-text("← 订单菜单")'); await page.click('.mcard:has-text("单据导出")');
+  await page.click('button:has-text("生成并打包")'); await waitToast('已打包');
+});
 
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});

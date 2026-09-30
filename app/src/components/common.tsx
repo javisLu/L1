@@ -75,7 +75,12 @@ export function Toasts() {
   const toasts = useUI((s) => s.toasts);
   return (
     <div id="toast" aria-live="polite">
-      {toasts.map((t) => <div key={t.id} className="toast">{t.text}</div>)}
+      {toasts.map((t) => (
+        <div key={t.id} className="toast">
+          <span>{t.text}</span>
+          {t.action && <button className="toast-act" onClick={t.action.run}>{t.action.label}</button>}
+        </div>
+      ))}
     </div>
   );
 }

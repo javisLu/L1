@@ -5,13 +5,10 @@ import { Preview } from '../components/Preview';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { fillMarks } from '../domain/calc';
-import { DOCNAMES, DOC_FMT, EXT, MODS, STEPS, docFile, inputId, missing, stepPaths, type DocKey, type Fmt, type ModKey, type StepKey } from '../modules/defs';
+import { DOCNAMES, DOC_FMT, MODS, STEPS, inputId, missing, stepPaths, type DocKey, type ModKey, type StepKey } from '../modules/defs';
+import { exportDoc } from '../export/actions';
 import type { Order } from '../domain/types';
 
-export function exportDoc(o: Order, doc: DocKey, fmt: Fmt) {
-  // M1-2 接入真实导出；此处先提示将生成的文件名
-  toast(`「${DOCNAMES[doc]}」将保存为 ${docFile(o, doc)}.${EXT[fmt]}（导出功能在 M1-2 接入）`);
-}
 
 function flash(path: string) {
   const el = document.getElementById(inputId(path));
@@ -57,8 +54,8 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
         <h1><span className="code">{m.code}</span>{m.name}</h1>
         <span className="ord">{o.no} · {o.buyer.name || '未选择客户'}</span>
         <div className="r">
-          {fmts.filter((f) => f !== 'PDF').map((f) => <button key={f} className="btn" onClick={() => exportDoc(o, doc, f)}>导出 {f}</button>)}
-          <button className="btn pri" onClick={() => exportDoc(o, doc, 'PDF')}>导出 PDF</button>
+          {fmts.filter((f) => f !== 'PDF').map((f) => <button key={f} className="btn" disabled={ui.busy} onClick={() => exportDoc(o, doc, f)}>导出 {f}</button>)}
+          <button className="btn pri" disabled={ui.busy} onClick={() => exportDoc(o, doc, 'PDF')}>导出 PDF</button>
         </div>
       </div>
       <div className={'mod' + (ui.expand ? ' expand' : '')}>

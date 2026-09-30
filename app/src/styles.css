@@ -320,3 +320,7 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .paper{box-shadow:0 2px 10px rgba(0,0,0,.18)}
 .pv-scale{width:595px}
 #root{min-height:100%}
+
+.toast{display:flex;align-items:center;gap:12px;justify-content:space-between}
+.toast-act{border:1px solid rgba(255,255,255,.35);background:transparent;color:inherit;border-radius:5px;padding:3px 10px;font-size:12.5px;white-space:nowrap}
+.toast-act:hover{background:rgba(255,255,255,.12)}
