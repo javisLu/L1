@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "外贸超级工作台",
+  "mainBinaryName": "trade-workbench",
+  "version": "0.1.0",
+  "identifier": "com.tradeworkbench.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "外贸超级工作台",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "app"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "copyright": "© 2026 外贸超级工作台",
+    "category": "Business",
+    "shortDescription": "外贸单证、报关、订单一体化工作台",
+    "windows": {
+      "nsis": { "languages": ["SimpChinese", "English"], "displayLanguageSelector": false, "installMode": "currentUser" }
+    },
+    "macOS": { "minimumSystemVersion": "10.15" }
+  }
+}
