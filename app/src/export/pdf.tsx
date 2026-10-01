@@ -62,8 +62,19 @@ export function buildPdf(order: Order, doc: DocKey, assets?: DocAssets): ReactEl
   );
 }
 
+/** 生成超过这个时间视为失败，避免界面一直停在“正在生成” */
+const PDF_TIMEOUT = 90_000;
+
 export async function renderPdf(order: Order, doc: DocKey, assets?: DocAssets): Promise<Uint8Array> {
   registerFonts();
-  const blob = await pdf(buildPdf(order, doc, assets)).toBlob();
-  return new Uint8Array(await blob.arrayBuffer());
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, fail) => {
+    timer = setTimeout(() => fail(new Error('生成超时，请重试；若仍失败，请在「设置」里删除 Logo / 公章图片后再试')), PDF_TIMEOUT);
+  });
+  try {
+    const blob = await Promise.race([pdf(buildPdf(order, doc, assets)).toBlob(), timeout]);
+    return new Uint8Array(await blob.arrayBuffer());
+  } finally {
+    clearTimeout(timer);
+  }
 }

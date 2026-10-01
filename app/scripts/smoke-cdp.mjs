@@ -72,6 +72,20 @@ await step('11-settings', async () => {
   await page.click('.top-r button:has-text("设置")'); await page.waitForSelector('#company', { timeout: 5000 });
   await page.fill('#set-seller-name', 'Smoke Test Co., Ltd.');
 });
+await step('11b-stamp-pdf-and-back', async () => {
+  // 生成一张白底红圈的“公章”，上传（去白底）后导出 PDF，再从订单里打开设置并返回
+  const url = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 300; c.height = 300; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 300, 300); x.strokeStyle = '#c00'; x.lineWidth = 14; x.beginPath(); x.arc(150, 150, 120, 0, 7); x.stroke(); return c.toDataURL('image/png'); });
+  const png = resolve(out, 'stamp.png');
+  writeFileSync(png, Buffer.from(url.split(',')[1], 'base64'));
+  for (const i of [0, 0]) {
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.locator('.set-sec button:has-text("上传图片")').nth(i).click()]);
+    await fc.setFiles(png); await waitToast('已更新');
+  }
+  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("合同 / PI")');
+  await page.click('.top-r button:has-text("设置")'); await page.waitForSelector('#company');
+  await page.click('.sec-title button:has-text("← 返回")'); await page.waitForSelector('.paper', { timeout: 5000 });
+  await page.click('button:has-text("导出 PDF")'); await waitToast('已保存 PI-.*\\.pdf');
+});
 await step('12-import-products', async () => {
   const csv = resolve(out, 'products.csv');
   writeFileSync(csv, '型号,中文品名,单价,外箱尺寸\nSMOKE-1,冒烟测试货架,9.9,60x40x30\n');

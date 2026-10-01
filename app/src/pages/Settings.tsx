@@ -3,13 +3,14 @@ import { Crumb, TopBar } from '../components/common';
 import { confirmAction } from '../components/confirm';
 import { useData, getPath, setPath } from '../store/data';
 import { isDesktop } from '../store/storage';
-import { toast, useUI } from '../store/ui';
+import { toast, useUI, type Page } from '../store/ui';
+import { MODS, type ModKey } from '../modules/defs';
 import { THEMES, TRANSPORTS } from '../domain/constants';
 import { docNumbers, formatOrderNo } from '../domain/settings';
 import { loadImage, pickFile } from '../io/image';
 import { backupSummary, parseBackup } from '../io/backup';
 import { backupBeforeRestore, backupFolder, exportBackup } from '../io/backupService';
-import type { Assets } from '../domain/types';
+import type { Assets, Order } from '../domain/types';
 
 const SECTIONS = [
   ['company', '公司信息'], ['images', 'Logo 与公章'], ['numbering', '编号规则'], ['defaults', '新订单默认值'], ['data', '数据与备份'],
@@ -78,12 +79,22 @@ function ImageBox({ k, title, hint, maxSide, whiteOption }: { k: keyof Assets; t
   );
 }
 
+const LIB_NAMES: Partial<Record<Page, string>> = { customers: '客户库', partners: '合作方库', products: '产品库', hs: 'HS 记忆库', clauses: '条款库', calc: '报价计算器' };
+
+/** 从哪里打开的设置：返回按钮上显示的名字（从首页进入时不显示） */
+function backLabel(prev: Page, order: Order | undefined, mod: ModKey | null): string | null {
+  if (prev === 'order') return order ? `订单 ${order.no}` : null;
+  if (prev === 'module') return order && mod ? `${order.no} · ${MODS[mod].name}` : null;
+  return LIB_NAMES[prev] ?? null;
+}
+
 export function Settings() {
   const ui = useUI();
   const st = useData();
   const n = st.settings.numbering;
   const nextNo = formatOrderNo(n, st.seq);
   const nums = docNumbers(n, nextNo);
+  const back = backLabel(ui.prev, st.orders.find((o) => o.id === ui.orderId), ui.mod);
   const [dataPath, setDataPath] = useState<string | null>(null);
   const [autoDir, setAutoDir] = useState<string | null>(null);
 
@@ -167,9 +178,16 @@ export function Settings() {
 
   return (
     <>
-      <TopBar><Crumb onClick={() => ui.go('home')}>首页</Crumb><span className="cur">设置</span></TopBar>
+      <TopBar>
+        <Crumb onClick={() => ui.go('home')}>首页</Crumb>
+        {back && <Crumb onClick={() => ui.go(ui.prev)}>{back}</Crumb>}
+        <span className="cur">设置</span>
+      </TopBar>
       <main className="wrap">
-        <div className="sec-title"><div><div className="eyebrow">设置</div><h1 style={{ fontSize: 22 }}>公司与软件设置</h1></div></div>
+        <div className="sec-title">
+          <div><div className="eyebrow">设置</div><h1 style={{ fontSize: 22 }}>公司与软件设置</h1></div>
+          {back && <button className="btn" onClick={() => ui.go(ui.prev)}>← 返回 {back}</button>}
+        </div>
         <div className="set">
           <nav className="set-nav">{SECTIONS.map(([id, t]) => <a key={id} href={'#' + id}>{t}</a>)}</nav>
           <div>

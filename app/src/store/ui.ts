@@ -10,6 +10,8 @@ interface Toast { id: number; text: string; action?: ToastAction }
 
 interface UIState {
   page: Page;
+  /** 上一个页面（从订单、单据等处打开「设置」后可以返回） */
+  prev: Page;
   orderId: string | null;
   mod: ModKey | null;
   step: StepKey | null;
@@ -40,14 +42,14 @@ interface UIState {
 let tid = 0;
 
 export const useUI = create<UIState>()((set) => ({
-  page: 'home', orderId: null, mod: null, step: null, doc: null, expand: false,
+  page: 'home', prev: 'home', orderId: null, mod: null, step: null, doc: null, expand: false,
   q: '', status: 'all', custId: null, cq: '', ptype: '货代',
   bundle: '客户', expSel: null, expDoc: null, expFmt: 'both',
   toasts: [], busy: false, modal: null,
   set: (p) => set(p),
-  go: (page) => set({ page }),
-  openOrder: (id) => set({ page: 'order', orderId: id, expSel: null }),
-  openMod: (mod) => set({ page: 'module', mod, step: null, doc: null, expSel: null, expDoc: null }),
+  go: (page) => set((s) => (s.page === page ? {} : { page, prev: s.page })),
+  openOrder: (id) => set((s) => ({ page: 'order', prev: s.page, orderId: id, expSel: null })),
+  openMod: (mod) => set((s) => ({ page: 'module', prev: s.page, mod, step: null, doc: null, expSel: null, expDoc: null })),
   toast: (text, action, ms) => {
     const id = ++tid;
     set((s) => ({ toasts: [...s.toasts, { id, text, action }] }));

@@ -41,6 +41,7 @@ src/docs       单据模板（排版积木 Box / Row / Txt / Fld，预览与 PDF
 src/io         导入导出与备份：CSV（自动识别 UTF-8 / GBK）与 Excel 表头识别、产品库 / 客户库导入导出、图片压缩与去白底、备份与每日自动备份
 src/export     导出：PDF（react-pdf + 内嵌 Noto Sans SC）、Excel（exceljs，金额与合计为公式）、Word 合同（docx）、zip 打包、保存与「打开文件夹」
 public/fonts   PDF 内嵌字体 Noto Sans SC（SIL OFL 1.1，许可证见 OFL.txt）
+src/vendor     png-js 用的同步解压（react-pdf 解码透明 PNG 时，避免创建桌面版不允许的 blob: Web Worker）
 src/components 表单、表格、合同条款、A4 预览
 src/pages      首页、订单菜单、单据工作台、导出中心、资料库、报价计算器
 src-tauri      桌面外壳
