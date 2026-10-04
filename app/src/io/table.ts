@@ -47,19 +47,36 @@ function cellText(v: ExcelJS.CellValue): string {
   return String(v);
 }
 
-/** 读取 .xlsx 第一个工作表为二维文本数组 */
-export async function parseXlsx(bytes: Uint8Array): Promise<string[][]> {
+/** 读取 .xlsx 第一个工作表为二维文本数组；merged 标出合并单元格里非左上角的格子（内容和左上角相同） */
+export async function parseXlsxMeta(bytes: Uint8Array): Promise<{ rows: string[][]; merged: boolean[][] }> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
   const ws = wb.worksheets[0];
-  if (!ws) return [];
+  if (!ws) return { rows: [], merged: [] };
   const rows: string[][] = [];
+  const merged: boolean[][] = [];
   ws.eachRow({ includeEmpty: false }, (r) => {
     const out: string[] = [];
-    for (let c = 1; c <= r.cellCount; c++) out.push(cellText(r.getCell(c).value).trim());
-    rows.push(out);
+    const m: boolean[] = [];
+    for (let c = 1; c <= r.cellCount; c++) {
+      const cell = r.getCell(c);
+      out.push(cellText(cell.value).trim());
+      m.push(cell.isMerged && cell.master.address !== cell.address);
+    }
+    if (out.some((x) => x !== '')) { rows.push(out); merged.push(m); }
   });
-  return rows.filter((r) => r.some((c) => c !== ''));
+  return { rows, merged };
+}
+
+export async function parseXlsx(bytes: Uint8Array): Promise<string[][]> {
+  return (await parseXlsxMeta(bytes)).rows;
+}
+
+/** 读取表格并带上合并单元格信息（CSV 没有合并单元格） */
+export async function readTableMeta(name: string, bytes: Uint8Array): Promise<{ rows: string[][]; merged: boolean[][] }> {
+  if (/\.xlsx$/i.test(name)) return parseXlsxMeta(bytes);
+  const rows = await readTable(name, bytes);
+  return { rows, merged: rows.map((r) => r.map(() => false)) };
 }
 
 export async function readTable(name: string, bytes: Uint8Array): Promise<string[][]> {

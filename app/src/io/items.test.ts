@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeItems, buildItems, findPo, parsePasted, withHeaderRow } from './items';
+import { analyzeItems, buildItems, findPo, parsePasted, updateExisting, withHeaderRow } from './items';
 import { seed } from '../domain/seed';
 
 const products = seed().products;
@@ -59,5 +59,68 @@ describe('导入货物', () => {
   it('缺数量的行给出提示', () => {
     const r = buildItems([['A1', '']], ['model', 'qty']);
     expect(r.errors[0]).toContain('没有数量');
+  });
+});
+
+describe('导入工厂箱单', () => {
+  // 仿照用户的箱单：品名中英文一格、箱数列、净毛重为每行合计、毛重合并单元格（混装）、表格下方的说明文字
+  const table = [
+    ['DESCRIPTIONS', 'Qty (pcs)', 'Unit price (EUR)', 'Total Value (EUR)', 'HS code', 'Carton Qty (pcs)', 'N.W.(KGS)', 'G.W(KGS) Carton', 'Packing Size'],
+    ['Tote bags 帆布袋', '500', '0.5', '250', '4202129000', '10', '125', '133.85'],
+    ['Keychain 钥匙扣', '130', '0.4', '52', '8308100000', '1', '7.8', '29.5'],
+    ['Leaflet 宣传单页', '900', '0.04', '36', '4901100000', '1', '13.5', '29.5'],
+    ['Sample box 产品样盒', '46', '0.1', '4.6', '4819200000', '1', '1.15', '29.5'],
+    ['TOTAL', '1576', '', '342.6', '', '13', '147.45', '163.35'],
+    ['MARKS & No.', '', '', '', '', '', '', ''],
+    ['Country of Origin:', 'China', '', '', '', '', '', ''],
+  ];
+  const merged = table.map((r, ri) => r.map((_, ci) => ci === 7 && (ri === 3 || ri === 4)));
+
+  it('认出合计重量、拆中英文品名、跳过说明文字', () => {
+    const s = analyzeItems(table);
+    expect(s.mapping).toEqual(['nameEn', 'qty', 'price', 'amount', 'hs', 'ctns', 'nwT', 'gwT', 'dims']);
+    const r = buildItems(s.rows, s.mapping, [], false);
+    expect(r.items).toHaveLength(4);
+    expect(r.skipped).toBe(2);
+    expect(r.errors).toEqual([]);
+    expect(r.items[0]).toMatchObject({ nameEn: 'Tote bags', nameCn: '帆布袋', pcsPerCtn: 50, nw: 12.5, gw: 13.385 });
+  });
+
+  it('毛重合并单元格 = 混装：箱数和净毛重计在第一行', () => {
+    const s = analyzeItems(table, merged);
+    const r = buildItems(s.rows, s.mapping, [], false, s.merged);
+    const [, key, leaf, box] = r.items;
+    expect(key).toMatchObject({ pcsPerCtn: 130, gw: 29.5 });
+    expect(key.nw).toBeCloseTo(7.8 + 13.5 + 1.15, 3);
+    expect(leaf.pcsPerCtn).toBe('');
+    expect(box.pcsPerCtn).toBe('');
+    expect(r.notes[0]).toContain('第 2–4 行是混装');
+    expect(r.mixed.size).toBe(2);
+  });
+
+  it('按品名更新现有货物，只改文件里有的列', async () => {
+    const { emptyItem } = await import('../domain/factory');
+    const a = { ...emptyItem(), nameEn: 'Tote bags', qty: 500, price: 0.6, spec: '40×35 cm' };
+    const s = analyzeItems(table.map((r) => r.filter((_, i) => i !== 2 && i !== 3 && i !== 8)));
+    const r = buildItems(s.rows, s.mapping, [], false);
+    const u = updateExisting([a], r, s.mapping);
+    expect(u.updated).toBe(1);
+    expect(u.added).toBe(3);
+    expect(u.items[0]).toMatchObject({ nameEn: 'Tote bags', nameCn: '帆布袋', price: 0.6, spec: '40×35 cm', pcsPerCtn: 50, nw: 12.5 });
+  });
+});
+
+describe('读取 Excel 合并单元格', () => {
+  it('合并区域里非左上角的格子标为 merged，内容与左上角相同', async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const { parseXlsxMeta } = await import('./table');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('PL');
+    ws.addRows([['Desc', 'Qty', 'G.W.'], ['A', 1, 29.5], ['B', 2, null], ['C', 3, null]]);
+    ws.mergeCells('C2:C4');
+    const buf = new Uint8Array(await wb.xlsx.writeBuffer() as ArrayBuffer);
+    const { rows, merged } = await parseXlsxMeta(buf);
+    expect(rows.map((r) => r[2])).toEqual(['G.W.', '29.5', '29.5', '29.5']);
+    expect(merged.map((r) => r[2])).toEqual([false, false, true, true]);
   });
 });

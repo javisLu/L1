@@ -170,6 +170,7 @@ export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
   const k = calc(order.items);
   const cols = TABLES[table];
   const cur = order.terms.currency;
+  const purpose = table === 'items' ? 'items' : table === 'packing' ? 'packing' : 'customs';
   const focusCell = (row: number, key: string) => {
     const el = document.getElementById(inputId(`items.${row}.${key}`)) as HTMLInputElement | null;
     el?.focus();
@@ -217,7 +218,7 @@ export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
             <tr>
               <th className="ix">#</th>
               {cols.map((c) => <th key={c.label} style={{ minWidth: c.width }}>{c.label.replace('{CUR}', cur)}</th>)}
-              {table === 'items' && <th />}
+              {table === 'items' && <th className="row-act" aria-label="操作">操作</th>}
             </tr>
           </thead>
           <tbody>
@@ -240,7 +241,7 @@ export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
                           const t = e.clipboardData.getData('text');
                           if (t.includes('\t') || t.trim().split(/\r?\n/).length > 1) {
                             e.preventDefault();
-                            openItemImport(order, t);
+                            openItemImport(order, t, purpose);
                           }
                         }}
                       />
@@ -278,8 +279,14 @@ export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
             ＋ 添加一行
           </button>
           <button className="btn sm" onClick={() => openModal({ title: '从产品库添加', body: <ProductPicker orderId={order.id} /> })}>从产品库添加</button>
-          <button className="btn sm" onClick={() => openItemImport(order)}>粘贴 Excel / 导入 PO</button>
+          <button className="btn sm" onClick={() => openItemImport(order, undefined, 'items')}>粘贴 Excel / 导入 PO</button>
           <span className="tbl-tip">提示：在表格里直接 Ctrl+V 粘贴从 Excel 复制的多行；回车 / ↑↓ 换行</span>
+        </div>
+      )}
+      {table !== 'items' && (
+        <div className="tbl-tools">
+          <button className="btn sm" onClick={() => openItemImport(order, undefined, purpose)}>{table === 'packing' ? '粘贴 Excel / 导入工厂箱单' : '粘贴 Excel 导入'}</button>
+          <span className="tbl-tip">按型号 / 品名对上现有货物，只更新文件里有的列；也可以在表格里直接 Ctrl+V</span>
         </div>
       )}
       {table === 'packing' && (

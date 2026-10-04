@@ -376,7 +376,8 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .imp-opts{display:flex;flex-direction:column;gap:8px;margin:14px 0 6px}
 .imp-mode{display:flex;gap:18px;flex-wrap:wrap}
 .imp-sum{font-size:14px;margin-top:6px}
-.tbl .row-act{white-space:nowrap;width:1%}
+.tbl .row-act{white-space:nowrap;width:1%;position:sticky;right:0;background:var(--surface);box-shadow:-8px 0 8px -8px rgba(0,0,0,.18)}
+.tbl th.row-act{background:var(--surface-2);text-align:center}
 .tbl-tip{font-size:12px;color:var(--ink-3);align-self:center}
 
 /* 单据检查 */
@@ -411,3 +412,12 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .lbl-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:13px}
 .lbl-num{width:76px;padding:4px 6px}
 .lbl-sum{font-size:13.5px}
+
+.imp-help{font-size:12.5px;color:var(--ink-2);margin:0 0 8px;line-height:1.55}
+.imp-modes{display:flex;flex-direction:column;gap:6px}
+.imp-mode-opt{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:var(--r);padding:7px 10px;cursor:pointer;font-size:13px}
+.imp-mode-opt input{width:auto;margin:3px 0 0}
+.imp-mode-opt span{display:flex;flex-direction:column;gap:1px}
+.imp-mode-opt small{color:var(--ink-3);font-size:12px}
+.imp-mode-opt.on{border-color:var(--brand);background:var(--brand-soft)}
+.imp-note{font-size:12.5px;color:var(--brand);margin:4px 0}
