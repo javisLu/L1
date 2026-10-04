@@ -31,7 +31,6 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
   ws.columns = cols.map((c) => ({ width: c.width }));
   // 列宽（字符数）→ 像素，用于摆放 Logo、公章
   const colPx = cols.map((c) => Math.round(c.width * 7 + 5));
-  const sheetPx = colPx.reduce((x, y) => x + y, 0);
   const EMU = 9525; // 每像素
   /**
    * 放图片：x 为距表格左边缘的像素，row 为行号（0 起），dy 为行内向下偏移的像素。
@@ -45,11 +44,14 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
     ws.addImage(id, { tl: tl as never, ext: size, editAs: 'oneCell' });
   };
 
-  // Logo 放在右上角，公司名称、地址靠左
+  // Logo 放在左上角（与预览、PDF 一致）：占第一列（第一列很窄时占前两列），公司名称等从它右边开始
   const logo = doc !== 'customs' ? imageInfo(assets?.logo ?? '') : null;
+  let headFrom = 1;
   if (logo) {
-    const size = fit(logo, 150, 54);
-    addImage(logo, sheetPx - size.width - 6, 0, 3, size);
+    const span = colPx[0] >= 100 ? 1 : 2;
+    const avail = colPx.slice(0, span).reduce((x, y) => x + y, 0) - 12;
+    addImage(logo, 2, 0, 3, fit(logo, Math.min(150, avail), 54));
+    headFrom = span + 1;
   }
 
   let r = 1;
@@ -104,9 +106,9 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
     line('出口报关资料预录入表', { bold: true, size: 16, align: 'center' });
     line('草稿 · 供报关行申报参考 · 以海关系统录入为准', { size: 9, color: 'FF777777', align: 'center' });
   } else {
-    line(o.seller.name, { bold: true, size: 14, color: acc });
-    line(o.seller.address, { size: 9 });
-    line(`Tel: ${o.seller.phone}   Email: ${o.seller.email}`, { size: 9 });
+    line(o.seller.name, { bold: true, size: 14, color: acc, from: headFrom });
+    line(o.seller.address, { size: 9, from: headFrom });
+    line(`Tel: ${o.seller.phone}   Email: ${o.seller.email}`, { size: 9, from: headFrom });
     if (logo) [22, 16, 16].forEach((h, i) => (ws.getRow(i + 1).height = h));
     r++;
     line({ quote: 'QUOTATION', pi: 'PROFORMA INVOICE', ci: 'COMMERCIAL INVOICE', pl: 'PACKING LIST' }[doc], { bold: true, size: 18, color: acc, align: 'center' });
