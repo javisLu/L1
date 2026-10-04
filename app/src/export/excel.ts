@@ -3,6 +3,8 @@ import { THEMES, TRANSPORT_CD } from '../domain/constants';
 import { amountWords, calc, intWords, needAddr } from '../domain/calc';
 import { DOCNAMES, docFile, type DocKey } from '../modules/defs';
 import type { Order } from '../domain/types';
+import type { DocAssets } from '../docs/primitives';
+import { fit, imageInfo } from './images';
 
 type ExcelDoc = Exclude<DocKey, 'contract' | 'marks'>;
 const MONEY = '#,##0.00';
@@ -12,7 +14,7 @@ const box = { top: thin, left: thin, bottom: thin, right: thin };
 interface Col { header: string; width: number; key: string; num?: string; align?: 'left' | 'center' | 'right' }
 
 /** 生成单据 Excel：抬头、双方、条款、明细表（金额与合计为公式，改数量单价会自动重算） */
-export async function renderExcel(o: Order, doc: ExcelDoc): Promise<Uint8Array> {
+export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): Promise<Uint8Array> {
   const wb = new ExcelJS.Workbook();
   wb.creator = '外贸超级工作台';
   wb.created = new Date();
@@ -27,10 +29,33 @@ export async function renderExcel(o: Order, doc: ExcelDoc): Promise<Uint8Array> 
   const cols = columns(doc, cur);
   const last = cols.length;
   ws.columns = cols.map((c) => ({ width: c.width }));
+  // 列宽（字符数）→ 像素，用于摆放 Logo、公章
+  const colPx = cols.map((c) => Math.round(c.width * 7 + 5));
+  const sheetPx = colPx.reduce((x, y) => x + y, 0);
+  const EMU = 9525; // 每像素
+  /**
+   * 放图片：x 为距表格左边缘的像素，row 为行号（0 起），dy 为行内向下偏移的像素。
+   * 直接给出原生偏移（EMU）——exceljs 换算小数列位置时列宽单位不对，图片会贴到列首。
+   */
+  const addImage = (img: NonNullable<ReturnType<typeof imageInfo>>, x: number, row: number, dy: number, size: { width: number; height: number }) => {
+    let col = 0;
+    while (col < last - 1 && x >= colPx[col]) x -= colPx[col++];
+    const id = wb.addImage({ base64: img.base64, extension: img.ext });
+    const tl = { nativeCol: col, nativeColOff: Math.round(x * EMU), nativeRow: row, nativeRowOff: Math.round(dy * EMU) };
+    ws.addImage(id, { tl: tl as never, ext: size, editAs: 'oneCell' });
+  };
+
+  // Logo 放在右上角，公司名称、地址靠左
+  const logo = doc !== 'customs' ? imageInfo(assets?.logo ?? '') : null;
+  if (logo) {
+    const size = fit(logo, 150, 54);
+    addImage(logo, sheetPx - size.width - 6, 0, 3, size);
+  }
+
   let r = 1;
-  const line = (text: string, opt: { bold?: boolean; size?: number; color?: string; align?: 'left' | 'center' | 'right' } = {}) => {
-    ws.mergeCells(r, 1, r, last);
-    const cell = ws.getCell(r, 1);
+  const line = (text: string, opt: { bold?: boolean; size?: number; color?: string; align?: 'left' | 'center' | 'right'; from?: number } = {}) => {
+    ws.mergeCells(r, opt.from ?? 1, r, last);
+    const cell = ws.getCell(r, opt.from ?? 1);
     cell.value = text;
     cell.font = { name: 'Arial', bold: opt.bold, size: opt.size ?? 10, color: opt.color ? { argb: opt.color } : undefined };
     cell.alignment = { horizontal: opt.align ?? 'left', vertical: 'middle', wrapText: true };
@@ -82,6 +107,7 @@ export async function renderExcel(o: Order, doc: ExcelDoc): Promise<Uint8Array> 
     line(o.seller.name, { bold: true, size: 14, color: acc });
     line(o.seller.address, { size: 9 });
     line(`Tel: ${o.seller.phone}   Email: ${o.seller.email}`, { size: 9 });
+    if (logo) [22, 16, 16].forEach((h, i) => (ws.getRow(i + 1).height = h));
     r++;
     line({ quote: 'QUOTATION', pi: 'PROFORMA INVOICE', ci: 'COMMERCIAL INVOICE', pl: 'PACKING LIST' }[doc], { bold: true, size: 18, color: acc, align: 'center' });
   }
@@ -182,7 +208,26 @@ export async function renderExcel(o: Order, doc: ExcelDoc): Promise<Uint8Array> 
   }
   if (doc === 'ci') line('We hereby certify that the information on this invoice is true and correct.', { size: 9 });
   r++;
-  if (doc !== 'customs') line(`For and on behalf of ${o.seller.name}`, { size: 9, align: 'right' });
+  // 签字区（右侧）：卖方名称 → 留白盖章、签名 → 签字线
+  if (doc !== 'customs') {
+    // 从距右边缘约 320 像素的那一列开始
+    let from = last, px = colPx[last - 1];
+    while (from > 2 && px < 320) px += colPx[--from - 1];
+    const fromPx = colPx.slice(0, from - 1).reduce((x, y) => x + y, 0);
+    const head = line(`For and on behalf of\n${o.seller.name}`, { size: 9, from });
+    head.font = { ...head.font, bold: true };
+    ws.getRow(r - 1).height = 28;
+    const blank = r;
+    ws.getRow(blank).height = 58;
+    r++;
+    line('______________________________', { size: 9, from });
+    line('Authorized Signature', { size: 9, color: 'FF6B7380', from });
+    const stamp = o.docset.stamp ? imageInfo(assets?.stamp ?? '') : null;
+    const sign = o.docset.stamp ? imageInfo(assets?.signature ?? '') : null;
+    // 公章盖在卖方名称下方的留白处（压住签字线），签名在公章右侧
+    if (stamp) addImage(stamp, fromPx + 6, blank - 1, 4, fit(stamp, 96, 96));
+    if (sign) addImage(sign, fromPx + 112, blank - 1, 34, fit(sign, 130, 42));
+  }
 
   ws.headerFooter.oddFooter = `&L${docFile(o, doc)}&R&P / &N`;
   const buf = await wb.xlsx.writeBuffer();

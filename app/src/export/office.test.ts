@@ -5,6 +5,8 @@ import { writeFileSync } from 'node:fs';
 import { renderExcel } from './excel';
 import { renderContractDocx } from './word';
 import { seed } from '../domain/seed';
+import { ringPng } from '../test/png';
+import { imageInfo } from './images';
 
 const order = () => seed().orders[0];
 
@@ -44,5 +46,45 @@ describe('Word 导出', () => {
     expect(text).toContain('Aluminium Display Rack - Heavy Duty');
     expect(text).toContain('环保要求 Environmental');
     expect(text).toContain('30% T/T deposit in advance');
+  });
+});
+
+describe('Excel / Word 带 Logo、公章、签名', () => {
+  const ring = ringPng(), logo = ringPng(240, 80);
+  const assets = { logo, stamp: ring, signature: ring };
+  const media = async (buf: Uint8Array, dir: string) => Object.keys((await JSZip.loadAsync(buf)).files).filter((f) => f.startsWith(dir) && /\.(png|jpe?g)$/.test(f));
+
+  it('发票、箱单、PI、报价单 Excel 嵌入 Logo 与公章，报关表不放', async () => {
+    for (const d of ['pi', 'quote', 'ci', 'pl'] as const) {
+      const buf = await renderExcel(order(), d, assets);
+      if (process.env.PDF_OUT) writeFileSync(`${process.env.PDF_OUT}/${d}-img.xlsx`, buf);
+      expect((await media(buf, 'xl/media/')).length).toBeGreaterThanOrEqual(1);
+      const drawing = await (await JSZip.loadAsync(buf)).file('xl/drawings/drawing1.xml')!.async('string');
+      expect(drawing.match(/<xdr:pic>/g)?.length).toBe(3);
+    }
+    expect(await media(await renderExcel(order(), 'customs', assets), 'xl/media/')).toEqual([]);
+  });
+  it('订单关闭盖章时 Excel 只放 Logo', async () => {
+    const o = order();
+    o.docset.stamp = false;
+    const drawing = await (await JSZip.loadAsync(await renderExcel(o, 'ci', assets))).file('xl/drawings/drawing1.xml')!.async('string');
+    expect(drawing.match(/<xdr:pic>/g)?.length).toBe(1);
+  });
+  it('Word 合同嵌入 Logo、公章、签名', async () => {
+    const buf = await renderContractDocx(order(), assets);
+    if (process.env.PDF_OUT) writeFileSync(process.env.PDF_OUT + '/contract-img.docx', buf);
+    const xml = await (await JSZip.loadAsync(buf)).file('word/document.xml')!.async('string');
+    expect(xml.match(/<wp:anchor/g)?.length).toBe(3);
+    expect((await media(buf, 'word/media/')).length).toBeGreaterThanOrEqual(1);
+    const plain = await (await JSZip.loadAsync(await renderContractDocx(order()))).file('word/document.xml')!.async('string');
+    expect(plain).not.toContain('<wp:anchor');
+  });
+  it('读取 PNG / JPEG 尺寸', () => {
+    expect(imageInfo(logo)).toMatchObject({ ext: 'png', w: 240, h: 80 });
+    const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 4, 0, 0, 0xff, 0xc0, 0, 17, 8, 0, 30, 0, 50, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    let bin = '';
+    jpg.forEach((b) => (bin += String.fromCharCode(b)));
+    expect(imageInfo('data:image/jpeg;base64,' + btoa(bin))).toMatchObject({ ext: 'jpeg', w: 50, h: 30 });
+    expect(imageInfo('')).toBeNull();
   });
 });

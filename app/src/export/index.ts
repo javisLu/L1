@@ -9,18 +9,19 @@ export const orderFolder = (o: Order) => `${o.no} ${o.name}`;
 /** 生成单个单据文件（按需加载 PDF / Excel / Word 库） */
 export async function buildFile(o: Order, doc: DocKey, fmt: Fmt): Promise<OutFile> {
   const name = `${docFile(o, doc)}.${EXT[fmt]}`;
+  const assets = useData.getState().settings.assets;
   if (fmt === 'PDF') {
     const { renderPdf } = await import('./pdf');
-    return { name, data: await renderPdf(o, doc, useData.getState().settings.assets) };
+    return { name, data: await renderPdf(o, doc, assets) };
   }
   if (fmt === 'Excel') {
     if (doc === 'contract' || doc === 'marks') throw new Error(`${DOCNAMES[doc]}不支持导出 Excel`);
     const { renderExcel } = await import('./excel');
-    return { name, data: await renderExcel(o, doc) };
+    return { name, data: await renderExcel(o, doc, assets) };
   }
   if (doc !== 'contract') throw new Error(`${DOCNAMES[doc]}不支持导出 Word`);
   const { renderContractDocx } = await import('./word');
-  return { name, data: await renderContractDocx(o) };
+  return { name, data: await renderContractDocx(o, assets) };
 }
 
 export async function exportOne(o: Order, doc: DocKey, fmt: Fmt): Promise<SaveResult & { name: string }> {

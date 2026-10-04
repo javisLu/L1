@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { buildPdf, registerFonts } from './pdf';
 import { seed } from '../domain/seed';
+import { ringPng } from '../test/png';
 import type { DocKey } from '../modules/defs';
 
 registerFonts(resolve('public/fonts/NotoSansSC-Regular.ttf'), resolve('public/fonts/NotoSansSC-Bold.ttf'));
@@ -29,5 +30,10 @@ describe('PDF 带 Logo、公章、签名', () => {
     expect(buf.toString('latin1')).toContain('/Subtype /Image');
     expect(plain.toString('latin1')).not.toContain('/Subtype /Image');
   }, 30000);
+  it('合同 PDF 也有 Logo（与公章、签名共 3 张图）', async () => {
+    const ring = ringPng(), logo = ringPng(240, 80);
+    const buf = await renderToBuffer(buildPdf(seed().orders[0], 'contract', { logo, stamp: ring, signature: ring }));
+    if (process.env.PDF_OUT) writeFileSync(`${process.env.PDF_OUT}/contract-img.pdf`, buf);
+    expect(buf.toString('latin1').match(/\/Subtype \/Image/g)?.length).toBeGreaterThanOrEqual(3);
+  }, 30000);
 });
-

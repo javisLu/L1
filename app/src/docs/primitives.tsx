@@ -26,7 +26,8 @@ export const useAssets = () => useContext(AssetsCtx);
 
 export function Img({ src, style }: { src: string; style?: St }) {
   const pdf = useContext(Pdf);
-  if (pdf) return <pdf.Image src={src} style={pdf.style(style ?? {})} />;
+  // 限制了最大宽度时保持原图比例（不压扁），靠左对齐
+  if (pdf) return <pdf.Image src={src} style={[pdf.style(style ?? {}), { objectFit: 'contain', objectPositionX: 0 }] as never} />;
   return <img src={src} alt="" style={{ display: 'block', objectFit: 'contain', ...style }} />;
 }
 /** 是否在渲染导出用的 PDF（预览专用的提示元素在 PDF 里不输出） */

@@ -1,9 +1,28 @@
 import {
-  AlignmentType, BorderStyle, Document, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType,
+  AlignmentType, BorderStyle, Document, HorizontalPositionAlign, HorizontalPositionRelativeFrom, ImageRun, Packer, Paragraph, ShadingType, Table,
+  TableCell, TableRow, TextRun, TextWrappingType, VerticalPositionRelativeFrom, WidthType,
 } from 'docx';
 import { THEMES } from '../domain/constants';
 import { amountWords, calc, int, money, needAddr, sym } from '../domain/calc';
 import type { Order } from '../domain/types';
+import type { DocAssets } from '../docs/primitives';
+import { fit, imageInfo, type ImgInfo } from './images';
+
+const EMU = 9525; // 每像素
+/** 浮动图片：不占文字位置，叠在文字上方（Logo 在标题左侧，公章压在签字线上） */
+const floatImage = (img: ImgInfo, size: { width: number; height: number }, pos: { x: number; y: number; margin?: boolean }) =>
+  new ImageRun({
+    type: img.ext === 'png' ? 'png' : 'jpg',
+    data: img.bytes,
+    transformation: size,
+    floating: {
+      horizontalPosition: pos.margin ? { relative: HorizontalPositionRelativeFrom.MARGIN, align: HorizontalPositionAlign.LEFT } : { relative: HorizontalPositionRelativeFrom.COLUMN, offset: pos.x * EMU },
+      verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: pos.y * EMU },
+      wrap: { type: TextWrappingType.NONE },
+      allowOverlap: true,
+      layoutInCell: true,
+    },
+  });
 
 const FONT = { ascii: 'Arial', hAnsi: 'Arial', eastAsia: 'SimSun', cs: 'Arial' };
 const run = (text: string, opt: { bold?: boolean; size?: number; color?: string; italics?: boolean } = {}) =>
@@ -11,14 +30,14 @@ const run = (text: string, opt: { bold?: boolean; size?: number; color?: string;
 /** 支持换行的文字 */
 const runs = (text: string, opt: Parameters<typeof run>[1] = {}) =>
   String(text ?? '').split('\n').flatMap((t, i) => (i ? [new TextRun({ break: 1 }), run(t, opt)] : [run(t, opt)]));
-const para = (children: TextRun[], opt: { align?: (typeof AlignmentType)[keyof typeof AlignmentType]; after?: number; before?: number } = {}) =>
+const para = (children: (TextRun | ImageRun)[], opt: { align?: (typeof AlignmentType)[keyof typeof AlignmentType]; after?: number; before?: number } = {}) =>
   new Paragraph({ children, alignment: opt.align, spacing: { after: opt.after ?? 60, before: opt.before ?? 0 } });
 
 const border = { style: BorderStyle.SINGLE, size: 4, color: 'C9CFD8' };
 const borders = { top: border, bottom: border, left: border, right: border };
 
 /** 销售合同 Word 版：与软件内合同一致（订单数据生成的条款 + 可自定义条款），方便客户继续修改 */
-export async function renderContractDocx(o: Order): Promise<Uint8Array> {
+export async function renderContractDocx(o: Order, assets?: DocAssets): Promise<Uint8Array> {
   const k = calc(o.items);
   const c = o.terms.currency;
   const acc = (THEMES[o.docset.theme] ?? '#1d3f72').slice(1);
@@ -75,10 +94,18 @@ export async function renderContractDocx(o: Order): Promise<Uint8Array> {
   const clauseParas = clauses.map(([t, v], i) =>
     new Paragraph({ spacing: { after: 80 }, indent: { left: 360, hanging: 360 }, children: [run(`${i + 1}. ${t}：`, { bold: true, size: 9.5 }), ...runs(v ?? '', { size: 9.5 })] }));
 
-  const signCell = (label: string) => new TableCell({
+  const logo = imageInfo(assets?.logo ?? '');
+  const stamp = o.docset.stamp ? imageInfo(assets?.stamp ?? '') : null;
+  const sign = o.docset.stamp ? imageInfo(assets?.signature ?? '') : null;
+  // 卖方一侧：公章盖在签字线上（不压住“卖方”标题），签名写在签字线上
+  const sellerImages = [
+    ...(stamp ? [floatImage(stamp, fit(stamp, 100, 100), { x: 165, y: 12 })] : []),
+    ...(sign ? [floatImage(sign, fit(sign, 130, 42), { x: 190, y: 30 })] : []),
+  ];
+  const signCell = (label: string, images: ImageRun[] = []) => new TableCell({
     width: { size: 50, type: WidthType.PERCENTAGE },
     borders: { top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } },
-    children: [para([run(label, { bold: true })], { after: 600 }), para([run('签字 / 盖章 Signature & Seal: ____________________', { size: 9 })]), para([run('日期 Date: ____________________', { size: 9 })])],
+    children: [para([run(label, { bold: true }), ...images], { after: 600 }), para([run('签字 / 盖章 Signature & Seal: ____________________', { size: 9 })]), para([run('日期 Date: ____________________', { size: 9 })])],
   });
 
   const doc = new Document({
@@ -88,7 +115,7 @@ export async function renderContractDocx(o: Order): Promise<Uint8Array> {
     sections: [{
       properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1000, bottom: 1000, left: 1000, right: 1000 } } },
       children: [
-        para([run('销 售 合 同', { bold: true, size: 20, color: acc })], { align: AlignmentType.CENTER, after: 40 }),
+        para([...(logo ? [floatImage(logo, fit(logo, 140, 48), { x: 0, y: 0, margin: true })] : []), run('销 售 合 同', { bold: true, size: 20, color: acc })], { align: AlignmentType.CENTER, after: 40 }),
         para([run('SALES CONTRACT', { size: 10, color: '777777' })], { align: AlignmentType.CENTER, after: 240 }),
         para([run('合同号 Contract No.: ', { bold: true }), run(o.numbers.contract), run('        日期 Date: ', { bold: true }), run(o.numbers.date)]),
         para([run('签约地 Signed at: ', { bold: true }), run(o.numbers.signedAt)], { after: 160 }),
@@ -104,7 +131,7 @@ export async function renderContractDocx(o: Order): Promise<Uint8Array> {
         para([run('金额大写 Amount in Words: ', { bold: true }), run(amountWords(k.amount, c), { bold: true })], { before: 160, after: 200 }),
         ...clauseParas,
         para([], { after: 300 }),
-        new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [new TableRow({ children: [signCell('卖方 THE SELLER'), signCell('买方 THE BUYER')] })] }),
+        new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [new TableRow({ children: [signCell('卖方 THE SELLER', sellerImages), signCell('买方 THE BUYER')] })] }),
       ],
     }],
   });

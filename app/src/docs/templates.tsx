@@ -179,6 +179,7 @@ function QuotePI({ o, kind }: { o: Order; kind: 'quote' | 'pi' }) {
 /* ---------- 销售合同 ---------- */
 function Contract({ o }: { o: Order }) {
   const k = calc(o.items), c = o.terms.currency, a = accent(o);
+  const { logo } = useAssets();
   const base: [string, ReactNode][] = [
     ['装运港 Port of Loading', F(o, 'terms.pol')],
     ['目的港 Port of Destination', F(o, 'terms.pod', '[目的港]')],
@@ -205,10 +206,15 @@ function Contract({ o }: { o: Order }) {
   ]);
   return (
     <Page accent={a}>
-      <Box>
-        <Txt style={{ width: '100%', textAlign: 'center', fontSize: 18, fontWeight: 700, letterSpacing: 9, color: a }}>销售合同</Txt>
-        <Txt style={{ width: '100%', textAlign: 'center', letterSpacing: 3, color: '#777', fontSize: 7.5, marginTop: 2 }}>SALES CONTRACT</Txt>
-      </Box>
+      {/* 有 Logo 时三栏：Logo | 标题 | 等宽留白，标题保持居中 */}
+      <Row style={{ alignItems: 'center' }}>
+        {!!logo && <Box style={{ width: 110, flexShrink: 0 }}><Img src={logo} style={{ height: 40, maxWidth: 110 }} /></Box>}
+        <Box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}>
+          <Txt style={{ width: '100%', textAlign: 'center', fontSize: 18, fontWeight: 700, letterSpacing: 9, color: a }}>销售合同</Txt>
+          <Txt style={{ width: '100%', textAlign: 'center', letterSpacing: 3, color: '#777', fontSize: 7.5, marginTop: 2 }}>SALES CONTRACT</Txt>
+        </Box>
+        {!!logo && <Box style={{ width: 110, flexShrink: 0 }} />}
+      </Row>
       <Box style={{ height: 1.5, background: a, margin: '10px 0 12px' }} />
       <Row style={{ justifyContent: 'space-between', marginBottom: 8 }}>
         <Box>

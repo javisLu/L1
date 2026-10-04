@@ -24,7 +24,8 @@ for (let i = 0; i < 60 && !page; i++) {
 }
 if (!page) throw new Error('桌面程序窗口没有出现');
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + '\n' + (e.stack || '')));
-page.on('console', (m) => m.type() === 'error' && errors.push('console: ' + m.text()));
+page.on('console', (m) => m.type() === 'error' && errors.push('console: ' + m.text() + (m.location()?.url ? ' @ ' + m.location().url : '')));
+page.on('response', (r) => r.status() >= 400 && errors.push(`http ${r.status()}: ${r.url().slice(0, 200)}`));
 
 const step = async (name, fn) => {
   try {
@@ -85,6 +86,8 @@ await step('11b-stamp-pdf-and-back', async () => {
   await page.click('.top-r button:has-text("设置")'); await page.waitForSelector('#company');
   await page.click('.sec-title button:has-text("← 返回")'); await page.waitForSelector('.paper', { timeout: 5000 });
   await page.click('button:has-text("导出 PDF")'); await waitToast('已保存 PI-.*\\.pdf');
+  await page.click('button:has-text("导出 Excel")'); await waitToast('已保存 PI-.*\\.xlsx');
+  await page.click('.pv-bar .tab:has-text("销售合同")'); await page.click('button:has-text("导出 Word")'); await waitToast('已保存 SC-.*\\.docx');
 });
 await step('12-import-products', async () => {
   const csv = resolve(out, 'products.csv');
