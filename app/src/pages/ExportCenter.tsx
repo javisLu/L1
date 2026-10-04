@@ -2,7 +2,7 @@ import { OrderCrumbs, TopBar } from '../components/common';
 import { Preview } from '../components/Preview';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
-import { calc, fixed, money } from '../domain/calc';
+import { fixed, money, calcOrder } from '../domain/calc';
 import { BUNDLES, DOCNAMES, DOC_FMT, EXPDOCS, type Bundle, type DocKey, type ExpKey, type Fmt } from '../modules/defs';
 import { exportZip } from '../export/actions';
 import { CheckPanel, countErrors } from '../components/CheckPanel';
@@ -12,7 +12,7 @@ import type { Order } from '../domain/types';
 const isDoc = (k: ExpKey): k is DocKey => k in DOC_FMT;
 
 function mailText(o: Order, bundle: Bundle, sel: ExpKey[], partnerContact?: string) {
-  const k = calc(o.items);
+  const k = calcOrder(o);
   const names = sel.map((d) => EXPDOCS.find((x) => x.key === d)?.name).filter(Boolean);
   if (bundle === '客户') {
     const first = (o.buyer.contact || 'Sir/Madam').split(' ')[0];

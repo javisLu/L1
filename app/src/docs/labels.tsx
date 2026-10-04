@@ -18,7 +18,7 @@ function Label({ l, w, h, info }: { l: CartonLabel; w: number; h: number; info: 
   const fs = Math.max(7, Math.min(22, markH / (lines.length * 1.35), (w - 18) / (longest * 0.62)));
   const small = Math.max(6, Math.min(10, fs * 0.55, h / 22));
   const infoLines = [
-    `ITEM: ${[l.model, l.name].filter(Boolean).join('  ')}`,
+    l.name.startsWith('MIXED:') ? l.name : `ITEM: ${[l.model, l.name].filter(Boolean).join('  ')}`,
     `QTY: ${int(l.qty)} ${l.unit}`,
     `N.W.: ${fixed(l.nw, 2)} KGS   G.W.: ${fixed(l.gw, 2)} KGS`,
     ...(l.dims ? [`MEAS: ${l.dims}`] : []),

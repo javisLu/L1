@@ -1,4 +1,4 @@
-import { calc, fillMarks, fixed, int, needAddr, toNum } from '../domain/calc';
+import { fillMarks, fixed, int, needAddr, toNum, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
 import { CNO_LINE } from '../domain/labels';
 import { MODS, STEPS, missing, neededMods, type ModKey, type StepKey } from './defs';
@@ -34,7 +34,7 @@ const LATER: StepKey[] = ['shipping', 'customs', 'customsItems', 'packing'];
  */
 export function checkOrder(o: Order): Issue[] {
   const out: Issue[] = [];
-  const k = calc(o.items);
+  const k = calcOrder(o);
   const shipped = STATUSES.indexOf(o.status) >= STATUSES.indexOf('出货');
   const need = neededMods(o);
 
@@ -60,10 +60,10 @@ export function checkOrder(o: Order): Issue[] {
   k.rows.forEach((r, i) => {
     const name = `第 ${i + 1} 行${r.model ? ` ${r.model}` : ''}`;
     const per = toNum(r.pcsPerCtn), q = toNum(r.q);
-    if (per > 0 && q > 0 && q % per !== 0) {
+    if (!r.pack && per > 0 && q > 0 && q % per !== 0) {
       out.push({ level: 'warn', text: `${name}：数量 ${int(q)} 不是每箱 ${int(per)} 的整数倍，最后一箱只有 ${int(q % per)} ${r.unit}（尾箱），确认箱数和唛头`, mod: 'pl', path: `items.${i}.pcsPerCtn` });
     }
-    if (toNum(r.nw) > 0 && toNum(r.gw) > 0 && toNum(r.nw) > toNum(r.gw)) {
+    if (!r.pack && toNum(r.nw) > 0 && toNum(r.gw) > 0 && toNum(r.nw) > toNum(r.gw)) {
       out.push({ level: 'error', text: `${name}：每箱净重 ${r.nw} kg 大于毛重 ${r.gw} kg`, mod: 'pl', path: `items.${i}.gw` });
     }
     const hs = String(r.hs ?? '').replace(/\D/g, '');
@@ -72,6 +72,15 @@ export function checkOrder(o: Order): Issue[] {
     }
     if (r.model) models.set(r.model.trim().toUpperCase(), (models.get(r.model.trim().toUpperCase()) ?? 0) + 1);
   });
+  // 混装箱：几样货物的每箱净重加起来不能超过整箱毛重
+  for (const p of o.packs ?? []) {
+    const mem = k.rows.filter((r) => r.pack?.id === p.id);
+    const nw = mem.reduce((a, r) => a + toNum(r.nw), 0);
+    if (mem.length && toNum(p.gw) > 0 && nw > toNum(p.gw)) {
+      const i = k.rows.indexOf(mem[0]);
+      out.push({ level: 'error', text: `混装箱（第 ${i + 1} 行起）：几样货物每箱净重合计 ${fixed(nw, 2)} kg 大于每箱毛重 ${p.gw} kg`, mod: 'pl', path: `packs.${(o.packs ?? []).indexOf(p)}.gw` });
+    }
+  }
   models.forEach((n, m) => {
     if (n > 1) out.push({ level: 'warn', text: `型号 ${m} 出现了 ${n} 次，如是不同规格请在规格里注明，否则建议合并`, mod: 'pi', step: 'items' });
   });
@@ -93,7 +102,7 @@ export function checkOrder(o: Order): Issue[] {
   if (/\{(PO|CTNS)\}/.test(marks)) {
     out.push({
       level: 'error', text: '唛头里还有 {PO} / {CTNS} 没有替换', mod: 'marks', path: 'shipping.marks',
-      fix: { label: '替换为实际值', apply: (x) => { x.shipping.marks = fillMarks(x.shipping.marks, x).replace(/\{(PO|CTNS)\}/g, (_m, t: string) => (t === 'PO' ? x.numbers.po || '—' : String(calc(x.items).ctns || 'UP'))); } },
+      fix: { label: '替换为实际值', apply: (x) => { x.shipping.marks = fillMarks(x.shipping.marks, x).replace(/\{(PO|CTNS)\}/g, (_m, t: string) => (t === 'PO' ? x.numbers.po || '—' : String(calcOrder(x).ctns || 'UP'))); } },
     });
   }
 

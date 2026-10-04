@@ -34,6 +34,13 @@ export function toPdfStyle(s: St): Record<string, unknown> {
     if (raw == null || k.startsWith('--')) continue;
     if (['display', 'whiteSpace', 'fontStyle', 'fontFamily', 'cursor'].includes(k)) continue;
     const v = typeof raw === 'string' ? raw.replace(/(\d)px/g, '$1') : raw;
+    // padding / margin 简写（「4 4」「38 42 44」）展开成四边数值：react-pdf 解析多值简写有误，会让表格无法分页
+    if ((k === 'padding' || k === 'margin') && typeof v === 'string' && /\s/.test(v.trim())) {
+      const n = v.trim().split(/\s+/).map((x) => (x === 'auto' ? x : Number(x)));
+      const [t, r = t, b = t, l = r] = n;
+      Object.assign(out, { [k + 'Top']: t, [k + 'Right']: r, [k + 'Bottom']: b, [k + 'Left']: l });
+      continue;
+    }
     if (k === 'background') out.backgroundColor = v;
     else if (k === 'fontWeight') out.fontWeight = v === 'bold' || Number(v) >= 600 ? 700 : 400;
     else out[k] = v;
@@ -43,7 +50,7 @@ export function toPdfStyle(s: St): Record<string, unknown> {
   return out;
 }
 
-const impl: PdfImpl = {
+export const pdfImpl: PdfImpl = {
   View: View as unknown as PdfImpl['View'],
   Text: Text as unknown as PdfImpl['Text'],
   Page: ((props: { size?: string | [number, number]; style?: unknown; children?: React.ReactNode }) => (
@@ -56,7 +63,7 @@ const impl: PdfImpl = {
 export function buildPdf(order: Order, doc: DocKey, assets?: DocAssets, labels?: LabelOptions): ReactElement {
   return (
     <Document title={`${DOCNAMES[doc]} ${docFile(order, doc)}`} author={order.seller.name} creator="外贸超级工作台" producer="外贸超级工作台">
-      <PdfProvider value={impl}>
+      <PdfProvider value={pdfImpl}>
         <DocView doc={doc} order={order} assets={assets} labels={labels} />
       </PdfProvider>
     </Document>

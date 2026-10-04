@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { THEMES, TRANSPORT_CD } from '../domain/constants';
-import { amountWords, calc, intWords, needAddr } from '../domain/calc';
+import { amountWords, intWords, needAddr, calcOrder } from '../domain/calc';
 import { DOCNAMES, docFile, type DocKey } from '../modules/defs';
 import type { Order } from '../domain/types';
 import type { DocAssets } from '../docs/primitives';
@@ -23,7 +23,7 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
     views: [{ showGridLines: false }],
   });
   const acc = 'FF' + (THEMES[o.docset.theme] ?? '#1d3f72').slice(1).toUpperCase();
-  const k = calc(o.items);
+  const k = calcOrder(o);
   const cur = o.terms.currency;
 
   const cols = columns(doc, cur);
@@ -170,8 +170,10 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
   k.rows.forEach((row, i) => {
     r++;
     const values: Record<string, unknown> = {
-      no: i + 1, model: row.model, desc: row.nameEn, spec: row.spec, hs: row.hs, unit: row.unit, qty: row.q, price: row.p,
-      cno: row.n ? `${row.from}-${row.to}` : '', ctns: row.n, nw: row.nwT, gw: row.gwT, cbm: Number(row.cbmT.toFixed(3)),
+      no: i + 1, model: row.model, desc: row.pack && doc === 'pl' ? `${row.nameEn} (MIXED)` : row.nameEn, spec: row.spec, hs: row.hs, unit: row.unit, qty: row.q, price: row.p,
+      cno: row.from ? (row.pack && row.from === row.to ? String(row.from) : `${row.from}-${row.to}`) : '',
+      ctns: row.pack ? (row.n || null) : row.n,
+      nw: Number(row.nwT.toFixed(3)), gw: Number(row.gwT.toFixed(2)), cbm: Number(row.cbmT.toFixed(3)),
       marks: i === 0 ? o.shipping.marks : '', nameCn: row.nameCn, elements: row.elements, cur, origin: '中国',
       dest: o.customs.destCountry, source: o.customs.sourceArea, exempt: '照章征税',
     };
@@ -185,6 +187,19 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
       if (c.num) cell.numFmt = c.num;
     });
   });
+  // 箱单：混装箱的箱号、箱数合并单元格（与工厂箱单的写法一致），每行仍有自己的净重和分摊后的毛重
+  if (doc === 'pl') {
+    k.rows.forEach((row, i) => {
+      if (!row.pack || !row.lead || (row.span ?? 1) < 2) return;
+      for (const key of ['cno', 'ctns']) {
+        const c = cols.findIndex((x) => x.key === key) + 1;
+        if (c > 0) {
+          ws.mergeCells(first + i, c, first + i + row.span! - 1, c);
+          ws.getCell(first + i, c).alignment = { horizontal: 'center', vertical: 'middle' };
+        }
+      }
+    });
+  }
   if (doc !== 'customs' && k.rows.length) {
     r++;
     const sum = (key: string, result: number) => ({ formula: `SUM(${letter(key)}${first}:${letter(key)}${r - 1})`, result });
@@ -262,6 +277,7 @@ function columns(doc: ExcelDoc, cur: string): Col[] {
     { header: '项号', key: 'no', width: 6, align: 'center' }, { header: '商品编号', key: 'hs', width: 13 },
     { header: '商品名称', key: 'nameCn', width: 22 }, { header: '申报要素', key: 'elements', width: 30 },
     { header: '数量', key: 'qty', width: 10, num: '#,##0', align: 'right' }, { header: '单位', key: 'unit', width: 8, align: 'center' },
+    { header: '净重(千克)', key: 'nw', width: 11, num: MONEY, align: 'right' }, { header: '毛重(千克)', key: 'gw', width: 11, num: MONEY, align: 'right' },
     { header: '单价', key: 'price', width: 11, num: MONEY, align: 'right' }, { header: '总价', key: 'amount', width: 13, num: MONEY, align: 'right' },
     { header: '币制', key: 'cur', width: 7, align: 'center' }, { header: '原产国', key: 'origin', width: 8, align: 'center' },
     { header: '最终目的国', key: 'dest', width: 11, align: 'center' }, { header: '境内货源地', key: 'source', width: 11, align: 'center' },

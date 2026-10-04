@@ -1,4 +1,4 @@
-import { calc, fillMarks, toNum } from './calc';
+import { fillMarks, toNum, calcOrder } from './calc';
 import type { LabelLayout, Order } from './types';
 
 const MM = 72 / 25.4;
@@ -41,12 +41,27 @@ export function markForCarton(mark: string, n: number, total: number): string {
 
 /** 每箱一张箱贴；from / to 为箱号范围（含） */
 export function cartonLabels(o: Order, from = 1, to = Infinity): CartonLabel[] {
-  const k = calc(o.items);
+  const k = calcOrder(o);
   const total = k.ctns;
   const base = fillMarks(o.shipping.marks || '', o);
   const out: CartonLabel[] = [];
   for (const r of k.rows) {
     if (!r.n) continue;
+    if (r.pack) {
+      // 混装箱：每箱一张，列出箱内几样货物
+      const mem = k.rows.filter((x) => x.pack?.id === r.pack!.id);
+      const C = r.n;
+      const names = mem.map((x) => String(x.nameEn || x.nameCn || x.model || '').toUpperCase()).filter(Boolean);
+      for (let n = Math.max(r.from, from); n <= Math.min(r.to, to); n++) {
+        out.push({
+          n, total, mark: markForCarton(base, n, total),
+          model: '', name: `MIXED: ${names.join(', ')}`, qty: Math.round(mem.reduce((a, x) => a + x.q, 0) / C), unit: 'PCS',
+          nw: mem.reduce((a, x) => a + toNum(x.nw), 0), gw: toNum(r.pack.gw),
+          dims: toNum(r.pack.l) ? `${r.pack.l}×${r.pack.w}×${r.pack.h} CM` : '',
+        });
+      }
+      continue;
+    }
     const per = toNum(r.pcsPerCtn), q = toNum(r.q);
     for (let n = Math.max(r.from, from); n <= Math.min(r.to, to); n++) {
       const last = n === r.to;

@@ -15,7 +15,7 @@ export function flash(path: string) {
 
 /** 某个字段在模块的哪一步填写（货物行、条款按列匹配） */
 export function stepOf(mod: ModKey, path: string): StepKey | undefined {
-  const norm = path.replace(/^(items|contractClauses)\.\d+\./, '$1.*.');
+  const norm = path.replace(/^(items|contractClauses|packs)\.\d+\./, '$1.*.');
   return MODS[mod].steps?.find((st) => stepPaths(st).includes(norm));
 }
 

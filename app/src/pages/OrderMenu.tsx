@@ -4,7 +4,7 @@ import { confirmAction } from '../components/confirm';
 import { CheckPanel } from '../components/CheckPanel';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
-import { calc, fixed, int } from '../domain/calc';
+import { fixed, int, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
 import { MODS, modProgress, neededMods, type ModKey } from '../modules/defs';
 import { orderAmount } from './Home';
@@ -13,7 +13,7 @@ import type { Order, PartnerType } from '../domain/types';
 export function OrderMenu({ order: o }: { order: Order }) {
   const ui = useUI();
   const { customers, partners, setOrderField, duplicateOrder, deleteOrder } = useData();
-  const k = calc(o.items);
+  const k = calcOrder(o);
   const need = neededMods(o);
   const cur = STATUSES.indexOf(o.status);
   const cust = customers.find((c) => c.id === o.customerId);

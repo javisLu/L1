@@ -131,6 +131,19 @@ await step('16-labels', async () => {
   await page.click('button:has-text("导出箱贴 PDF")'); await waitToast('已保存 Labels-.*\\.pdf');
 });
 
+await step('17-mixed-carton', async () => {
+  // 箱单：勾选两行设为混装，填整箱毛重，导出箱单 PDF 和 Excel
+  await page.click('button:has-text("← 订单菜单")'); await page.click('.mcard:has-text("箱单")');
+  await page.click('.step:has-text("包装装箱")');
+  const boxes = page.locator('.pack-tbl tbody input[type=checkbox]');
+  await boxes.nth(1).check(); await boxes.nth(2).check();
+  await page.click('button:has-text("设为混装")'); await waitToast('设为混装');
+  await page.waitForSelector('.mixtag');
+  await page.fill('#in-packs-0-gw', '55'); await page.fill('#in-packs-0-ctns', '2');
+  await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 PL-.*\\.pdf');
+  await page.click('.mod-head button:has-text("导出 Excel")'); await waitToast('已保存 PL-.*\\.xlsx');
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

@@ -1,5 +1,5 @@
 import { ADDRESS_REQUIRED_TERMS, CUR_NAME, SYM } from './constants';
-import type { Item, Num, Order, PaymentHabit } from './types';
+import type { Item, MixPack, Num, Order, PaymentHabit } from './types';
 
 export const toNum = (v: Num | undefined | null): number => {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/,/g, ''));
@@ -17,13 +17,19 @@ export interface Row extends Item {
   q: number;
   p: number;
   a: number;
-  /** 箱数 */
+  /** 箱数（混装箱只算在本组第一行） */
   n: number;
   from: number;
   to: number;
   nwT: number;
+  /** 毛重合计；混装行为按净重比例分摊后的毛重 */
   gwT: number;
   cbmT: number;
+  /** 混装：所属混装箱、是否本组第一行、本组连续几行、本组箱数 */
+  pack?: MixPack;
+  lead?: boolean;
+  span?: number;
+  packCtns?: number;
 }
 
 export interface Totals {
@@ -36,21 +42,84 @@ export interface Totals {
   cbm: number;
 }
 
-/** 金额、箱数、箱号段、净毛重、体积：箱数按每箱装量向上取整，箱号按行顺序连续编号 */
-export function calc(items: Item[]): Totals {
+const vol = (x: { l: Num; w: Num; h: Num }) => (toNum(x.l) * toNum(x.w) * toNum(x.h)) / 1e6;
+
+/**
+ * 金额、箱数、箱号段、净毛重、体积。
+ * - 单独装箱：箱数 = 数量 ÷ 每箱装（向上取整），净毛重、体积按箱数累计
+ * - 混装箱：整组占一段箱号；每行净重 = 箱数 × 每箱净重；整箱毛重、体积按各行净重比例分摊
+ *   （净重都没填时按数量比例，再不行平均分）
+ */
+export function calc(items: Item[], packs: MixPack[] = []): Totals {
   let qty = 0, amount = 0, ctns = 0, nw = 0, gw = 0, cbm = 0, cursor = 0;
-  const rows = items.map((it) => {
-    const q = toNum(it.qty), p = toNum(it.price), per = toNum(it.pcsPerCtn);
-    const n = per > 0 ? Math.ceil(q / per) : 0;
-    const from = n ? cursor + 1 : 0, to = n ? cursor + n : 0;
-    cursor += n;
-    const vol = (toNum(it.l) * toNum(it.w) * toNum(it.h)) / 1e6;
-    const r: Row = { ...it, q, p, a: q * p, n, from, to, nwT: n * toNum(it.nw), gwT: n * toNum(it.gw), cbmT: n * vol };
-    qty += q; amount += r.a; ctns += n; nw += r.nwT; gw += r.gwT; cbm += r.cbmT;
+  const packOf = (it: Item) => (it.mix ? packs.find((p) => p.id === it.mix) : undefined);
+  // 每个混装箱的成员与净重合计（分摊用）
+  const groups = new Map<string, { pack: MixPack; members: Item[]; nw: number; qty: number; from: number; to: number; started: boolean }>();
+  for (const it of items) {
+    const pk = packOf(it);
+    if (!pk) continue;
+    const g = groups.get(pk.id) ?? { pack: pk, members: [], nw: 0, qty: 0, from: 0, to: 0, started: false };
+    g.members.push(it);
+    g.nw += toNum(it.nw);
+    g.qty += toNum(it.qty);
+    groups.set(pk.id, g);
+  }
+  // 分摊：毛重保留 2 位、体积保留 3 位，尾差加到份额最大的一行，保证每行加起来正好等于整箱
+  const alloc = new Map<string, { gw: number; cbm: number }>();
+  for (const g of groups.values()) {
+    const C = Math.max(0, Math.round(toNum(g.pack.ctns)));
+    const shares = g.members.map((m) => (g.nw > 0 ? toNum(m.nw) / g.nw : g.qty > 0 ? toNum(m.qty) / g.qty : 1 / g.members.length));
+    const split = (total: number, d: number) => {
+      const f = 10 ** d;
+      const parts = shares.map((sh) => Math.round(total * sh * f) / f);
+      const diff = Math.round((total - parts.reduce((a, b) => a + b, 0)) * f) / f;
+      if (diff && parts.length) parts[shares.indexOf(Math.max(...shares))] += diff;
+      return parts.map((x) => Math.round(x * f) / f);
+    };
+    const gws = split(C * toNum(g.pack.gw), 2), cbms = split(C * vol(g.pack), 3);
+    g.members.forEach((m, j) => alloc.set(m.id, { gw: gws[j], cbm: cbms[j] }));
+  }
+  const rows = items.map((it, i) => {
+    const q = toNum(it.qty), p = toNum(it.price);
+    const pk = packOf(it);
+    if (!pk) {
+      const per = toNum(it.pcsPerCtn);
+      const n = per > 0 ? Math.ceil(q / per) : 0;
+      const from = n ? cursor + 1 : 0, to = n ? cursor + n : 0;
+      cursor += n;
+      const r: Row = { ...it, q, p, a: q * p, n, from, to, nwT: n * toNum(it.nw), gwT: n * toNum(it.gw), cbmT: n * vol(it) };
+      qty += q; amount += r.a; ctns += n; nw += r.nwT; gw += r.gwT; cbm += r.cbmT;
+      return r;
+    }
+    const g = groups.get(pk.id)!;
+    const C = Math.max(0, Math.round(toNum(pk.ctns)));
+    let lead = false;
+    if (!g.started) {
+      g.started = true;
+      lead = true;
+      g.from = C ? cursor + 1 : 0;
+      g.to = C ? cursor + C : 0;
+      cursor += C;
+      ctns += C;
+    }
+    // 第一行或接在别的货物后面重新开始的一段：算连续几行（用于合并单元格显示）
+    const runStart = i === 0 || items[i - 1].mix !== it.mix || !packOf(items[i - 1]);
+    let span = 0;
+    if (runStart) while (i + span < items.length && items[i + span].mix === it.mix) span++;
+    const al = alloc.get(it.id)!;
+    const r: Row = {
+      ...it, q, p, a: q * p, n: lead ? C : 0, from: g.from, to: g.to,
+      nwT: C * toNum(it.nw), gwT: al.gw, cbmT: al.cbm,
+      pack: pk, lead: runStart, span: runStart ? span : 0, packCtns: C,
+    };
+    qty += q; amount += r.a; nw += r.nwT; gw += r.gwT; cbm += r.cbmT;
     return r;
   });
   return { rows, qty, amount, ctns, nw, gw, cbm };
 }
+
+/** 订单的计算结果（带混装箱） */
+export const calcOrder = (o: Pick<Order, 'items' | 'packs'>) => calc(o.items, o.packs ?? []);
 
 const ONES = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
 const TENS = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
@@ -141,7 +210,7 @@ export function addrLabel(o: Order): string {
 /** 唛头模板中的 {PO}、{CTNS} 替换为 PO 号与总箱数 */
 export function fillMarks(tpl: string, o: Order): string {
   if (!tpl) return '';
-  const k = calc(o.items);
+  const k = calcOrder(o);
   return tpl.replace('{PO}', o.numbers.po || '—').replace('{CTNS}', k.ctns ? String(k.ctns) : 'UP');
 }
 

@@ -4,7 +4,7 @@ import { confirmAction } from '../components/confirm';
 import { exportLibrary, startImport } from '../components/importer';
 import { useData, getPath, setPath } from '../store/data';
 import { toast, useUI } from '../store/ui';
-import { calc, money, payText, sym, today } from '../domain/calc';
+import { money, payText, sym, today, calcOrder } from '../domain/calc';
 import { CONTRACT_LIB, CURRENCIES, INCOTERMS, OTHER_CLAUSES, PARTNER_TYPES, PAYMENTS } from '../domain/constants';
 import { orderAmount } from './Home';
 import type { Customer, Product } from '../domain/types';
@@ -13,7 +13,7 @@ import type { Customer, Product } from '../domain/types';
 function custStats(c: Customer, orders: ReturnType<typeof useData.getState>['orders']) {
   const os = orders.filter((o) => o.customerId === c.id);
   const by: Record<string, number> = {};
-  os.forEach((o) => (by[o.terms.currency] = (by[o.terms.currency] ?? 0) + calc(o.items).amount));
+  os.forEach((o) => (by[o.terms.currency] = (by[o.terms.currency] ?? 0) + calcOrder(o).amount));
   return {
     os,
     total: Object.keys(by).map((x) => sym(x) + money(by[x])).join(' + ') || '—',

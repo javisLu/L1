@@ -421,3 +421,14 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .imp-mode-opt small{color:var(--ink-3);font-size:12px}
 .imp-mode-opt.on{border-color:var(--brand);background:var(--brand-soft)}
 .imp-note{font-size:12.5px;color:var(--brand);margin:4px 0}
+
+/* 箱单：混装 */
+.pack-tbl{min-width:1060px}
+.pack-tbl .cell{min-width:56px}
+.pack-tbl .sel{width:26px;text-align:center}
+.pack-tbl .sel input{width:auto;margin:0}
+.pack-tbl .nm{font-size:13px;white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.pack-tbl tr.mixrow td{background:color-mix(in srgb,var(--brand-soft) 45%,transparent)}
+.pack-tbl td.mixcell{background:var(--brand-soft);border-left:1px solid var(--line);border-right:1px solid var(--line);vertical-align:middle}
+.mixtag{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:600;color:var(--brand);border:1px solid var(--brand);border-radius:99px;padding:0 6px;vertical-align:1px}
+.mixsplit{display:block;margin:4px auto 0;font-size:11.5px;padding:1px 6px}

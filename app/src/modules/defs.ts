@@ -216,6 +216,7 @@ export function stepPaths(step: StepKey): string[] {
   const out: string[] = [];
   for (const fd of s.fields ?? []) if (fd.kind === 'field') out.push(fd.path);
   if (s.table) for (const c of TABLES[s.table]) if (c.key) out.push('items.*.' + c.key);
+  if (s.table === 'packing') out.push('packs.*.ctns', 'packs.*.gw', 'packs.*.l', 'packs.*.w', 'packs.*.h');
   if (s.list) out.push('contractClauses.*.title', 'contractClauses.*.body');
   return out;
 }
@@ -239,12 +240,28 @@ export function missing(o: Order, step: StepKey): string[] {
       if (!toNum(it.price)) out.push(`第${i + 1}行单价`);
     });
   }
-  if (s.table === 'packing')
+  if (s.table === 'packing') {
+    const packs = o.packs ?? [];
+    const inPack = (id?: string) => !!id && packs.some((p) => p.id === id);
     o.items.forEach((it, i) => {
+      if (inPack(it.mix)) {
+        // 混装行：只要求每样货物自己的净重（毛重按净重分摊）
+        if (!toNum(it.nw)) out.push(`第${i + 1}行净重`);
+        return;
+      }
       if (!toNum(it.pcsPerCtn)) out.push(`第${i + 1}行每箱装`);
       if (!toNum(it.gw)) out.push(`第${i + 1}行毛重`);
       if (!(toNum(it.l) && toNum(it.w) && toNum(it.h))) out.push(`第${i + 1}行箱规`);
     });
+    for (const p of packs) {
+      const rows = o.items.map((x, i) => (x.mix === p.id ? i + 1 : 0)).filter(Boolean);
+      if (!rows.length) continue;
+      const name = `混装箱（第${rows[0]}${rows.length > 1 ? '–' + rows[rows.length - 1] : ''}行）`;
+      if (!toNum(p.ctns)) out.push(`${name}箱数`);
+      if (!toNum(p.gw)) out.push(`${name}毛重`);
+      if (!(toNum(p.l) && toNum(p.w) && toNum(p.h))) out.push(`${name}箱规`);
+    }
+  }
   if (s.table === 'customsItems')
     o.items.forEach((it, i) => {
       if (!it.nameCn) out.push(`第${i + 1}行中文品名`);

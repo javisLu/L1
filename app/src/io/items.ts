@@ -1,6 +1,7 @@
 import { detectHeader, parseCsv, parseDims, toNumber, type FieldSpec } from './table';
 import { emptyItem } from '../domain/factory';
-import type { Item, Product } from '../domain/types';
+import type { Item, MixPack, Product } from '../domain/types';
+import { uid } from '../domain/calc';
 
 /** 货物明细可以识别的列（客户 PO、工厂报价单、自己的 Excel 都适用） */
 export type IK =
@@ -129,15 +130,30 @@ export function splitName(s: string): { en: string; cn: string } | null {
 
 export interface BuildResult {
   items: Item[];
+  /** 识别出的混装箱（Excel 合并单元格） */
+  packs: MixPack[];
   /** 有问题的行（导入后可在表格里补） */
   errors: string[];
-  /** 提醒（混装等） */
+  /** 提醒（混装、箱规等） */
   notes: string[];
   matched: number;
   /** 跳过的说明文字行（表格下方的 MARKS、Country of Origin 等） */
   skipped: number;
-  /** 混装行（箱数计在同组第一行）：按品名更新时清空它们的装箱数据 */
-  mixed: Set<string>;
+}
+
+/** 备注里的箱规：「Carton 10@63*43*22cm, 1@43*28*48cm」→ [{n:10, 63,43,22}, …]（托盘那行不算） */
+export function cartonSizesFromNotes(rows: string[][]): { n: number; l: number; w: number; h: number }[] {
+  const texts = [...new Set(rows.flat().filter((c) => /@/.test(c)))];
+  const out: { n: number; l: number; w: number; h: number }[] = [];
+  for (const t of texts) {
+    for (const line of t.split(/\n/)) {
+      if (/pallet|托盘|栈板/i.test(line)) continue;
+      for (const m of line.matchAll(/(\d+)\s*@\s*(\d+(?:\.\d+)?)\s*[*x×]\s*(\d+(?:\.\d+)?)\s*[*x×]\s*(\d+(?:\.\d+)?)/gi)) {
+        out.push({ n: Number(m[1]), l: Number(m[2]), w: Number(m[3]), h: Number(m[4]) });
+      }
+    }
+  }
+  return out;
 }
 
 /**
@@ -145,15 +161,16 @@ export interface BuildResult {
  * - 跳过空行、「合计 / Total」行，以及没有任何数字的说明文字行（表格下方的备注）
  * - 只有金额没有单价时，单价 = 金额 ÷ 数量；只有箱数没有每箱装时，每箱装 = 数量 ÷ 箱数
  * - 净毛重是每行合计时，按箱数换算成每箱
- * - 箱数 / 毛重是合并单元格（几种货混装一箱）：箱数、净重、毛重合计到这组的第一行
+ * - 箱数 / 毛重是合并单元格（几种货混装一箱）：生成混装箱，每行保留自己的净重，整箱毛重以后按净重分摊
+ * - 备注里写了各箱尺寸（如 10@63*43*22cm）且箱数对得上时，按顺序填入箱规
  * - 数量里带单位（如「1,200 PCS」）时取出单位；一格里中英文品名会拆开
  * - fill：按型号从产品库补全文件里没有的资料（单价仅在文件没有时）
  */
 export function buildItems(rows: string[][], mapping: Mapping, products: Product[] = [], fill = true, merged: boolean[][] = []): BuildResult {
   const items: Item[] = [];
+  const packs: MixPack[] = [];
   const errors: string[] = [];
   const notes: string[] = [];
-  const mixed = new Set<string>();
   let matched = 0, skipped = 0;
   const has = (k: IK) => mapping.includes(k);
   const byModel = new Map(products.map((p) => [p.model.trim().toLowerCase(), p]));
@@ -164,22 +181,39 @@ export function buildItems(rows: string[][], mapping: Mapping, products: Product
   };
   const hasNumber = (v: Partial<Record<IK, string>>) => NUMERIC.some((k) => toNumber(v[k] ?? '') !== 0);
   const anyNumeric = rows.some((r) => hasNumber(read(r)));
-  // 混装组：箱数 / 毛重列是合并单元格的接续行
-  let group: { first: Item; ctns: number; nwT: number; rows: number[] } | null = null;
+  // 混装组：箱数 / 毛重列是合并单元格的接续行；raw 记下每行原始的净重（合计或每箱）
+  type Raw = { nwT: number | null; nw: number | null };
+  let group: { members: Item[]; raws: Raw[]; ctns: number; gwT: number | null; gw: number | null; rows: number[] } | null = null;
   const closeGroup = () => {
-    if (group && group.rows.length > 1) {
-      const g = group;
-      if (g.ctns > 0 && g.nwT > 0) g.first.nw = round(g.nwT / g.ctns, 3);
-      notes.push(`第 ${g.rows[0]}–${g.rows[g.rows.length - 1]} 行是混装（Excel 合并单元格）：${g.ctns || ''} 箱的箱数和净毛重都计在第 ${g.rows[0]} 行，其余行不单独占箱`);
-    }
+    const g = group;
     group = null;
+    if (!g || g.members.length < 2) return;
+    const C = g.ctns || 1;
+    const lead = g.members[0];
+    const pack: MixPack = {
+      id: uid(), ctns: C,
+      gw: g.gwT != null ? round(g.gwT / C, 3) : g.gw ?? '',
+      l: lead.l, w: lead.w, h: lead.h,
+    };
+    packs.push(pack);
+    g.members.forEach((m, j) => {
+      const raw = g.raws[j];
+      m.mix = pack.id;
+      m.nw = raw.nwT != null ? round(raw.nwT / C, 3) : raw.nw ?? '';
+      m.pcsPerCtn = ''; m.gw = ''; m.l = ''; m.w = ''; m.h = '';
+    });
+    notes.push(`第 ${g.rows[0]}–${g.rows[g.rows.length - 1]} 行是混装（Excel 合并单元格），已设为同一箱（${C} 箱）：每行保留自己的净重，整箱毛重按净重比例分摊到每一行`);
   };
+  const optNum = (x?: string) => (x && x.trim() ? toNumber(x) : null);
 
+  // 合计行之后通常是备注（MARKS、Packing Size: 12 CARTONS 等），不再当货物
+  let ended = false;
   rows.forEach((cells, ri) => {
     const line = ri + 1;
     const v = read(cells);
     if (!Object.values(v).some(Boolean)) return;
-    if (isTotalRow(cells) && !v.model) { closeGroup(); return; }
+    if (ended) { skipped++; return; }
+    if (isTotalRow(cells) && !v.model) { closeGroup(); if (items.length) ended = true; return; }
     if (anyNumeric && !hasNumber(v)) { skipped++; closeGroup(); return; }
     const contRow = mapping.some((k, ci) => k && PER_CARTON.includes(k) && merged[ri]?.[ci]);
     const it = emptyItem();
@@ -203,12 +237,12 @@ export function buildItems(rows: string[][], mapping: Mapping, products: Product
     it.w = dims ? dims[1] : num(v.w);
     it.h = dims ? dims[2] : num(v.h);
     it.elements = v.elements ?? '';
+    const raw: Raw = { nwT: optNum(v.nwT), nw: optNum(v.nw) };
 
     if (contRow && group) {
-      // 混装接续行：不单独占箱，净重合计加到组里
+      group.members.push(it);
+      group.raws.push(raw);
       group.rows.push(line);
-      group.nwT += toNumber(v.nwT ?? '');
-      mixed.add(it.id);
     } else {
       closeGroup();
       it.pcsPerCtn = num(v.pcsPerCtn);
@@ -217,7 +251,7 @@ export function buildItems(rows: string[][], mapping: Mapping, products: Product
       const cartons = ctns || (toNumber(String(it.pcsPerCtn)) && q ? Math.ceil(q / toNumber(String(it.pcsPerCtn))) : 0);
       it.nw = v.nwT && cartons ? round(toNumber(v.nwT) / cartons, 3) : num(v.nw);
       it.gw = v.gwT && cartons ? round(toNumber(v.gwT) / cartons, 3) : num(v.gw);
-      group = { first: it, ctns: cartons, nwT: toNumber(v.nwT ?? ''), rows: [line] };
+      group = { members: [it], raws: [raw], ctns: cartons, gwT: optNum(v.gwT), gw: optNum(v.gw), rows: [line] };
     }
 
     const p = it.model ? byModel.get(it.model.trim().toLowerCase()) : undefined;
@@ -227,15 +261,48 @@ export function buildItems(rows: string[][], mapping: Mapping, products: Product
       keep('nameEn', p.nameEn); keep('nameCn', p.nameCn); keep('spec', p.spec); keep('hs', p.hs);
       if (!has('unit') && !unitInQty) it.unit = p.unit || it.unit;
       if (!has('price') && !has('amount')) keep('price', p.price);
-      if (!mixed.has(it.id)) { keep('pcsPerCtn', p.pcsPerCtn); keep('nw', p.nw); keep('gw', p.gw); }
-      keep('l', p.l); keep('w', p.w); keep('h', p.h); keep('elements', p.elements);
+      if (!contRow) { keep('pcsPerCtn', p.pcsPerCtn); keep('nw', p.nw); keep('gw', p.gw); keep('l', p.l); keep('w', p.w); keep('h', p.h); }
+      keep('elements', p.elements);
     }
     if (!it.model && !it.nameEn && !it.nameCn) errors.push(`第 ${line} 行没有型号或品名`);
     else if (!q) errors.push(`第 ${line} 行（${it.model || it.nameEn || it.nameCn}）没有数量`);
     items.push(it);
   });
   closeGroup();
-  return { items, errors, notes, matched, skipped, mixed };
+
+  // 备注里的各箱尺寸：按装箱顺序填给还没有箱规的行 / 混装箱
+  const sizes = cartonSizesFromNotes(rows);
+  if (sizes.length) {
+    const units: { cartons: number; set: (l: number, w: number, h: number) => void; has: boolean }[] = [];
+    const seen = new Set<string>();
+    for (const it of items) {
+      if (it.mix) {
+        if (seen.has(it.mix)) continue;
+        seen.add(it.mix);
+        const pk = packs.find((x) => x.id === it.mix)!;
+        units.push({ cartons: toNumber(String(pk.ctns)), has: !!toNumber(String(pk.l)), set: (l, w, h) => Object.assign(pk, { l, w, h }) });
+      } else {
+        const per = toNumber(String(it.pcsPerCtn)), q = toNumber(String(it.qty));
+        units.push({ cartons: per ? Math.ceil(q / per) : 0, has: !!toNumber(String(it.l)), set: (l, w, h) => Object.assign(it, { l, w, h }) });
+      }
+    }
+    const total = units.reduce((a, u) => a + u.cartons, 0);
+    if (total && sizes.reduce((a, x) => a + x.n, 0) === total) {
+      let bi = 0, left = sizes[0].n, filled = 0;
+      for (const u of units) {
+        if (!u.cartons) continue;
+        if (u.cartons <= left && !u.has) { u.set(sizes[bi].l, sizes[bi].w, sizes[bi].h); filled++; }
+        let need = u.cartons;
+        while (need > 0 && bi < sizes.length) {
+          const take = Math.min(need, left);
+          need -= take; left -= take;
+          if (left === 0 && ++bi < sizes.length) left = sizes[bi].n;
+        }
+      }
+      if (filled) notes.push(`已按备注里的箱规（${sizes.map((x) => `${x.n}@${x.l}×${x.w}×${x.h}`).join('，')}）依次填入 ${filled} 组货物的外箱尺寸`);
+    }
+  }
+  return { items, packs, errors, notes, matched, skipped };
 }
 
 /** 导入后哪些货物字段来自文件（按品名更新时只改这些） */
@@ -254,29 +321,34 @@ export function importedFields(mapping: Mapping): (keyof Item)[] {
   return [...f];
 }
 
-const keyOf = (it: Item) => (it.model || it.nameEn || it.nameCn).trim().toLowerCase();
-
 /**
  * 按型号（没有型号时按品名）更新现有货物：只改文件里有的列，文件里是空的不覆盖；
  * 找不到对应货物的行加到最后。
  */
 export function updateExisting(existing: Item[], r: BuildResult, mapping: Mapping): { items: Item[]; updated: number; added: number } {
   const fields = importedFields(mapping);
+  const packing = fields.includes('pcsPerCtn') || fields.includes('nw') || fields.includes('gw');
   const items = existing.map((x) => ({ ...x }));
-  const byKey = new Map<string, number>();
-  items.forEach((x, i) => {
-    for (const k of [x.model, x.nameEn, x.nameCn]) if (k.trim() && !byKey.has(k.trim().toLowerCase())) byKey.set(k.trim().toLowerCase(), i);
-  });
+  // 每个现有货物只对应一次（同名货物分在两箱时，第二行加到最后）
+  const used = new Set<number>();
+  const find = (k: string) => {
+    if (!k.trim()) return undefined;
+    const key = k.trim().toLowerCase();
+    return items.findIndex((x, i) => !used.has(i) && i < existing.length && [x.model, x.nameEn, x.nameCn].some((v) => v.trim().toLowerCase() === key));
+  };
   let updated = 0, added = 0;
   for (const inc of r.items) {
-    const idx = byKey.get(keyOf(inc)) ?? (inc.nameEn ? byKey.get(inc.nameEn.trim().toLowerCase()) : undefined) ?? (inc.nameCn ? byKey.get(inc.nameCn.trim().toLowerCase()) : undefined);
-    if (idx == null) { items.push(inc); added++; continue; }
+    let idx = -1;
+    for (const k of [inc.model, inc.nameEn, inc.nameCn]) { const j = find(k); if (j != null && j >= 0) { idx = j; break; } }
+    if (idx < 0) { items.push(inc); added++; continue; }
+    used.add(idx);
     const t = items[idx] as unknown as Record<string, unknown>;
     for (const f of fields) {
       const val = (inc as unknown as Record<string, unknown>)[f];
       if (val !== '' && val != null) t[f] = val;
     }
-    if (r.mixed.has(inc.id)) { t.pcsPerCtn = ''; t.nw = ''; t.gw = ''; }
+    if (inc.mix) { t.mix = inc.mix; t.pcsPerCtn = ''; t.gw = ''; }
+    else if (packing) t.mix = '';
     updated++;
   }
   return { items, updated, added };

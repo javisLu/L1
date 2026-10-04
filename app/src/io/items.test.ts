@@ -86,16 +86,16 @@ describe('导入工厂箱单', () => {
     expect(r.items[0]).toMatchObject({ nameEn: 'Tote bags', nameCn: '帆布袋', pcsPerCtn: 50, nw: 12.5, gw: 13.385 });
   });
 
-  it('毛重合并单元格 = 混装：箱数和净毛重计在第一行', () => {
+  it('毛重合并单元格 = 混装：生成混装箱，每行保留自己的净重', () => {
     const s = analyzeItems(table, merged);
     const r = buildItems(s.rows, s.mapping, [], false, s.merged);
-    const [, key, leaf, box] = r.items;
-    expect(key).toMatchObject({ pcsPerCtn: 130, gw: 29.5 });
-    expect(key.nw).toBeCloseTo(7.8 + 13.5 + 1.15, 3);
-    expect(leaf.pcsPerCtn).toBe('');
-    expect(box.pcsPerCtn).toBe('');
+    const [tote, key, leaf, box] = r.items;
+    expect(r.packs).toHaveLength(1);
+    expect(r.packs[0]).toMatchObject({ ctns: 1, gw: 29.5 });
+    expect([key.mix, leaf.mix, box.mix].every((x) => x === r.packs[0].id)).toBe(true);
+    expect(tote.mix).toBeFalsy();
+    expect([key.nw, leaf.nw, box.nw]).toEqual([7.8, 13.5, 1.15]);
     expect(r.notes[0]).toContain('第 2–4 行是混装');
-    expect(r.mixed.size).toBe(2);
   });
 
   it('按品名更新现有货物，只改文件里有的列', async () => {

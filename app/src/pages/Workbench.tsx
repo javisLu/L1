@@ -4,7 +4,7 @@ import { ClauseList, FieldView, ItemTable } from '../components/form';
 import { Preview } from '../components/Preview';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
-import { calc, fillMarks } from '../domain/calc';
+import { fillMarks, calcOrder } from '../domain/calc';
 import { LABEL_LAYOUTS, cartonLabels, labelPages } from '../domain/labels';
 import { DOCNAMES, DOC_FMT, MODS, STEPS, missing, stepPaths, type DocKey, type ModKey, type StepKey } from '../modules/defs';
 import { exportDoc } from '../export/actions';
@@ -29,7 +29,7 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
   const goStep = (st: StepKey) => ui.set({ step: st, ...(st === 'contractClauses' && docs.includes('contract') ? { doc: 'contract' as DocKey } : {}) });
 
   const jumpTo = (path: string) => {
-    const norm = path.replace(/^(items|contractClauses)\.\d+\./, '$1.*.');
+    const norm = path.replace(/^(items|contractClauses|packs)\.\d+\./, '$1.*.');
     const target = steps.find((st) => stepPaths(st).includes(norm));
     if (!target) return toast('这一项在本订单的其它模块里填写（如「合同 / PI」的货物明细）');
     ui.set({ step: target, expand: false });
@@ -121,7 +121,7 @@ function LabelTools({ order }: { order: Order }) {
   const ui = useUI();
   const { settings, updateSettings } = useData();
   const lab = settings.labels;
-  const total = calc(order.items).ctns;
+  const total = calcOrder(order).ctns;
   const range = ui.labelRange;
   const from = range?.from ?? 1, to = range?.to ?? total;
   const count = cartonLabels(order, from, to).length;

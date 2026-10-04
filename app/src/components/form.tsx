@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useData, getPath } from '../store/data';
 import { toast, useUI } from '../store/ui';
-import { calc, fixed, int, money, sym } from '../domain/calc';
+import { fixed, int, money, sym, calcOrder } from '../domain/calc';
 import { CONTRACT_LIB } from '../domain/constants';
 import { emptyItem, productToItem, syncPay } from '../domain/factory';
 import { SRC_NAME, TABLES, dyn, inputId, type FieldDef, type TableKey } from '../modules/defs';
 import type { Order } from '../domain/types';
 import { uid } from '../domain/calc';
 import { openItemImport } from './itemImport';
+import { PackingTable } from './packing';
 
 type FieldSpec = Extract<FieldDef, { kind: 'field' }>;
 
@@ -164,10 +165,15 @@ function ProductPicker({ orderId }: { orderId: string }) {
 }
 
 export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
+  if (table === 'packing') return <PackingTable order={order} />;
+  return <GoodsTable order={order} table={table} />;
+}
+
+function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
   const setField = useData((s) => s.setOrderField);
   const updateOrder = useData((s) => s.updateOrder);
   const openModal = useUI((s) => s.openModal);
-  const k = calc(order.items);
+  const k = calcOrder(order);
   const cols = TABLES[table];
   const cur = order.terms.currency;
   const purpose = table === 'items' ? 'items' : table === 'packing' ? 'packing' : 'customs';
@@ -262,9 +268,6 @@ export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
           {table === 'items' && (
             <tfoot><tr><td /><td colSpan={5}>合计</td><td style={{ textAlign: 'right' }}>{int(k.qty)}</td><td /><td style={{ textAlign: 'right' }}>{sym(cur) + money(k.amount)}</td><td /></tr></tfoot>
           )}
-          {table === 'packing' && (
-            <tfoot><tr><td /><td colSpan={6}>合计</td><td style={{ textAlign: 'right' }}>{fixed(k.nw, 2)}</td><td style={{ textAlign: 'right' }}>{fixed(k.gw, 2)}</td><td style={{ textAlign: 'right' }}>{k.ctns}</td><td /><td style={{ textAlign: 'right' }}>{fixed(k.cbm, 3)}</td></tr></tfoot>
-          )}
         </table>
       </div>
       {table === 'items' && (
@@ -285,12 +288,9 @@ export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
       )}
       {table !== 'items' && (
         <div className="tbl-tools">
-          <button className="btn sm" onClick={() => openItemImport(order, undefined, purpose)}>{table === 'packing' ? '粘贴 Excel / 导入工厂箱单' : '粘贴 Excel 导入'}</button>
+          <button className="btn sm" onClick={() => openItemImport(order, undefined, purpose)}>粘贴 Excel 导入</button>
           <span className="tbl-tip">按型号 / 品名对上现有货物，只更新文件里有的列；也可以在表格里直接 Ctrl+V</span>
         </div>
-      )}
-      {table === 'packing' && (
-        <div className="note">箱数 = 数量 ÷ 每箱装（向上取整）；箱号段按行顺序连续编号；净毛重、体积按箱数累计。<br />总毛重、总体积会同步到发票、报关单和唛头。</div>
       )}
       {table === 'customsItems' && (
         <div className="note">申报要素格式示例：品牌类型|出口享惠情况|用途|材质|品牌|型号。录入后自动存入 HS 记忆库，下次同品名自动带出。</div>

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { AssetsProvider, Box, Fld, Img, Page, Row, Table, Txt, useAssets, useIsPdf, type DocAssets, type St } from './primitives';
 import { THEMES, TRANSPORT_CD } from '../domain/constants';
-import { amountWords, calc, fixed, int, intWords, money, needAddr, sym } from '../domain/calc';
+import { amountWords, fixed, int, intWords, money, needAddr, sym, calcOrder, toNum, type Row as CalcRow } from '../domain/calc';
 import { getPath } from '../store/data';
 import type { Order } from '../domain/types';
 import type { DocKey } from '../modules/defs';
@@ -122,7 +122,7 @@ const EmptyRow = (n: number): ReactNode[][] => [[<Txt style={{ color: '#999' }}>
 
 /* ---------- 报价单 / PI ---------- */
 function QuotePI({ o, kind }: { o: Order; kind: 'quote' | 'pi' }) {
-  const k = calc(o.items), c = o.terms.currency, a = accent(o);
+  const k = calcOrder(o), c = o.terms.currency, a = accent(o);
   const meta: [string, ReactNode][] = kind === 'quote'
     ? [['No.', F(o, 'numbers.quote')], ['Date', F(o, 'numbers.date')], ['Valid Until', F(o, 'numbers.validUntil', '—')]]
     : [['No.', F(o, 'numbers.pi')], ['Date', F(o, 'numbers.date')], ['PO No.', F(o, 'numbers.po', '—')]];
@@ -179,7 +179,7 @@ function QuotePI({ o, kind }: { o: Order; kind: 'quote' | 'pi' }) {
 
 /* ---------- 销售合同 ---------- */
 function Contract({ o }: { o: Order }) {
-  const k = calc(o.items), c = o.terms.currency, a = accent(o);
+  const k = calcOrder(o), c = o.terms.currency, a = accent(o);
   const { logo } = useAssets();
   const base: [string, ReactNode][] = [
     ['装运港 Port of Loading', F(o, 'terms.pol')],
@@ -260,7 +260,7 @@ function Contract({ o }: { o: Order }) {
 
 /* ---------- 商业发票 ---------- */
 function Invoice({ o }: { o: Order }) {
-  const k = calc(o.items), c = o.terms.currency, a = accent(o);
+  const k = calcOrder(o), c = o.terms.currency, a = accent(o);
   const rows = k.rows.map((r, i) => [
     <><Fld p={`items.${i}.nameEn`} v={r.nameEn} ph="[品名]" />{'\n'}<Txt style={{ color: '#777', fontSize: 7 }}><Fld p={`items.${i}.model`} v={r.model} /> · HS <Fld p={`items.${i}.hs`} v={r.hs} ph="—" /></Txt></>,
     <><Fld p={`items.${i}.qty`} v={r.q ? int(r.q) : ''} ph="0" /> {r.unit}</>,
@@ -294,16 +294,25 @@ function Invoice({ o }: { o: Order }) {
 
 /* ---------- 装箱单 ---------- */
 function Packing({ o }: { o: Order }) {
-  const k = calc(o.items), a = accent(o);
-  const rows = k.rows.map((r, i) => [
-    r.n ? `${r.from}-${r.to}` : '—',
-    <><Fld p={`items.${i}.nameEn`} v={r.nameEn} ph="[品名]" />{'\n'}<Txt style={{ color: '#777', fontSize: 7 }}>{r.model} · <Fld p={`items.${i}.pcsPerCtn`} v={r.pcsPerCtn ? `${r.pcsPerCtn} ${r.unit}/CTN` : ''} ph="[每箱装]" /></Txt></>,
-    int(r.q),
-    String(r.n),
-    <Fld p={`items.${i}.nw`} v={r.nwT ? fixed(r.nwT, 2) : ''} ph="0" />,
-    <Fld p={`items.${i}.gw`} v={r.gwT ? fixed(r.gwT, 2) : ''} ph="0" />,
-    <Fld p={`items.${i}.l`} v={r.cbmT ? fixed(r.cbmT, 3) : ''} ph="0" />,
-  ]);
+  const k = calcOrder(o), a = accent(o);
+  const packIdx = (r: CalcRow) => (o.packs ?? []).findIndex((p) => p.id === r.pack?.id);
+  const cnoText = (r: CalcRow) => (r.from ? (r.from === r.to ? String(r.from) : `${r.from}-${r.to}`) : '—');
+  const rows = k.rows.map((r, i) => {
+    const pi = packIdx(r);
+    const sub = r.pack
+      ? <Txt style={{ color: '#777', fontSize: 7 }}>{r.model ? `${r.model} · ` : ''}MIXED · 混装 C/NO. {cnoText(r)}</Txt>
+      : <Txt style={{ color: '#777', fontSize: 7 }}>{r.model} · <Fld p={`items.${i}.pcsPerCtn`} v={r.pcsPerCtn ? `${r.pcsPerCtn} ${r.unit}/CTN` : ''} ph="[每箱装]" /></Txt>;
+    return [
+      r.pack ? cnoText(r) : r.n ? `${r.from}-${r.to}` : '—',
+      <><Fld p={`items.${i}.nameEn`} v={r.nameEn} ph="[品名]" />{'\n'}{sub}</>,
+      int(r.q),
+      r.pack ? (r.n ? String(r.n) : '') : String(r.n),
+      <Fld p={`items.${i}.nw`} v={r.nwT ? fixed(r.nwT, 2) : ''} ph="0" />,
+      <Fld p={r.pack ? `packs.${pi}.gw` : `items.${i}.gw`} v={r.gwT ? fixed(r.gwT, 2) : ''} ph="0" />,
+      <Fld p={r.pack ? `packs.${pi}.l` : `items.${i}.l`} v={r.cbmT || (r.pack && toNum(r.pack.l)) ? fixed(r.cbmT, 3) : ''} ph="0" />,
+    ];
+  });
+  const mixedNote = (o.packs ?? []).length > 0;
   return (
     <Page accent={a}>
       <Head o={o} title="PACKING LIST" meta={[['Invoice No.', F(o, 'numbers.ci')], ['Date', F(o, 'numbers.date')], ['Contract No.', F(o, 'numbers.contract')]]} />
@@ -316,6 +325,7 @@ function Packing({ o }: { o: Order }) {
         foot={[{ w: '52%', c: 'TOTAL' }, { w: '9%', align: 'right', c: int(k.qty) }, { w: '7%', align: 'right', c: String(k.ctns) }, { w: '11%', align: 'right', c: fixed(k.nw, 2) }, { w: '11%', align: 'right', c: fixed(k.gw, 2) }, { w: '10%', align: 'right', c: fixed(k.cbm, 3) }]}
       />
       <Words o={o}>SAY TOTAL {intWords(k.ctns)} ({k.ctns}) CARTONS ONLY</Words>
+      {mixedNote && <Txt style={{ fontSize: 7, color: '#666', marginTop: 4 }}>Note: goods marked MIXED are packed together in the same carton(s); the carton gross weight is allocated to each item in proportion to its net weight.</Txt>}
       <Sign o={o} left={<>For and on behalf of <B>{o.seller.name}</B></>} right="Authorized Signature" />
     </Page>
   );
@@ -323,7 +333,7 @@ function Packing({ o }: { o: Order }) {
 
 /* ---------- 报关预录入表 ---------- */
 function CustomsDraft({ o }: { o: Order }) {
-  const k = calc(o.items), c = o.terms.currency, a = accent(o);
+  const k = calcOrder(o), c = o.terms.currency, a = accent(o);
   const cell = (label: string, v: ReactNode, span = 1) => (
     <Box style={{ width: `${span * 25}%`, borderRight: '0.75px solid #333', borderBottom: '0.75px solid #333', padding: '3px 5px', minHeight: 28 }}>
       <Txt style={{ fontSize: 6.3, color: '#666' }}>{label}</Txt>
@@ -334,7 +344,7 @@ function CustomsDraft({ o }: { o: Order }) {
     String(i + 1),
     <Fld p={`items.${i}.hs`} v={r.hs} ph="[编码]" />,
     <><Fld p={`items.${i}.nameCn`} v={r.nameCn} ph="[中文品名]" />{'\n'}<Txt style={{ color: '#777', fontSize: 7 }}><Fld p={`items.${i}.elements`} v={r.elements} ph="[申报要素]" /></Txt></>,
-    `${int(r.q)} ${r.unit}`,
+    `${int(r.q)} ${r.unit}\n净重 ${fixed(r.nwT, 2)} kg\n毛重 ${fixed(r.gwT, 2)} kg`,
     `${money(r.p)}\n${money(r.a)}\n${c}`,
     '中国',
     F(o, 'customs.destCountry', '—'),
@@ -363,7 +373,7 @@ function CustomsDraft({ o }: { o: Order }) {
       <Box style={{ marginTop: 10 }}>
         <Table
           accent={a}
-          cols={[{ label: '项号', w: '5%', align: 'center' }, { label: '商品编号', w: '12%' }, { label: '商品名称及规格型号', w: '31%' }, { label: '数量及单位', w: '11%', align: 'right' }, { label: '单价/总价/币制', w: '12%', align: 'right' }, { label: '原产国', w: '7%', align: 'center' }, { label: '最终目的国', w: '8%', align: 'center' }, { label: '境内货源地', w: '8%', align: 'center' }, { label: '征免', w: '6%', align: 'center' }]}
+          cols={[{ label: '项号', w: '5%', align: 'center' }, { label: '商品编号', w: '12%' }, { label: '商品名称及规格型号', w: '26%' }, { label: '数量 / 净毛重', w: '16%', align: 'right' }, { label: '单价/总价/币制', w: '12%', align: 'right' }, { label: '原产国', w: '7%', align: 'center' }, { label: '最终目的国', w: '8%', align: 'center' }, { label: '境内货源地', w: '8%', align: 'center' }, { label: '征免', w: '6%', align: 'center' }]}
           rows={rows.length ? rows : EmptyRow(9)}
         />
       </Box>
@@ -374,7 +384,7 @@ function CustomsDraft({ o }: { o: Order }) {
 
 /* ---------- 唛头 ---------- */
 function Marks({ o }: { o: Order }) {
-  const k = calc(o.items), a = accent(o), r = k.rows[0];
+  const k = calcOrder(o), a = accent(o), r = k.rows[0];
   const side = o.shipping.side || (r ? `DESCRIPTION: ${String(r.nameEn || '').toUpperCase()}\nQTY: ${r.pcsPerCtn} ${r.unit}/CTN\nN.W.: ${fixed(Number(r.nw) || 0, 2)} KGS\nG.W.: ${fixed(Number(r.gw) || 0, 2)} KGS\nMEAS: ${r.l}×${r.w}×${r.h} CM` : '');
   const box = (content: ReactNode, cap: string, small = false) => (
     <Box style={{ width: '48%' }}>

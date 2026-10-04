@@ -38,7 +38,7 @@ const InText = createContext(false);
 export function Box({ style, children, keep }: { style?: St; children?: ReactNode; keep?: boolean }) {
   const pdf = useContext(Pdf);
   const st: St = { display: 'flex', flexDirection: 'column', ...style };
-  if (pdf) return <pdf.View style={pdf.style(st)} wrap={keep ? false : undefined}>{children}</pdf.View>;
+  if (pdf) return <pdf.View style={pdf.style(st)} {...(keep ? { wrap: false } : {})}>{children}</pdf.View>;
   return <div style={st}>{children}</div>;
 }
 
@@ -46,7 +46,7 @@ export function Box({ style, children, keep }: { style?: St; children?: ReactNod
 export function Row({ style, children, keep }: { style?: St; children?: ReactNode; keep?: boolean }) {
   const pdf = useContext(Pdf);
   const st: St = { display: 'flex', flexDirection: 'row', ...style };
-  if (pdf) return <pdf.View style={pdf.style(st)} wrap={keep ? false : undefined}>{children}</pdf.View>;
+  if (pdf) return <pdf.View style={pdf.style(st)} {...(keep ? { wrap: false } : {})}>{children}</pdf.View>;
   return <div style={st}>{children}</div>;
 }
 

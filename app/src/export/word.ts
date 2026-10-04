@@ -3,7 +3,7 @@ import {
   TableCell, TableRow, TextRun, TextWrappingType, VerticalPositionRelativeFrom, WidthType,
 } from 'docx';
 import { THEMES } from '../domain/constants';
-import { amountWords, calc, int, money, needAddr, sym } from '../domain/calc';
+import { amountWords, int, money, needAddr, sym, calcOrder } from '../domain/calc';
 import type { Order } from '../domain/types';
 import type { DocAssets } from '../docs/primitives';
 import { fit, imageInfo, type ImgInfo } from './images';
@@ -38,7 +38,7 @@ const borders = { top: border, bottom: border, left: border, right: border };
 
 /** 销售合同 Word 版：与软件内合同一致（订单数据生成的条款 + 可自定义条款），方便客户继续修改 */
 export async function renderContractDocx(o: Order, assets?: DocAssets): Promise<Uint8Array> {
-  const k = calc(o.items);
+  const k = calcOrder(o);
   const c = o.terms.currency;
   const acc = (THEMES[o.docset.theme] ?? '#1d3f72').slice(1);
 

@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { TopBar, StatusPill, soon } from '../components/common';
 import { useData } from '../store/data';
 import { toast, useUI, type Page } from '../store/ui';
-import { calc, money, sym } from '../domain/calc';
+import { money, sym, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
 import type { Order } from '../domain/types';
 
-export const orderAmount = (o: Order) => sym(o.terms.currency) + money(calc(o.items).amount);
+export const orderAmount = (o: Order) => sym(o.terms.currency) + money(calcOrder(o).amount);
 
 export function Home() {
   const { orders, customers, products, partners } = useData();

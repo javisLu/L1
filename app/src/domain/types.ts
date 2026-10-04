@@ -69,6 +69,24 @@ export interface Item {
   nw: Num;
   gw: Num;
   elements: string;
+  /** 混装箱编号（与 Order.packs 对应）；空 = 单独装箱，按每箱装量算箱数 */
+  mix?: string;
+}
+
+/**
+ * 混装箱：几种货物装在同一种箱子里（Excel 里通常是合并单元格）。
+ * 箱数、每箱毛重、外箱尺寸属于整箱；每种货物在 Item.nw 填自己的每箱净重。
+ * 整箱毛重按各货物净重比例分摊到每一行，箱单、报关资料上每行都有净重和毛重。
+ */
+export interface MixPack {
+  id: string;
+  /** 这样的混装箱有几箱（每箱装的内容相同） */
+  ctns: Num;
+  /** 每箱毛重 kg */
+  gw: Num;
+  l: Num;
+  w: Num;
+  h: Num;
 }
 
 export interface Numbers {
@@ -136,6 +154,8 @@ export interface Order {
   terms: Terms;
   numbers: Numbers;
   items: Item[];
+  /** 混装箱（可选，老订单没有） */
+  packs?: MixPack[];
   shipping: Shipping;
   customs: Customs;
   partners: { forwarder: string; broker: string; factory: string };
