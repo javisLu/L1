@@ -7,6 +7,7 @@ import { amountWords, int, money, needAddr, sym, calcOrder } from '../domain/cal
 import type { Order } from '../domain/types';
 import type { DocAssets } from '../docs/primitives';
 import { fit, imageInfo, type ImgInfo } from './images';
+import { pkgSummary } from '../domain/package';
 
 const EMU = 9525; // 每像素
 /** 浮动图片：不占文字位置，叠在文字上方（Logo 在标题左侧，公章压在签字线上） */
@@ -39,6 +40,7 @@ const borders = { top: border, bottom: border, left: border, right: border };
 /** 销售合同 Word 版：与软件内合同一致（订单数据生成的条款 + 可自定义条款），方便客户继续修改 */
 export async function renderContractDocx(o: Order, assets?: DocAssets): Promise<Uint8Array> {
   const k = calcOrder(o);
+  const pk = pkgSummary(o, k);
   const c = o.terms.currency;
   const acc = (THEMES[o.docset.theme] ?? '#1d3f72').slice(1);
 
@@ -71,7 +73,7 @@ export async function renderContractDocx(o: Order, assets?: DocAssets): Promise<
   const total = new TableRow({
     children: [
       new TableCell({ columnSpan: 2, width: { size: W[0] + W[1], type: WidthType.PERCENTAGE }, borders, margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: [para(runs(`总计 TOTAL ${(o.terms.incoterm + ' ' + o.terms.place).toUpperCase()}`, { bold: true, size: 9 }))] }),
-      cell(`${k.ctns} CTNS`, { width: W[2], align: AlignmentType.RIGHT, bold: true }),
+      cell(`${pk.count} ${pk.unitEn}`, { width: W[2], align: AlignmentType.RIGHT, bold: true }),
       cell('', { width: W[3] }),
       cell(sym(c) + money(k.amount), { width: W[4], align: AlignmentType.RIGHT, bold: true }),
     ],

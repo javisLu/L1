@@ -2,6 +2,7 @@ import { OrderCrumbs, TopBar } from '../components/common';
 import { openCustomerPicker } from '../components/form';
 import { confirmAction } from '../components/confirm';
 import { CheckPanel } from '../components/CheckPanel';
+import { pkgSummary } from '../domain/package';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { fixed, int, calcOrder } from '../domain/calc';
@@ -14,6 +15,7 @@ export function OrderMenu({ order: o }: { order: Order }) {
   const ui = useUI();
   const { customers, partners, setOrderField, duplicateOrder, deleteOrder } = useData();
   const k = calcOrder(o);
+  const pk = pkgSummary(o, k);
   const need = neededMods(o);
   const cur = STATUSES.indexOf(o.status);
   const cust = customers.find((c) => c.id === o.customerId);
@@ -99,8 +101,8 @@ export function OrderMenu({ order: o }: { order: Order }) {
             <div className="big num">{orderAmount(o)}</div>
             <div className="kv">
               <span>数量</span><b className="num">{int(k.qty)}</b>
-              <span>箱数</span><b className="num">{k.ctns} CTNS</b>
-              <span>毛重 / 体积</span><b className="num">{fixed(k.gw, 1)} kg / {fixed(k.cbm, 2)} m³</b>
+              <span>件数</span><b className="num">{pk.mode === 'ctns' ? `${k.ctns} CTNS` : `${pk.count} ${pk.unitEn} / ${k.ctns} CTNS`}</b>
+              <span>毛重 / 体积</span><b className="num">{fixed(pk.gw, 1)} kg / {fixed(pk.cbm, 2)} m³</b>
             </div>
           </div>
           <div className="panel">

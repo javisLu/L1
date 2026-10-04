@@ -5,6 +5,7 @@ import { pickFile, readBytes } from '../io/image';
 import { ITEM_FIELDS, analyzeItems, buildItems, parsePasted, updateExisting, withHeaderRow, type IK, type ItemSheet } from '../io/items';
 import { toNum } from '../domain/calc';
 import { prunePacks } from '../domain/packs';
+import { PKG_MODES } from '../domain/package';
 import type { Order } from '../domain/types';
 
 export type ImportPurpose = 'items' | 'packing' | 'customs';
@@ -72,6 +73,8 @@ function ItemImport({ orderId, initial, purpose }: { orderId: string; initial: I
     const before = { items: order.items, po: order.numbers.po };
     const po = usePo && sheet?.po ? sheet.po : null;
     const beforePacks = order.packs ?? [];
+    const beforePkg = order.pkg;
+    const beforeType = order.customs.packageType;
     updateOrder(orderId, (o) => {
       if (mode === 'replace') { o.items = result.items; o.packs = result.packs; }
       else {
@@ -84,6 +87,7 @@ function ItemImport({ orderId, initial, purpose }: { orderId: string; initial: I
         o.packs = [...(o.packs ?? []), ...result.packs];
       }
       prunePacks(o);
+      if (result.pkg) { o.pkg = result.pkg; o.customs.packageType = PKG_MODES[result.pkg.mode].customs; }
       if (po) o.numbers.po = po;
     });
     close();
@@ -91,7 +95,7 @@ function ItemImport({ orderId, initial, purpose }: { orderId: string; initial: I
     toast(`${what}${result.matched ? `，${result.matched} 行按产品库补全了资料` : ''}${po ? `，PO 号 ${po}` : ''}`, {
       label: '撤销',
       run: () => {
-        updateOrder(orderId, (o) => { o.items = before.items; o.packs = beforePacks; o.numbers.po = before.po; });
+        updateOrder(orderId, (o) => { o.items = before.items; o.packs = beforePacks; o.pkg = beforePkg; o.customs.packageType = beforeType; o.numbers.po = before.po; });
         toast('已撤销导入');
       },
     });

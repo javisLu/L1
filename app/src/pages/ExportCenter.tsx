@@ -7,19 +7,21 @@ import { BUNDLES, DOCNAMES, DOC_FMT, EXPDOCS, type Bundle, type DocKey, type Exp
 import { exportZip } from '../export/actions';
 import { CheckPanel, countErrors } from '../components/CheckPanel';
 import { confirmAction } from '../components/confirm';
+import { pkgSummary } from '../domain/package';
 import type { Order } from '../domain/types';
 
 const isDoc = (k: ExpKey): k is DocKey => k in DOC_FMT;
 
 function mailText(o: Order, bundle: Bundle, sel: ExpKey[], partnerContact?: string) {
   const k = calcOrder(o);
+  const pk = pkgSummary(o, k);
   const names = sel.map((d) => EXPDOCS.find((x) => x.key === d)?.name).filter(Boolean);
   if (bundle === '客户') {
     const first = (o.buyer.contact || 'Sir/Madam').split(' ')[0];
-    return `Dear ${first},\n\nPlease find attached the documents for order ${o.numbers.po || o.no}:\n${names.map((x) => '- ' + x).join('\n')}\n\nTotal amount: ${o.terms.currency} ${money(k.amount)} (${o.terms.incoterm} ${o.terms.place})\nPayment: ${o.terms.paymentText}\nPacking: ${k.ctns} cartons, G.W. ${fixed(k.gw, 2)} kg, ${fixed(k.cbm, 2)} CBM\n\nPlease check and confirm at your earliest convenience.\n\nBest regards,\n${o.seller.name}`;
+    return `Dear ${first},\n\nPlease find attached the documents for order ${o.numbers.po || o.no}:\n${names.map((x) => '- ' + x).join('\n')}\n\nTotal amount: ${o.terms.currency} ${money(k.amount)} (${o.terms.incoterm} ${o.terms.place})\nPayment: ${o.terms.paymentText}\nPacking: ${pk.short}, G.W. ${fixed(pk.gw, 2)} kg, ${fixed(pk.cbm, 2)} CBM\n\nPlease check and confirm at your earliest convenience.\n\nBest regards,\n${o.seller.name}`;
   }
   const tail = bundle === '报关行' ? '请安排申报，有问题随时联系，谢谢！' : bundle === '货代' ? '请安排订舱，确认船期后回传提单草稿，谢谢！' : '请按唛头和包装要求安排生产包装，谢谢！';
-  return `${partnerContact ?? '您'}您好：\n\n附件是订单 ${o.no}（${o.buyer.name}）的资料，请查收：\n${names.map((x) => '· ' + x).join('\n')}\n\n共 ${k.ctns} 箱，毛重 ${fixed(k.gw, 2)} KG，体积 ${fixed(k.cbm, 2)} CBM，${o.terms.pol} → ${o.terms.pod || '—'}。\n${tail}\n\n${o.seller.nameCn || o.seller.name}`;
+  return `${partnerContact ?? '您'}您好：\n\n附件是订单 ${o.no}（${o.buyer.name}）的资料，请查收：\n${names.map((x) => '· ' + x).join('\n')}\n\n共 ${pk.mode === 'ctns' ? `${k.ctns} 箱` : `${pk.count} ${pk.unitCn}（${k.ctns} 箱）`}，毛重 ${fixed(pk.gw, 2)} KG，体积 ${fixed(pk.cbm, 2)} CBM，${o.terms.pol} → ${o.terms.pod || '—'}。\n${tail}\n\n${o.seller.nameCn || o.seller.name}`;
 }
 
 export function ExportCenter({ order: o }: { order: Order }) {

@@ -1,9 +1,10 @@
 import ExcelJS from 'exceljs';
 import { THEMES, TRANSPORT_CD } from '../domain/constants';
-import { amountWords, intWords, needAddr, calcOrder } from '../domain/calc';
+import { amountWords, needAddr, calcOrder } from '../domain/calc';
 import { DOCNAMES, docFile, type DocKey } from '../modules/defs';
 import type { Order } from '../domain/types';
 import type { DocAssets } from '../docs/primitives';
+import { pkgNote, pkgSummary } from '../domain/package';
 import { fit, imageInfo } from './images';
 
 type ExcelDoc = Exclude<DocKey, 'contract' | 'marks' | 'labels'>;
@@ -24,6 +25,7 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
   });
   const acc = 'FF' + (THEMES[o.docset.theme] ?? '#1d3f72').slice(1).toUpperCase();
   const k = calcOrder(o);
+  const pk = pkgSummary(o, k);
   const cur = o.terms.currency;
 
   const cols = columns(doc, cur);
@@ -124,7 +126,7 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
       ['出境关别', cd.exportPort], ['出口日期', o.shipping.etd], ['运输方式', TRANSPORT_CD[o.terms.transport] ?? ''],
       ['运输工具名称及航次号', o.shipping.vessel], ['提运单号', o.shipping.blNo], ['监管方式', cd.supervision], ['征免性质', cd.exemption],
       ['许可证号', cd.license], ['贸易国（地区）', cd.tradeCountry], ['运抵国（地区）', cd.destCountry], ['指运港', o.terms.pod], ['离境口岸', o.terms.pol],
-      ['包装种类', cd.packageType], ['件数', `${k.ctns}`], ['毛重（千克）', k.gw.toFixed(2)], ['净重（千克）', k.nw.toFixed(2)],
+      ['包装种类', cd.packageType], ['件数', `${pk.count} ${pk.unitCn}`], ['毛重（千克）', pk.gw.toFixed(2)], ['净重（千克）', k.nw.toFixed(2)],
       ['成交方式', o.terms.incoterm], ['运费', cd.freight], ['保费', cd.insFee], ['随附单证', cd.docs], ['标记唛码及备注', o.shipping.marks],
     ];
     for (let i = 0; i < fields.length; i += 2) {
@@ -217,7 +219,10 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
   r += 2;
 
   // 大写与备注
-  if (doc === 'pl') line(`SAY TOTAL ${intWords(k.ctns)} (${k.ctns}) CARTONS ONLY`, { bold: true, size: 10 });
+  if (doc === 'pl') {
+    line(pk.words, { bold: true, size: 10 });
+    if (pkgNote(pk)) line(pkgNote(pk), { size: 9 });
+  }
   else if (doc !== 'customs') line(amountWords(k.amount, cur), { bold: true, size: 10 });
   if (doc === 'quote' || doc === 'pi') {
     if (o.docset.remarks) line('Remarks: ' + o.docset.remarks, { size: 9 });

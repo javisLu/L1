@@ -1,6 +1,6 @@
 import { detectHeader, parseCsv, parseDims, toNumber, type FieldSpec } from './table';
 import { emptyItem } from '../domain/factory';
-import type { Item, MixPack, Product } from '../domain/types';
+import type { Item, MixPack, Packaging, Product } from '../domain/types';
 import { uid } from '../domain/calc';
 
 /** 货物明细可以识别的列（客户 PO、工厂报价单、自己的 Excel 都适用） */
@@ -132,6 +132,8 @@ export interface BuildResult {
   items: Item[];
   /** 识别出的混装箱（Excel 合并单元格） */
   packs: MixPack[];
+  /** 备注里写了托盘 / 木箱时的外包装 */
+  pkg: Packaging | null;
   /** 有问题的行（导入后可在表格里补） */
   errors: string[];
   /** 提醒（混装、箱规等） */
@@ -154,6 +156,21 @@ export function cartonSizesFromNotes(rows: string[][]): { n: number; l: number; 
     }
   }
   return out;
+}
+
+/** 备注里的托盘 / 木箱：「Pallet 1@120*80*136cm」→ 外包装（托盘自重留给用户填） */
+export function packagingFromNotes(rows: string[][]): Packaging | null {
+  const texts = [...new Set(rows.flat().filter((c) => /@/.test(c)))];
+  for (const t of texts) {
+    for (const line of t.split(/\n/)) {
+      const mode = /pallet|托盘|栈板/i.test(line) ? 'pallet' : /wooden\s*case|crate|木箱/i.test(line) ? 'case' : null;
+      if (!mode) continue;
+      const sizes = [...line.matchAll(/(\d+)\s*@\s*(\d+(?:\.\d+)?)\s*[*x×]\s*(\d+(?:\.\d+)?)\s*[*x×]\s*(\d+(?:\.\d+)?)/gi)]
+        .map((m) => ({ n: Number(m[1]), l: Number(m[2]), w: Number(m[3]), h: Number(m[4]) }));
+      if (sizes.length) return { mode, unit: '', count: sizes.reduce((a, x) => a + x.n, 0), tare: '', sizes };
+    }
+  }
+  return null;
 }
 
 /**
@@ -302,7 +319,9 @@ export function buildItems(rows: string[][], mapping: Mapping, products: Product
       if (filled) notes.push(`已按备注里的箱规（${sizes.map((x) => `${x.n}@${x.l}×${x.w}×${x.h}`).join('，')}）依次填入 ${filled} 组货物的外箱尺寸`);
     }
   }
-  return { items, packs, errors, notes, matched, skipped };
+  const pkg = packagingFromNotes(rows);
+  if (pkg) notes.push(`备注里写了${pkg.mode === 'pallet' ? '托盘' : '木箱'}（${pkg.sizes.map((x) => `${x.n}@${x.l}×${x.w}×${x.h}`).join('，')}），导入后外包装设为 ${pkg.count} ${pkg.mode === 'pallet' ? '托' : '木箱'}；每件自重请在箱单里补填`);
+  return { items, packs, pkg, errors, notes, matched, skipped };
 }
 
 /** 导入后哪些货物字段来自文件（按品名更新时只改这些） */

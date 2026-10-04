@@ -4,8 +4,9 @@ import { toast } from '../store/ui';
 import { calcOrder, fixed, int, toNum, type Row } from '../domain/calc';
 import { groupRows, ungroup } from '../domain/packs';
 import { inputId } from '../modules/defs';
+import { PKG_MODES, defaultPackaging, pkgSummary } from '../domain/package';
 import { openItemImport } from './itemImport';
-import type { Order } from '../domain/types';
+import type { Order, PkgMode } from '../domain/types';
 
 /**
  * 箱单「包装装箱」表格。
@@ -132,6 +133,7 @@ export function PackingTable({ order }: { order: Order }) {
         {sel.size > 0 && <button className="btn ghost sm" onClick={() => setSel(new Set())}>取消选择</button>}
         <button className="btn sm" onClick={() => openItemImport(order, undefined, 'packing')}>粘贴 Excel / 导入工厂箱单</button>
       </div>
+      <PackagingPanel order={order} />
       <div className="note">
         单独装箱：箱数 = 数量 ÷ 每箱装（向上取整），净毛重、体积按箱数累计。<br />
         <b>混装</b>（几样货物装在同一个箱子里）：勾选这几行 →「设为混装」。箱数、每箱毛重、箱规合并填写；每样货物填自己的<b>每箱净重</b>，
@@ -139,5 +141,69 @@ export function PackingTable({ order }: { order: Order }) {
         导入工厂箱单时，Excel 里合并单元格的混装会自动识别。
       </div>
     </>
+  );
+}
+
+/**
+ * 总件数 / 外包装：散箱就是多少箱；打托盘、木箱时填件数、每件尺寸（可几种）和每件自重。
+ * 箱单写 SAY TOTAL … PALLETS ONLY，报关资料的件数、包装种类、毛重随之变化。
+ */
+function PackagingPanel({ order }: { order: Order }) {
+  const { setOrderField, updateOrder } = useData();
+  const pk = pkgSummary(order);
+  const p = order.pkg ?? defaultPackaging();
+  const ensure = (o: Order) => (o.pkg ??= defaultPackaging());
+  const setMode = (mode: PkgMode) =>
+    updateOrder(order.id, (o) => {
+      const g = ensure(o);
+      g.mode = mode;
+      if (mode !== 'ctns' && !g.sizes.length) g.sizes.push({ n: '', l: '', w: '', h: '' });
+      o.customs.packageType = PKG_MODES[mode].customs;
+    });
+  const num = (path: string, value: unknown, label: string, cls = 'pkg-num') => (
+    <input className={cls} id={inputId(path)} inputMode="decimal" aria-label={label} value={String(value ?? '')} onChange={(e) => setOrderField(order.id, path, e.target.value)} />
+  );
+  return (
+    <div className="pkg-panel">
+      <h3>总件数 / 外包装</h3>
+      <div className="pkg-modes" role="radiogroup" aria-label="包装方式">
+        {(Object.keys(PKG_MODES) as PkgMode[]).map((m) => (
+          <label key={m} className={'lbl-opt' + (p.mode === m ? ' on' : '')}>
+            <input type="radio" name="pkg-mode" checked={p.mode === m} onChange={() => setMode(m)} />
+            <b>{PKG_MODES[m].name}</b>
+          </label>
+        ))}
+      </div>
+      {p.mode === 'ctns' ? (
+        <p className="muted pkg-hint">散箱出货：总件数 = 箱数 <b>{pk.count}</b> {pk.unitEn}（自动），每箱尺寸在上面的表格里填。</p>
+      ) : (
+        <>
+          <div className="pkg-row">
+            <label>总件数 {num('pkg.count', p.count, '总件数')}</label>
+            {p.mode === 'other' && <label>单位 <input className="pkg-unit" id={inputId('pkg.unit')} placeholder="如 BAGS" value={p.unit} onChange={(e) => setOrderField(order.id, 'pkg.unit', e.target.value)} /></label>}
+            <label title="托盘、木箱本身的重量，会加到总毛重">每件自重 kg {num('pkg.tare', p.tare, '每件自重')}</label>
+          </div>
+          <div className="pkg-sizes">
+            <div className="pkg-sizes-h">每件尺寸（cm，几种尺寸分行写）</div>
+            {p.sizes.map((x, i) => (
+              <div key={i} className="pkg-size">
+                {num(`pkg.sizes.${i}.n`, x.n, '件数', 'pkg-num sm')}<span>件 @</span>
+                {num(`pkg.sizes.${i}.l`, x.l, '长', 'pkg-num sm')}<span>×</span>
+                {num(`pkg.sizes.${i}.w`, x.w, '宽', 'pkg-num sm')}<span>×</span>
+                {num(`pkg.sizes.${i}.h`, x.h, '高', 'pkg-num sm')}<span>cm</span>
+                <button className="del" aria-label="删除这种尺寸" onClick={() => updateOrder(order.id, (o) => void ensure(o).sizes.splice(i, 1))}>✕</button>
+              </div>
+            ))}
+            <button className="btn ghost sm" onClick={() => updateOrder(order.id, (o) => void ensure(o).sizes.push({ n: '', l: '', w: '', h: '' }))}>＋ 加一种尺寸</button>
+          </div>
+        </>
+      )}
+      <div className="pkg-sum">
+        <b>{pk.words}</b>
+        {!!pk.contains && <span>{pk.contains}</span>}
+        <span>总毛重 {fixed(pk.gw, 2)} kg{pk.tare ? `（含${pk.mode === 'pallet' ? '托盘' : pk.mode === 'case' ? '木箱' : '包装'}自重 ${fixed(pk.tare, 2)} kg）` : ''}</span>
+        <span>总体积 {fixed(pk.cbm, 3)} m³</span>
+      </div>
+    </div>
   );
 }

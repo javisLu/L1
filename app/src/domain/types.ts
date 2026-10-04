@@ -78,6 +78,19 @@ export interface Item {
  * 箱数、每箱毛重、外箱尺寸属于整箱；每种货物在 Item.nw 填自己的每箱净重。
  * 整箱毛重按各货物净重比例分摊到每一行，箱单、报关资料上每行都有净重和毛重。
  */
+/** 外包装：散箱按箱数自动；托盘、木箱等自己填件数、每件尺寸和每件自重 */
+export type PkgMode = 'ctns' | 'pallet' | 'case' | 'other';
+export interface PkgSize { n: Num; l: Num; w: Num; h: Num }
+export interface Packaging {
+  mode: PkgMode;
+  /** mode = other 时的单位（如 BAGS、BUNDLES） */
+  unit: string;
+  count: Num;
+  /** 每件自重 kg（托盘、木箱本身），计入总毛重 */
+  tare: Num;
+  sizes: PkgSize[];
+}
+
 export interface MixPack {
   id: string;
   /** 这样的混装箱有几箱（每箱装的内容相同） */
@@ -156,6 +169,8 @@ export interface Order {
   items: Item[];
   /** 混装箱（可选，老订单没有） */
   packs?: MixPack[];
+  /** 总件数 / 外包装（散箱、托盘、木箱…；可选，老订单没有 = 散箱） */
+  pkg?: Packaging;
   shipping: Shipping;
   customs: Customs;
   partners: { forwarder: string; broker: string; factory: string };

@@ -140,6 +140,10 @@ await step('17-mixed-carton', async () => {
   await page.click('button:has-text("设为混装")'); await waitToast('设为混装');
   await page.waitForSelector('.mixtag');
   await page.fill('#in-packs-0-gw', '55'); await page.fill('#in-packs-0-ctns', '2');
+  // 外包装：改为托盘，填件数和自重
+  await page.click('.pkg-modes .lbl-opt:has-text("托盘")');
+  await page.fill('#in-pkg-count', '2'); await page.fill('#in-pkg-tare', '6');
+  await page.waitForFunction(() => /SAY TOTAL TWO \(2\) PALLETS ONLY/.test(document.querySelector('.pkg-sum')?.textContent ?? ''), null, { timeout: 5000 });
   await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 PL-.*\\.pdf');
   await page.click('.mod-head button:has-text("导出 Excel")'); await waitToast('已保存 PL-.*\\.xlsx');
 });

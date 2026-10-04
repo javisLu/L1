@@ -1,6 +1,7 @@
 import { fillMarks, fixed, int, needAddr, toNum, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
 import { CNO_LINE } from '../domain/labels';
+import { pkgSummary } from '../domain/package';
 import { MODS, STEPS, missing, neededMods, type ModKey, type StepKey } from './defs';
 import type { Order } from '../domain/types';
 
@@ -127,10 +128,16 @@ export function checkOrder(o: Order): Issue[] {
   // 5. 柜型装载
   const ct = o.shipping.container;
   const box = CONTAINERS.find((c) => c.re.test(ct));
+  const pk = pkgSummary(o, k);
   if (box && k.ctns) {
     const count = Number(ct.match(/(\d+)\s*[x×*]\s*(?:20|40|45)/i)?.[1] ?? 1) || 1;
-    if (k.cbm > box.cbm * count) out.push({ level: 'warn', text: `总体积 ${fixed(k.cbm, 2)} m³ 超过 ${count > 1 ? count + '×' : ''}${box.name} 约 ${box.cbm * count} m³ 的装载量`, mod: 'pl', path: 'shipping.container' });
-    if (k.gw > box.kg * count) out.push({ level: 'warn', text: `总毛重 ${fixed(k.gw, 0)} kg 超过 ${count > 1 ? count + '×' : ''}${box.name} 常见限重 ${box.kg * count} kg`, mod: 'pl', path: 'shipping.container' });
+    if (pk.cbm > box.cbm * count) out.push({ level: 'warn', text: `总体积 ${fixed(pk.cbm, 2)} m³ 超过 ${count > 1 ? count + '×' : ''}${box.name} 约 ${box.cbm * count} m³ 的装载量`, mod: 'pl', path: 'shipping.container' });
+    if (pk.gw > box.kg * count) out.push({ level: 'warn', text: `总毛重 ${fixed(pk.gw, 0)} kg 超过 ${count > 1 ? count + '×' : ''}${box.name} 常见限重 ${box.kg * count} kg`, mod: 'pl', path: 'shipping.container' });
+  }
+  // 外包装：各尺寸的件数加起来应等于总件数
+  if (o.pkg && o.pkg.mode !== 'ctns' && pk.count) {
+    const n = (o.pkg.sizes ?? []).reduce((a, x) => a + toNum(x.n), 0);
+    if (n && n !== pk.count) out.push({ level: 'warn', text: `外包装尺寸里一共写了 ${n} 件，总件数是 ${pk.count} ${pk.unitCn}`, mod: 'pl', path: 'pkg.count' });
   }
 
   // 6. 日期与出货状态

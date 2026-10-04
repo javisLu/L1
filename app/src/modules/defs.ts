@@ -216,7 +216,7 @@ export function stepPaths(step: StepKey): string[] {
   const out: string[] = [];
   for (const fd of s.fields ?? []) if (fd.kind === 'field') out.push(fd.path);
   if (s.table) for (const c of TABLES[s.table]) if (c.key) out.push('items.*.' + c.key);
-  if (s.table === 'packing') out.push('packs.*.ctns', 'packs.*.gw', 'packs.*.l', 'packs.*.w', 'packs.*.h');
+  if (s.table === 'packing') out.push('packs.*.ctns', 'packs.*.gw', 'packs.*.l', 'packs.*.w', 'packs.*.h', 'pkg.count', 'pkg.tare');
   if (s.list) out.push('contractClauses.*.title', 'contractClauses.*.body');
   return out;
 }
@@ -253,6 +253,7 @@ export function missing(o: Order, step: StepKey): string[] {
       if (!toNum(it.gw)) out.push(`第${i + 1}行毛重`);
       if (!(toNum(it.l) && toNum(it.w) && toNum(it.h))) out.push(`第${i + 1}行箱规`);
     });
+    if (o.pkg && o.pkg.mode !== 'ctns' && !toNum(o.pkg.count)) out.push('总件数（托盘 / 木箱数）');
     for (const p of packs) {
       const rows = o.items.map((x, i) => (x.mix === p.id ? i + 1 : 0)).filter(Boolean);
       if (!rows.length) continue;

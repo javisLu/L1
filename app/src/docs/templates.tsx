@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { AssetsProvider, Box, Fld, Img, Page, Row, Table, Txt, useAssets, useIsPdf, type DocAssets, type St } from './primitives';
 import { THEMES, TRANSPORT_CD } from '../domain/constants';
-import { amountWords, fixed, int, intWords, money, needAddr, sym, calcOrder, toNum, type Row as CalcRow } from '../domain/calc';
+import { amountWords, fixed, int, money, needAddr, sym, calcOrder, toNum, type Row as CalcRow } from '../domain/calc';
 import { getPath } from '../store/data';
 import type { Order } from '../domain/types';
 import type { DocKey } from '../modules/defs';
 import { Labels, type LabelOptions } from './labels';
+import { pkgNote, pkgSummary } from '../domain/package';
 
 const MONO = 'var(--f-doc-num)';
 const accent = (o: Order) => THEMES[o.docset.theme] ?? '#1d3f72';
@@ -123,6 +124,7 @@ const EmptyRow = (n: number): ReactNode[][] => [[<Txt style={{ color: '#999' }}>
 /* ---------- 报价单 / PI ---------- */
 function QuotePI({ o, kind }: { o: Order; kind: 'quote' | 'pi' }) {
   const k = calcOrder(o), c = o.terms.currency, a = accent(o);
+  const pk = pkgSummary(o, k);
   const meta: [string, ReactNode][] = kind === 'quote'
     ? [['No.', F(o, 'numbers.quote')], ['Date', F(o, 'numbers.date')], ['Valid Until', F(o, 'numbers.validUntil', '—')]]
     : [['No.', F(o, 'numbers.pi')], ['Date', F(o, 'numbers.date')], ['PO No.', F(o, 'numbers.po', '—')]];
@@ -165,7 +167,7 @@ function QuotePI({ o, kind }: { o: Order; kind: 'quote' | 'pi' }) {
         foot={[{ w: '61%', c: `TOTAL  ${(o.terms.incoterm + ' ' + o.terms.place).toUpperCase()}` }, { w: '10%', align: 'right', c: int(k.qty) }, { w: '13%', c: '' }, { w: '16%', align: 'right', c: sym(c) + money(k.amount) }]}
       />
       <Words o={o}>{amountWords(k.amount, c)}</Words>
-      <Txt style={{ color: '#666' }}>Packing: {k.ctns} cartons  ·  G.W. {fixed(k.gw, 2)} kg  ·  Meas. {fixed(k.cbm, 3)} m³</Txt>
+      <Txt style={{ color: '#666' }}>Packing: {pk.short}  ·  G.W. {fixed(pk.gw, 2)} kg  ·  Meas. {fixed(pk.cbm, 3)} m³</Txt>
       {!!o.docset.remarks && <Section o={o} title="REMARKS">{F(o, 'docset.remarks')}</Section>}
       {clauses.length > 0 && (
         <Section o={o} title="TERMS & CONDITIONS">
@@ -180,6 +182,7 @@ function QuotePI({ o, kind }: { o: Order; kind: 'quote' | 'pi' }) {
 /* ---------- 销售合同 ---------- */
 function Contract({ o }: { o: Order }) {
   const k = calcOrder(o), c = o.terms.currency, a = accent(o);
+  const pk = pkgSummary(o, k);
   const { logo } = useAssets();
   const base: [string, ReactNode][] = [
     ['装运港 Port of Loading', F(o, 'terms.pol')],
@@ -242,7 +245,7 @@ function Contract({ o }: { o: Order }) {
         accent={a}
         cols={[{ label: '序号 No.', w: '7%', align: 'center' }, { label: '品名及规格 Commodity & Specification', w: '43%' }, { label: '数量 Quantity', w: '15%', align: 'right' }, { label: `单价 (${c}) Unit Price`, w: '15%', align: 'right' }, { label: `金额 (${c}) Amount`, w: '20%', align: 'right' }]}
         rows={rows.length ? rows : EmptyRow(5)}
-        foot={[{ w: '50%', c: `总计 TOTAL ${(o.terms.incoterm + ' ' + o.terms.place).toUpperCase()}` }, { w: '15%', align: 'right', c: `${k.ctns} CTNS` }, { w: '15%', c: '' }, { w: '20%', align: 'right', c: sym(c) + money(k.amount) }]}
+        foot={[{ w: '50%', c: `总计 TOTAL ${(o.terms.incoterm + ' ' + o.terms.place).toUpperCase()}` }, { w: '15%', align: 'right', c: `${pk.count} ${pk.unitEn}` }, { w: '15%', c: '' }, { w: '20%', align: 'right', c: sym(c) + money(k.amount) }]}
       />
       <Words o={o}>金额大写 Amount in Words: {amountWords(k.amount, c)}</Words>
       <Box style={{ marginTop: 4 }}>
@@ -295,6 +298,7 @@ function Invoice({ o }: { o: Order }) {
 /* ---------- 装箱单 ---------- */
 function Packing({ o }: { o: Order }) {
   const k = calcOrder(o), a = accent(o);
+  const pk = pkgSummary(o, k);
   const packIdx = (r: CalcRow) => (o.packs ?? []).findIndex((p) => p.id === r.pack?.id);
   const cnoText = (r: CalcRow) => (r.from ? (r.from === r.to ? String(r.from) : `${r.from}-${r.to}`) : '—');
   const rows = k.rows.map((r, i) => {
@@ -324,7 +328,8 @@ function Packing({ o }: { o: Order }) {
         rows={rows.length ? rows : EmptyRow(7)}
         foot={[{ w: '52%', c: 'TOTAL' }, { w: '9%', align: 'right', c: int(k.qty) }, { w: '7%', align: 'right', c: String(k.ctns) }, { w: '11%', align: 'right', c: fixed(k.nw, 2) }, { w: '11%', align: 'right', c: fixed(k.gw, 2) }, { w: '10%', align: 'right', c: fixed(k.cbm, 3) }]}
       />
-      <Words o={o}>SAY TOTAL {intWords(k.ctns)} ({k.ctns}) CARTONS ONLY</Words>
+      <Words o={o}>{pk.words}</Words>
+      {!!pkgNote(pk) && <Txt style={{ fontSize: 7.5, color: '#333', marginBottom: 2 }}>{pkgNote(pk)}</Txt>}
       {mixedNote && <Txt style={{ fontSize: 7, color: '#666', marginTop: 4 }}>Note: goods marked MIXED are packed together in the same carton(s); the carton gross weight is allocated to each item in proportion to its net weight.</Txt>}
       <Sign o={o} left={<>For and on behalf of <B>{o.seller.name}</B></>} right="Authorized Signature" />
     </Page>
@@ -334,6 +339,7 @@ function Packing({ o }: { o: Order }) {
 /* ---------- 报关预录入表 ---------- */
 function CustomsDraft({ o }: { o: Order }) {
   const k = calcOrder(o), c = o.terms.currency, a = accent(o);
+  const pk = pkgSummary(o, k);
   const cell = (label: string, v: ReactNode, span = 1) => (
     <Box style={{ width: `${span * 25}%`, borderRight: '0.75px solid #333', borderBottom: '0.75px solid #333', padding: '3px 5px', minHeight: 28 }}>
       <Txt style={{ fontSize: 6.3, color: '#666' }}>{label}</Txt>
@@ -365,8 +371,8 @@ function CustomsDraft({ o }: { o: Order }) {
         <Row>{cell('境外收货人', F(o, 'buyer.name', '[境外收货人]'), 2)}{cell('运输方式', TRANSPORT_CD[o.terms.transport] ?? '—')}{cell('运输工具名称及航次号', F(o, 'shipping.vessel', '—'))}</Row>
         <Row>{cell('生产销售单位', F(o, 'seller.nameCn', '[中文名称]'), 2)}{cell('监管方式', F(o, 'customs.supervision'))}{cell('征免性质', F(o, 'customs.exemption'))}</Row>
         <Row>{cell('提运单号', F(o, 'shipping.blNo', '—'))}{cell('许可证号', F(o, 'customs.license', '—'))}{cell('贸易国（地区）', F(o, 'customs.tradeCountry', '—'))}{cell('运抵国（地区）', F(o, 'customs.destCountry', '—'))}</Row>
-        <Row>{cell('指运港', F(o, 'terms.pod', '—'))}{cell('离境口岸', F(o, 'terms.pol'))}{cell('包装种类', F(o, 'customs.packageType'))}{cell('件数', `${k.ctns} 箱`)}</Row>
-        <Row>{cell('毛重（千克）', fixed(k.gw, 2))}{cell('净重（千克）', fixed(k.nw, 2))}{cell('成交方式', F(o, 'terms.incoterm'))}{cell('运费 / 保费', <>{F(o, 'customs.freight', '—')} / {F(o, 'customs.insFee', '—')}</>)}</Row>
+        <Row>{cell('指运港', F(o, 'terms.pod', '—'))}{cell('离境口岸', F(o, 'terms.pol'))}{cell('包装种类', F(o, 'customs.packageType'))}{cell('件数', `${pk.count} ${pk.unitCn}`)}</Row>
+        <Row>{cell('毛重（千克）', fixed(pk.gw, 2))}{cell('净重（千克）', fixed(k.nw, 2))}{cell('成交方式', F(o, 'terms.incoterm'))}{cell('运费 / 保费', <>{F(o, 'customs.freight', '—')} / {F(o, 'customs.insFee', '—')}</>)}</Row>
         <Row>{cell('随附单证', F(o, 'customs.docs', '—'), 4)}</Row>
         <Row>{cell('标记唛码及备注', F(o, 'shipping.marks', 'N/M'), 4)}</Row>
       </Box>
