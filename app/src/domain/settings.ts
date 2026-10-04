@@ -9,6 +9,7 @@ export function defaultSettings(): Settings {
       signedAt: 'Qingdao, China', exportPort: '青岛大港海关', sourceArea: '青岛', theme: '藏青', stamp: true,
     },
     assets: { logo: '', stamp: '', signature: '' },
+    labels: { layout: 'a4-4', info: true },
     lastAutoBackup: '',
   };
 }

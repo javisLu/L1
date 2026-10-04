@@ -263,11 +263,13 @@ export const useData = create<DataStore>()(
     })),
     {
       name: 'trade-workbench-data',
-      version: 2,
+      version: 3,
       // v1 → v2：新增「设置」
       migrate: (persisted, from) => {
         const d = persisted as DataState;
         if (from < 2 || !d.settings) d.settings = defaultSettings();
+        // v3：新增箱贴设置等，缺的设置项用默认值补上
+        d.settings = { ...defaultSettings(), ...d.settings };
         return d as never;
       },
       storage: createJSONStorage(() => appStorage),

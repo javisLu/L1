@@ -1,6 +1,7 @@
 import { OrderCrumbs, TopBar } from '../components/common';
 import { openCustomerPicker } from '../components/form';
 import { confirmAction } from '../components/confirm';
+import { CheckPanel } from '../components/CheckPanel';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { calc, fixed, int } from '../domain/calc';
@@ -73,6 +74,7 @@ export function OrderMenu({ order: o }: { order: Order }) {
             </button>
           ))}
         </div>
+        <CheckPanel order={o} max={3} />
         <div className="sum">
           <div className="panel">
             <h3>客户 <button className="btn ghost sm" onClick={() => openCustomerPicker(o.id)}>{o.customerId ? '更换' : '从客户库选择'}</button></h3>

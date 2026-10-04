@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { DOCNAMES, EXT, docFile, type DocKey, type Fmt } from '../modules/defs';
 import { saveFiles, type OutFile, type SaveResult } from './save';
 import { useData } from '../store/data';
+import { useUI } from '../store/ui';
 import type { Order } from '../domain/types';
 
 export const orderFolder = (o: Order) => `${o.no} ${o.name}`;
@@ -9,13 +10,14 @@ export const orderFolder = (o: Order) => `${o.no} ${o.name}`;
 /** 生成单个单据文件（按需加载 PDF / Excel / Word 库） */
 export async function buildFile(o: Order, doc: DocKey, fmt: Fmt): Promise<OutFile> {
   const name = `${docFile(o, doc)}.${EXT[fmt]}`;
-  const assets = useData.getState().settings.assets;
+  const { assets, labels } = useData.getState().settings;
   if (fmt === 'PDF') {
     const { renderPdf } = await import('./pdf');
-    return { name, data: await renderPdf(o, doc, assets) };
+    const range = doc === 'labels' ? useUI.getState().labelRange : null;
+    return { name, data: await renderPdf(o, doc, assets, { ...labels, ...range }) };
   }
   if (fmt === 'Excel') {
-    if (doc === 'contract' || doc === 'marks') throw new Error(`${DOCNAMES[doc]}不支持导出 Excel`);
+    if (doc === 'contract' || doc === 'marks' || doc === 'labels') throw new Error(`${DOCNAMES[doc]}不支持导出 Excel`);
     const { renderExcel } = await import('./excel');
     return { name, data: await renderExcel(o, doc, assets) };
   }

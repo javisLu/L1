@@ -5,7 +5,7 @@ import {
 import { addrLabel, needAddr, toNum } from '../domain/calc';
 import type { Order } from '../domain/types';
 
-export type DocKey = 'quote' | 'pi' | 'contract' | 'ci' | 'pl' | 'customs' | 'marks';
+export type DocKey = 'quote' | 'pi' | 'contract' | 'ci' | 'pl' | 'customs' | 'marks' | 'labels';
 export type StepKey = 'parties' | 'items' | 'packing' | 'customsItems' | 'terms' | 'contractClauses' | 'shipping' | 'customs' | 'docset' | 'marks';
 export type ModKey = 'quote' | 'pi' | 'ci' | 'pl' | 'customs' | 'booking' | 'marks' | 'export' | 'bl' | 'lc' | 'payment';
 export type Src = 'S' | 'B' | 'FF' | 'CB' | 'F';
@@ -32,7 +32,7 @@ export const MODS: Record<ModKey, ModDef> = {
   pl: { code: 'PL', name: '箱单', desc: 'Packing List：箱号、净毛重、体积自动计算', grp: 'doc', docs: ['pl'], steps: ['parties', 'packing', 'shipping', 'docset'] },
   customs: { code: 'CD', name: '报关资料', desc: '报关预录入表 + 发票 + 箱单，发报关行', grp: 'doc', docs: ['customs', 'ci', 'pl'], steps: ['customs', 'customsItems', 'packing'] },
   booking: { code: 'SI', name: '订舱 / SI', desc: '订舱委托书、提单补料', grp: 'doc', ph: 'M2', plan: ['订舱委托书：自动带入发货人、收货人、通知人、港口、柜型柜量、件毛体', 'SI 提单补料：按船公司格式生成，发给货代', '数据与箱单自动一致，改一处全同步'] },
-  marks: { code: 'SM', name: '唛头箱贴', desc: '正唛、侧唛，按箱号批量打印', grp: 'doc', docs: ['marks'], steps: ['marks'] },
+  marks: { code: 'SM', name: '唛头箱贴', desc: '正唛、侧唛，按箱号批量打印', grp: 'doc', docs: ['marks', 'labels'], steps: ['marks'] },
   export: { code: 'ZIP', name: '单据导出', desc: '按客户 / 工厂 / 报关行 / 货代一键打包', grp: 'doc', special: 'export' },
   bl: { code: 'B/L', name: '提单核对', desc: '货代提单确认件与订单自动比对', grp: 'biz', ph: 'M4', plan: ['上传货代提单确认件（PDF）或直接粘贴文字', '自动比对发货人、收货人、通知人、货描、唛头、件数、毛重、体积、柜号封号', '差异标红，一键生成修改意见发给货代', '文字版 PDF 离线可用；扫描件需在设置里配置自己的 AI Key'] },
   lc: { code: 'L/C', name: '信用证审证', desc: '条款解析、软条款风险、与订单比对', grp: 'biz', ph: 'M4 / M5', plan: ['粘贴 MT700 信用证原文，自动解析 31D / 44C / 48 / 39A / 43P / 46A / 47A 等条款', '规则层（离线）：日期冲突、金额容差、内置软条款特征库逐条匹配', '与本订单比对：金额、货描、港口、交期、贸易术语是否一致', 'AI 层（自带 Key）：结合内置 UCP600 / ISBP745 知识库，输出风险条款、原因、改证建议措辞', '按信用证要求生成单据，货描逐字一致'] },
@@ -40,17 +40,17 @@ export const MODS: Record<ModKey, ModDef> = {
 };
 
 export const DOCNAMES: Record<DocKey, string> = {
-  quote: '报价单', pi: 'PI 形式发票', contract: '销售合同', ci: '商业发票', pl: '装箱单', customs: '报关预录入表', marks: '唛头',
+  quote: '报价单', pi: 'PI 形式发票', contract: '销售合同', ci: '商业发票', pl: '装箱单', customs: '报关预录入表', marks: '唛头', labels: '箱贴',
 };
 
 export type Fmt = 'PDF' | 'Excel' | 'Word';
 export const DOC_FMT: Record<DocKey, Fmt[]> = {
-  quote: ['PDF', 'Excel'], pi: ['PDF', 'Excel'], contract: ['PDF', 'Word'], ci: ['PDF', 'Excel'], pl: ['PDF', 'Excel'], customs: ['PDF', 'Excel'], marks: ['PDF'],
+  quote: ['PDF', 'Excel'], pi: ['PDF', 'Excel'], contract: ['PDF', 'Word'], ci: ['PDF', 'Excel'], pl: ['PDF', 'Excel'], customs: ['PDF', 'Excel'], marks: ['PDF'], labels: ['PDF'],
 };
 export const EXT: Record<Fmt, string> = { PDF: 'pdf', Excel: 'xlsx', Word: 'docx' };
 
 export function docFile(o: Order, d: DocKey): string {
-  return { quote: o.numbers.quote, pi: o.numbers.pi, contract: o.numbers.contract, ci: o.numbers.ci, pl: 'PL-' + o.no, customs: 'CD-' + o.no, marks: 'Marks-' + o.no }[d];
+  return { quote: o.numbers.quote, pi: o.numbers.pi, contract: o.numbers.contract, ci: o.numbers.ci, pl: 'PL-' + o.no, customs: 'CD-' + o.no, marks: 'Marks-' + o.no, labels: 'Labels-' + o.no }[d];
 }
 
 /* ---------- 表单字段 ---------- */
@@ -278,10 +278,11 @@ export type ExpKey = DocKey | 'poa' | 'booking' | 'si' | 'po';
 export const EXPDOCS: { key: ExpKey; name: string; ph?: string }[] = [
   { key: 'quote', name: '报价单' }, { key: 'pi', name: 'PI 形式发票' }, { key: 'contract', name: '销售合同' },
   { key: 'ci', name: '商业发票' }, { key: 'pl', name: '装箱单' }, { key: 'customs', name: '报关预录入表' }, { key: 'marks', name: '唛头' },
+  { key: 'labels', name: '箱贴（每箱一张）' },
   { key: 'poa', name: '报关委托书', ph: 'M2' }, { key: 'booking', name: '订舱委托书', ph: 'M2' },
   { key: 'si', name: 'SI 提单补料', ph: 'M2' }, { key: 'po', name: '采购单（给工厂）', ph: 'M2' },
 ];
 export type Bundle = '客户' | '工厂' | '报关行' | '货代';
 export const BUNDLES: Record<Bundle, ExpKey[]> = {
-  客户: ['pi', 'contract', 'ci', 'pl'], 工厂: ['po', 'marks', 'pl'], 报关行: ['customs', 'ci', 'pl', 'contract', 'poa'], 货代: ['pl', 'booking', 'si'],
+  客户: ['pi', 'contract', 'ci', 'pl'], 工厂: ['po', 'marks', 'labels', 'pl'], 报关行: ['customs', 'ci', 'pl', 'contract', 'poa'], 货代: ['pl', 'booking', 'si'],
 };

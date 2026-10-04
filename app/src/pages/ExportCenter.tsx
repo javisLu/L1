@@ -5,6 +5,8 @@ import { toast, useUI } from '../store/ui';
 import { calc, fixed, money } from '../domain/calc';
 import { BUNDLES, DOCNAMES, DOC_FMT, EXPDOCS, type Bundle, type DocKey, type ExpKey, type Fmt } from '../modules/defs';
 import { exportZip } from '../export/actions';
+import { CheckPanel, countErrors } from '../components/CheckPanel';
+import { confirmAction } from '../components/confirm';
 import type { Order } from '../domain/types';
 
 const isDoc = (k: ExpKey): k is DocKey => k in DOC_FMT;
@@ -48,6 +50,7 @@ export function ExportCenter({ order: o }: { order: Order }) {
       </div>
       <div className="exp">
         <section className="exp-l">
+          <CheckPanel order={o} max={4} />
           <div className="eyebrow" style={{ marginBottom: 8 }}>发给谁</div>
           <div className="seg">
             {(Object.keys(BUNDLES) as Bundle[]).map((b) => (
@@ -85,7 +88,11 @@ export function ExportCenter({ order: o }: { order: Order }) {
             className="btn pri"
             style={{ width: '100%', justifyContent: 'center', marginBottom: 18 }}
             disabled={ui.busy}
-            onClick={() => exportZip(o, sel.filter(isDoc).flatMap((d) => fmts(d).map((fmt) => ({ doc: d, fmt }))), ui.bundle)}
+            onClick={async () => {
+              const n = countErrors(o);
+              if (n && !(await confirmAction({ title: '单据检查有错误', ok: '仍然导出', body: <p>单据检查发现 {n} 个错误（见上方红色项），建议改好再发出。仍然要导出吗？</p> }))) return;
+              void exportZip(o, sel.filter(isDoc).flatMap((d) => fmts(d).map((fmt) => ({ doc: d, fmt }))), ui.bundle);
+            }}
           >
             生成并打包（{sel.length} 份单据）
           </button>

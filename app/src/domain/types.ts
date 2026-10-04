@@ -238,10 +238,19 @@ export interface Assets {
   signature: string;
 }
 
+/** 箱贴版式：A4 每页几张，或标签打印机的标签尺寸（毫米） */
+export type LabelLayout = 'a4-2' | 'a4-4' | 'a4-6' | 'a4-8' | '100x100' | '100x150';
+export interface LabelSettings {
+  layout: LabelLayout;
+  /** 箱贴上印货物信息（型号、每箱数量、净毛重、尺寸） */
+  info: boolean;
+}
+
 export interface Settings {
   numbering: Numbering;
   defaults: OrderDefaults;
   assets: Assets;
+  labels: LabelSettings;
   /** 上次自动备份的日期 YYYY-MM-DD */
   lastAutoBackup: string;
 }

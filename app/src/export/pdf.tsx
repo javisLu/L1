@@ -2,6 +2,7 @@ import { Document, Font, Image, Page, Text, View, pdf } from '@react-pdf/rendere
 import type { ReactElement } from 'react';
 import { PdfProvider, type DocAssets, type PdfImpl, type St } from '../docs/primitives';
 import { DocView } from '../docs/templates';
+import type { LabelOptions } from '../docs/labels';
 import { DOCNAMES, docFile, type DocKey } from '../modules/defs';
 import type { Order } from '../domain/types';
 
@@ -45,18 +46,18 @@ export function toPdfStyle(s: St): Record<string, unknown> {
 const impl: PdfImpl = {
   View: View as unknown as PdfImpl['View'],
   Text: Text as unknown as PdfImpl['Text'],
-  Page: ((props: { style?: unknown; children?: React.ReactNode }) => (
-    <Page size="A4" style={[props.style, { fontFamily: FONT }] as never}>{props.children}</Page>
+  Page: ((props: { size?: string | [number, number]; style?: unknown; children?: React.ReactNode }) => (
+    <Page size={(props.size ?? 'A4') as never} style={[props.style, { fontFamily: FONT }] as never}>{props.children}</Page>
   )) as PdfImpl['Page'],
   Image: Image as unknown as PdfImpl['Image'],
   style: toPdfStyle,
 };
 
-export function buildPdf(order: Order, doc: DocKey, assets?: DocAssets): ReactElement {
+export function buildPdf(order: Order, doc: DocKey, assets?: DocAssets, labels?: LabelOptions): ReactElement {
   return (
     <Document title={`${DOCNAMES[doc]} ${docFile(order, doc)}`} author={order.seller.name} creator="外贸超级工作台" producer="外贸超级工作台">
       <PdfProvider value={impl}>
-        <DocView doc={doc} order={order} assets={assets} />
+        <DocView doc={doc} order={order} assets={assets} labels={labels} />
       </PdfProvider>
     </Document>
   );
@@ -65,14 +66,14 @@ export function buildPdf(order: Order, doc: DocKey, assets?: DocAssets): ReactEl
 /** 生成超过这个时间视为失败，避免界面一直停在“正在生成” */
 const PDF_TIMEOUT = 90_000;
 
-export async function renderPdf(order: Order, doc: DocKey, assets?: DocAssets): Promise<Uint8Array> {
+export async function renderPdf(order: Order, doc: DocKey, assets?: DocAssets, labels?: LabelOptions): Promise<Uint8Array> {
   registerFonts();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, fail) => {
     timer = setTimeout(() => fail(new Error('生成超时，请重试；若仍失败，请在「设置」里删除 Logo / 公章图片后再试')), PDF_TIMEOUT);
   });
   try {
-    const blob = await Promise.race([pdf(buildPdf(order, doc, assets)).toBlob(), timeout]);
+    const blob = await Promise.race([pdf(buildPdf(order, doc, assets, labels)).toBlob(), timeout]);
     return new Uint8Array(await blob.arrayBuffer());
   } finally {
     clearTimeout(timer);

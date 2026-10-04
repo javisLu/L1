@@ -6,7 +6,7 @@ import type { Order } from '../domain/types';
 import type { DocAssets } from '../docs/primitives';
 import { fit, imageInfo } from './images';
 
-type ExcelDoc = Exclude<DocKey, 'contract' | 'marks'>;
+type ExcelDoc = Exclude<DocKey, 'contract' | 'marks' | 'labels'>;
 const MONEY = '#,##0.00';
 const thin = { style: 'thin' as const, color: { argb: 'FFC9CFD8' } };
 const box = { top: thin, left: thin, bottom: thin, right: thin };

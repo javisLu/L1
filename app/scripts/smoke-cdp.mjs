@@ -106,6 +106,31 @@ await step('13-new-and-delete-order', async () => {
   await waitToast('已删除订单 ' + no);
 });
 
+// M1-4：粘贴导入货物、单据检查、箱贴批量打印
+await step('14-paste-items', async () => {
+  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("合同 / PI")');
+  await page.click('.step:has-text("货物明细")');
+  const before = await page.locator('.tbl tbody tr').count();
+  await page.click('button:has-text("粘贴 Excel / 导入 PO")');
+  await page.fill('#imp-paste', 'PO No.: SMOKE-PO-1\nItem No.\tDescription\tQty\tUnit Price\nAL-S200\tRack\t10\t12.5\nNEW-9\tNew Part\t7\t1.2');
+  await page.click('.modal button:has-text("识别")');
+  await page.waitForSelector('.imp-map select.on');
+  await page.click('.modal button:has-text("导入 2 行")'); await waitToast('已导入 2 行货物');
+  const after = await page.locator('.tbl tbody tr').count();
+  if (after !== before + 2) throw new Error(`货物行数 ${before} → ${after}，应增加 2`);
+});
+await step('15-check-panel', async () => {
+  await page.click('button:has-text("← 订单菜单")'); await page.click('.mcard:has-text("单据导出")');
+  await page.waitForSelector('.chk-panel');
+  // 新型号没有箱规 → 应有提醒，点一下跳到对应模块
+  await page.click('.chk-item >> nth=0'); await page.waitForSelector('.mod .step.on', { timeout: 5000 });
+});
+await step('16-labels', async () => {
+  await page.click('button:has-text("← 订单菜单")'); await page.click('.mcard:has-text("唛头箱贴")');
+  await page.click('.lbl-opt:has-text("每页 8 张")');
+  await page.click('button:has-text("导出箱贴 PDF")'); await waitToast('已保存 Labels-.*\\.pdf');
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

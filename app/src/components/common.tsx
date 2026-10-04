@@ -82,7 +82,7 @@ export function ModalHost() {
   if (!modal) return null;
   return (
     <div className="modal-bg" onClick={(e) => e.target === e.currentTarget && close()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={modal.title}>
+      <div className={'modal' + (modal.wide ? ' wide' : '')} role="dialog" aria-modal="true" aria-label={modal.title}>
         <div className="modal-h">
           <h2>{modal.title}</h2>
           <button className="btn ghost sm" onClick={close}>关闭</button>

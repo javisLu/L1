@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { DocView } from '../docs/templates';
 import type { DocKey } from '../modules/defs';
 import { useData } from '../store/data';
+import { useUI } from '../store/ui';
 import type { Order } from '../domain/types';
 
 const PAGE_W = 595;
@@ -13,6 +14,8 @@ export function Preview({ order, doc, bar, onJump }: { order: Order; doc: DocKey
   const [scale, setScale] = useState(1);
   const [height, setHeight] = useState(842);
   const assets = useData((s) => s.settings.assets);
+  const labels = useData((s) => s.settings.labels);
+  const range = useUI((s) => s.labelRange);
 
   useEffect(() => {
     const el = wrap.current;
@@ -42,7 +45,7 @@ export function Preview({ order, doc, bar, onJump }: { order: Order; doc: DocKey
               if (f && onJump) onJump(f.dataset.f!);
             }}
           >
-            <DocView doc={doc} order={order} assets={assets} />
+            <DocView doc={doc} order={order} assets={assets} labels={{ ...labels, ...range, maxPages: 1 }} />
           </div>
         </div>
       </div>

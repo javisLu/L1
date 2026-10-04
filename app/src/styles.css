@@ -246,6 +246,7 @@ h1,h2,h3{text-wrap:balance;margin:0}
 /* 弹窗 与 提示 */
 .modal-bg{position:fixed;inset:0;background:rgba(10,16,26,.45);display:grid;place-items:center;z-index:50;padding:16px}
 .modal{background:var(--surface);border-radius:10px;width:min(560px,100%);max-height:86dvh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal.wide{width:min(980px,100%)}
 .modal-h{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
 .modal-h h2{font-size:16px}
 .modal-b{padding:16px 20px}
@@ -357,3 +358,56 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .imp-cols span{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--ok-soft);color:var(--ok)}
 .imp-err{font-size:12.5px;color:var(--warn);margin:4px 0}
 @media (max-width:1100px){.set{grid-template-columns:1fr}.set-nav{position:static;display:flex;flex-wrap:wrap}.imgs{grid-template-columns:1fr}}
+
+/* 导入货物 */
+.imp-lead{font-size:13.5px;color:var(--ink-2);margin-bottom:10px;line-height:1.6}
+.imp-paste{width:100%;font-family:var(--f-num);font-size:12.5px;white-space:pre;resize:vertical}
+.imp-top{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--ink-2)}
+.imp-top .btn{margin-left:auto}
+.chk-inline{display:inline-flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+.chk-inline input{width:auto;margin:0}
+.imp-map .tbl{min-width:0}
+.imp-map th{vertical-align:top;min-width:120px}
+.imp-h{font-weight:600;color:var(--ink);margin-bottom:5px;white-space:normal;max-width:180px}
+.imp-map select{width:100%;font-size:12px;padding:3px 4px}
+.imp-map select.on{border-color:var(--brand);color:var(--brand);font-weight:600}
+.imp-map td{font-size:12.5px;padding:5px 7px;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.imp-map td.off{color:var(--ink-3);opacity:.55}
+.imp-opts{display:flex;flex-direction:column;gap:8px;margin:14px 0 6px}
+.imp-mode{display:flex;gap:18px;flex-wrap:wrap}
+.imp-sum{font-size:14px;margin-top:6px}
+.tbl .row-act{white-space:nowrap;width:1%}
+.tbl-tip{font-size:12px;color:var(--ink-3);align-self:center}
+
+/* 单据检查 */
+.chk-panel{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:10px 12px;margin-bottom:16px}
+.chk-panel.ok{color:var(--ok);background:var(--ok-soft);border-color:transparent;font-size:13px;padding:8px 12px}
+.chk-panel.bad{border-color:color-mix(in srgb,var(--stamp) 40%,var(--line))}
+.chk-h{font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.chk-n{font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:99px}
+.chk-n.error{color:var(--stamp);background:var(--stamp-soft)}
+.chk-n.warn{color:var(--warn);background:var(--warn-soft)}
+.chk-panel ul{list-style:none;margin:0;padding:0}
+.chk-panel li{display:flex;gap:6px;align-items:flex-start}
+.chk-fix{flex:none;margin-top:2px;font-size:12px;padding:2px 8px}
+.chk-item{display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;border:0;background:none;padding:5px 4px;border-radius:6px;font-size:12.5px;line-height:1.5;cursor:pointer}
+.chk-item:hover{background:var(--surface-2)}
+.chk-item .dot{flex:none;width:7px;height:7px;border-radius:50%;margin-top:6px}
+.chk-item.error .dot{background:var(--stamp)} .chk-item.warn .dot{background:var(--warn)}
+.chk-item .t{flex:1}
+.chk-item .go{flex:none;color:var(--ink-3);font-size:11.5px;white-space:nowrap}
+.chk-item:hover .go{color:var(--brand)}
+
+/* 箱贴批量打印 */
+.lbl-tools{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.lbl-tools h3{font-size:15px;margin-bottom:4px}
+.lbl-tools > p{font-size:12.5px;margin-bottom:10px}
+.lbl-lay{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.lbl-opt{display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;cursor:pointer;background:var(--surface)}
+.lbl-opt input{position:absolute;opacity:0;pointer-events:none}
+.lbl-opt b{font-size:13px} .lbl-opt small{font-size:11.5px;color:var(--ink-3)}
+.lbl-opt.on{border-color:var(--brand);background:var(--brand-soft)}
+.lbl-opt:focus-within{outline:2px solid var(--brand);outline-offset:1px}
+.lbl-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:13px}
+.lbl-num{width:76px;padding:4px 6px}
+.lbl-sum{font-size:13.5px}

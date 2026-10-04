@@ -18,6 +18,12 @@ npm run typecheck
 - 桌面版导出文件保存在「文档/外贸超级工作台/订单号 订单名/」（系统没有文档目录时退到「下载」）。
 - PDF：所有单据；Excel：报价单、PI、商业发票、箱单、报关资料；Word：销售合同；唛头只出 PDF。
 
+## 货物导入、单据检查、箱贴
+
+- 货物明细 →「粘贴 Excel / 导入 PO」：粘贴从 Excel 复制的多行，或选择 .xlsx / .csv（客户 PO）。自动识别表头（中英文别名、前缀匹配如「Unit Price (USD)」），可逐列改；跳过合计行；只有金额时反算单价；按型号从产品库补全 HS、箱规、重量；识别表头上方的 PO 号。在货物表格里直接 Ctrl+V 多行也会打开导入。
+- 单据检查（订单菜单、单据导出页）：缺项、尾箱、净重大于毛重、HS 位数、重复型号、唛头箱号 / PO 号、贸易术语与运费保费、柜型装载、日期等；点一条跳到对应输入框，唛头问题可一键修正。规则在 `src/modules/check.ts`。
+- 唛头箱贴 → 箱贴批量打印：每箱一张，箱号自动编为 n/总箱数，尾箱数量按余数；A4 每页 2/4/6/8 张或标签机 100×100、100×150 mm；可只打印部分箱号。
+
 ## 数据与备份
 
 - 设置 → 数据与备份：立即备份（保存到「文档/外贸超级工作台/备份」）、从备份恢复、清空示例数据。
@@ -35,10 +41,10 @@ npm run typecheck
 
 ```
 src/domain     数据类型、常量、计算（金额 / 箱数 / 英文大写 / 付款条款）、示例数据
-src/modules    模块、步骤、字段、表格定义，必填检查
+src/modules    模块、步骤、字段、表格定义，必填检查，单据一致性检查（check.ts）
 src/store      数据存储（zustand + IndexedDB）与界面状态
 src/docs       单据模板（排版积木 Box / Row / Txt / Fld，预览与 PDF 共用一套模板）
-src/io         导入导出与备份：CSV（自动识别 UTF-8 / GBK）与 Excel 表头识别、产品库 / 客户库导入导出、图片压缩与去白底、备份与每日自动备份
+src/io         导入导出与备份：CSV（自动识别 UTF-8 / GBK）与 Excel 表头识别、货物 / PO 导入（items.ts）、产品库 / 客户库导入导出、图片压缩与去白底、备份与每日自动备份
 src/export     导出：PDF（react-pdf + 内嵌 Noto Sans SC）、Excel（exceljs，金额与合计为公式）、Word 合同（docx）、zip 打包、保存与「打开文件夹」
 public/fonts   PDF 内嵌字体 Noto Sans SC（SIL OFL 1.1，许可证见 OFL.txt）
 src/vendor     png-js 用的同步解压（react-pdf 解码透明 PNG 时，避免创建桌面版不允许的 blob: Web Worker）

@@ -11,9 +11,9 @@ export function decodeText(bytes: Uint8Array): string {
 }
 
 /** RFC 4180 CSV 解析：支持引号、引号内逗号与换行、"" 转义；自动识别逗号 / 分号 / 制表符分隔 */
-export function parseCsv(text: string): string[][] {
+export function parseCsv(text: string, forceSep?: string): string[][] {
   const firstLine = text.split(/\r?\n/, 1)[0] ?? '';
-  const sep = [',', ';', '\t'].map((c) => [c, firstLine.split(c).length] as const).sort((a, b) => b[1] - a[1])[0][0];
+  const sep = forceSep ?? [',', ';', '\t'].map((c) => [c, firstLine.split(c).length] as const).sort((a, b) => b[1] - a[1])[0][0];
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = '';
@@ -72,17 +72,32 @@ export interface FieldSpec<K extends string> { key: K; label: string; aliases: s
 
 const norm = (s: string) => s.toLowerCase().replace(/[\s_\-/()（）:：.。*]/g, '');
 
-/** 在前 10 行里找表头行（命中字段最多的一行），返回列 → 字段映射 */
+/**
+ * 在前 15 行里找表头行（命中字段最多的一行），返回列 → 字段映射。
+ * 先找完全一致的列名，再按前缀匹配（如「Unit Price (USD)」→ 单价、「Amount USD」→ 金额），前缀取最长的别名。
+ */
 export function detectHeader<K extends string>(table: string[][], fields: FieldSpec<K>[]) {
   let best = { row: -1, map: new Map<number, K>() };
-  table.slice(0, 10).forEach((cells, ri) => {
+  table.slice(0, 15).forEach((cells, ri) => {
     const map = new Map<number, K>();
     const used = new Set<K>();
-    cells.forEach((c, ci) => {
-      const n = norm(c);
+    const names = cells.map(norm);
+    names.forEach((n, ci) => {
       if (!n) return;
       const f = fields.find((x) => !used.has(x.key) && x.aliases.some((a) => norm(a) === n));
       if (f) { map.set(ci, f.key); used.add(f.key); }
+    });
+    names.forEach((n, ci) => {
+      if (!n || map.has(ci) || n.length > 30) return;
+      let hit: { key: K; len: number } | null = null;
+      for (const f of fields) {
+        if (used.has(f.key)) continue;
+        for (const a of f.aliases.map(norm)) {
+          const enough = /[^\x00-\x7f]/.test(a) ? a.length >= 2 : a.length >= 3;
+          if (enough && n.startsWith(a) && (!hit || a.length > hit.len)) hit = { key: f.key, len: a.length };
+        }
+      }
+      if (hit) { map.set(ci, hit.key); used.add(hit.key); }
     });
     if (map.size > best.map.size) best = { row: ri, map };
   });

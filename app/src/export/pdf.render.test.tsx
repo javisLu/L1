@@ -37,3 +37,18 @@ describe('PDF 带 Logo、公章、签名', () => {
     expect(buf.toString('latin1').match(/\/Subtype \/Image/g)?.length).toBeGreaterThanOrEqual(3);
   }, 30000);
 });
+
+describe('箱贴 PDF', () => {
+  const pages = (b: Buffer) => b.toString('latin1').match(/\/Type \/Page\b/g)?.length ?? 0;
+  it('A4 每页 4 张、标签机 100×150、指定箱号', async () => {
+    const o = seed().orders[0];
+    const a4 = await renderToBuffer(buildPdf(o, 'labels', undefined, { layout: 'a4-4', info: true }));
+    if (process.env.PDF_OUT) writeFileSync(`${process.env.PDF_OUT}/labels-a4.pdf`, a4);
+    expect(pages(a4)).toBe(19);
+    const roll = await renderToBuffer(buildPdf(o, 'labels', undefined, { layout: '100x150', info: false, from: 1, to: 3 }));
+    if (process.env.PDF_OUT) writeFileSync(`${process.env.PDF_OUT}/labels-roll.pdf`, roll);
+    expect(pages(roll)).toBe(3);
+    expect(roll.toString('latin1')).toMatch(/\/MediaBox \[0 0 283\.46\d* 425\.19/);
+  }, 60000);
+});
+

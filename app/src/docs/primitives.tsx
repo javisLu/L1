@@ -11,7 +11,7 @@ export type St = CSSProperties;
 export interface PdfImpl {
   View: ComponentType<{ style?: unknown; wrap?: boolean; children?: ReactNode }>;
   Text: ComponentType<{ style?: unknown; children?: ReactNode }>;
-  Page: ComponentType<{ size?: string; style?: unknown; children?: ReactNode }>;
+  Page: ComponentType<{ size?: string | [number, number]; style?: unknown; children?: ReactNode }>;
   Image: ComponentType<{ src: string; style?: unknown }>;
   style: (s: St) => unknown;
 }
@@ -76,11 +76,12 @@ export function Fld({ p, v, ph = '待填写', style }: { p: string; v: unknown; 
   );
 }
 
-export function Page({ accent, children }: { accent: string; children: ReactNode }) {
+/** 单据页面：默认 A4；箱贴等可指定页面尺寸（pt）和页边距 */
+export function Page({ accent, children, size, pad = '38px 42px 44px' }: { accent: string; children: ReactNode; size?: [number, number]; pad?: string }) {
   const pdf = useContext(Pdf);
   if (pdf) {
     return (
-      <pdf.Page size="A4" style={pdf.style({ padding: '38px 42px 44px', color: '#1a1d22', fontSize: 8, lineHeight: 1.45 })}>
+      <pdf.Page size={size ?? 'A4'} style={pdf.style({ padding: pad, color: '#1a1d22', fontSize: 8, lineHeight: 1.45 })}>
         {children}
       </pdf.Page>
     );
@@ -89,7 +90,7 @@ export function Page({ accent, children }: { accent: string; children: ReactNode
     <div
       className="paper"
       style={{
-        width: 595, minHeight: 842, padding: '38px 42px 44px', background: '#fff', color: '#1a1d22',
+        width: size?.[0] ?? 595, minHeight: size?.[1] ?? 842, padding: pad, background: '#fff', color: '#1a1d22',
         fontFamily: 'var(--f-doc)', fontSize: 8, lineHeight: 1.45, display: 'flex', flexDirection: 'column',
         ['--acc' as string]: accent,
       }}

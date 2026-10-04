@@ -5,6 +5,7 @@ import { amountWords, calc, fixed, int, intWords, money, needAddr, sym } from '.
 import { getPath } from '../store/data';
 import type { Order } from '../domain/types';
 import type { DocKey } from '../modules/defs';
+import { Labels, type LabelOptions } from './labels';
 
 const MONO = 'var(--f-doc-num)';
 const accent = (o: Order) => THEMES[o.docset.theme] ?? '#1d3f72';
@@ -404,11 +405,13 @@ function Marks({ o }: { o: Order }) {
 
 const NO_ASSETS: DocAssets = { logo: '', stamp: '', signature: '' };
 
-export function DocView({ doc, order, assets = NO_ASSETS }: { doc: DocKey; order: Order; assets?: DocAssets }) {
-  return <AssetsProvider value={assets}><DocBody doc={doc} order={order} /></AssetsProvider>;
+const DEFAULT_LABELS: LabelOptions = { layout: 'a4-4', info: true };
+
+export function DocView({ doc, order, assets = NO_ASSETS, labels = DEFAULT_LABELS }: { doc: DocKey; order: Order; assets?: DocAssets; labels?: LabelOptions }) {
+  return <AssetsProvider value={assets}><DocBody doc={doc} order={order} labels={labels} /></AssetsProvider>;
 }
 
-function DocBody({ doc, order }: { doc: DocKey; order: Order }) {
+function DocBody({ doc, order, labels }: { doc: DocKey; order: Order; labels: LabelOptions }) {
   switch (doc) {
     case 'quote': return <QuotePI o={order} kind="quote" />;
     case 'pi': return <QuotePI o={order} kind="pi" />;
@@ -417,5 +420,6 @@ function DocBody({ doc, order }: { doc: DocKey; order: Order }) {
     case 'pl': return <Packing o={order} />;
     case 'customs': return <CustomsDraft o={order} />;
     case 'marks': return <Marks o={order} />;
+    case 'labels': return <Labels o={order} opt={labels} />;
   }
 }

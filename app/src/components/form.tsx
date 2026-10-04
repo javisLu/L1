@@ -7,6 +7,7 @@ import { emptyItem, productToItem, syncPay } from '../domain/factory';
 import { SRC_NAME, TABLES, dyn, inputId, type FieldDef, type TableKey } from '../modules/defs';
 import type { Order } from '../domain/types';
 import { uid } from '../domain/calc';
+import { openItemImport } from './itemImport';
 
 type FieldSpec = Extract<FieldDef, { kind: 'field' }>;
 
@@ -169,6 +170,36 @@ export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
   const k = calc(order.items);
   const cols = TABLES[table];
   const cur = order.terms.currency;
+  const focusCell = (row: number, key: string) => {
+    const el = document.getElementById(inputId(`items.${row}.${key}`)) as HTMLInputElement | null;
+    el?.focus();
+    el?.select();
+  };
+  /** 回车 / ↓ 到下一行同一列（最后一行回车自动加一行），↑ 到上一行；中文输入法选字时不处理 */
+  const onCellKey = (e: React.KeyboardEvent<HTMLInputElement>, i: number, key: string) => {
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (e.key === 'ArrowUp' && i > 0) { e.preventDefault(); focusCell(i - 1, key); }
+    else if (e.key === 'ArrowDown' || e.key === 'Enter') {
+      e.preventDefault();
+      if (i < order.items.length - 1) focusCell(i + 1, key);
+      else if (e.key === 'Enter' && table === 'items') {
+        updateOrder(order.id, (o) => void o.items.push(emptyItem()));
+        setTimeout(() => focusCell(i + 1, key), 0);
+      }
+    }
+  };
+  const duplicateRow = (i: number) => {
+    updateOrder(order.id, (o) => void o.items.splice(i + 1, 0, { ...o.items[i], id: uid() }));
+    setTimeout(() => focusCell(i + 1, 'qty'), 0);
+  };
+  const deleteRow = (i: number) => {
+    const removed = order.items[i];
+    updateOrder(order.id, (o) => void o.items.splice(i, 1));
+    toast(`已删除第 ${i + 1} 行${removed.model ? `（${removed.model}）` : ''}`, {
+      label: '撤销',
+      run: () => updateOrder(order.id, (o) => void o.items.splice(Math.min(i, o.items.length), 0, removed)),
+    });
+  };
   const calcCell = (i: number, c: string) => {
     const r = k.rows[i];
     if (c === 'a') return money(r.a);
@@ -203,6 +234,15 @@ export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
                         inputMode={c.num ? 'decimal' : undefined}
                         aria-label={c.label}
                         onChange={(e) => setField(order.id, `items.${i}.${c.key}`, e.target.value)}
+                        onKeyDown={(e) => onCellKey(e, i, c.key!)}
+                        onPaste={(e) => {
+                          // 从 Excel 复制了多个格子：打开导入窗口，按列识别
+                          const t = e.clipboardData.getData('text');
+                          if (t.includes('\t') || t.trim().split(/\r?\n/).length > 1) {
+                            e.preventDefault();
+                            openItemImport(order, t);
+                          }
+                        }}
                       />
                     </td>
                   ) : (
@@ -210,7 +250,10 @@ export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
                   ),
                 )}
                 {table === 'items' && (
-                  <td><button className="del" title="删除此行" onClick={() => updateOrder(order.id, (o) => void o.items.splice(i, 1))}>✕</button></td>
+                  <td className="row-act">
+                    <button className="del" title="复制此行" aria-label="复制此行" onClick={() => duplicateRow(i)}>⧉</button>
+                    <button className="del" title="删除此行" aria-label="删除此行" onClick={() => deleteRow(i)}>✕</button>
+                  </td>
                 )}
               </tr>
             ))}
@@ -235,7 +278,8 @@ export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
             ＋ 添加一行
           </button>
           <button className="btn sm" onClick={() => openModal({ title: '从产品库添加', body: <ProductPicker orderId={order.id} /> })}>从产品库添加</button>
-          <button className="btn sm" onClick={() => toast('「粘贴 Excel / 导入 PO」将在 M1-4 提供')}>粘贴 Excel / 导入 PO</button>
+          <button className="btn sm" onClick={() => openItemImport(order)}>粘贴 Excel / 导入 PO</button>
+          <span className="tbl-tip">提示：在表格里直接 Ctrl+V 粘贴从 Excel 复制的多行；回车 / ↑↓ 换行</span>
         </div>
       )}
       {table === 'packing' && (
