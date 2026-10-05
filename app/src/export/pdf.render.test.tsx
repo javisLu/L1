@@ -11,7 +11,7 @@ registerFonts(resolve('public/fonts/NotoSansSC-Regular.ttf'), resolve('public/fo
 
 describe('PDF 导出', () => {
   const order = seed().orders[0];
-  for (const doc of ['quote', 'pi', 'contract', 'ci', 'pl', 'customs', 'marks'] as DocKey[]) {
+  for (const doc of ['quote', 'pi', 'contract', 'ci', 'pl', 'customs', 'marks', 'booking', 'si', 'advice'] as DocKey[]) {
     it(`生成 ${doc}`, async () => {
       const buf = await renderToBuffer(buildPdf(order, doc));
       expect(buf.subarray(0, 5).toString()).toBe('%PDF-');

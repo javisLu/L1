@@ -88,3 +88,25 @@ describe('Excel / Word 带 Logo、公章、签名', () => {
     expect(imageInfo('')).toBeNull();
   });
 });
+
+describe('订舱委托书 / SI Excel', () => {
+  it('包含收货人、通知人、运费、件毛体', async () => {
+    const { renderShipExcel } = await import('./shipexcel');
+    const o = seed().orders[1];
+    for (const d of ['booking', 'si'] as const) {
+      const buf = await renderShipExcel(o, d, '宁波远航货代');
+      if (process.env.PDF_OUT) writeFileSync(`${process.env.PDF_OUT}/${d}.xlsx`, buf);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buf.buffer as ArrayBuffer);
+      const cells: string[] = [];
+      wb.worksheets[0].eachRow((r) => r.eachCell((c) => cells.push(String(c.value))));
+      const all = cells.join('\n');
+      expect(all).toContain('ABC Trading LLC');
+      expect(all).toContain('FREIGHT PREPAID');
+      expect(all).toMatch(/CARTONS/);
+      if (d === 'booking') { expect(all).toContain('宁波远航货代'); expect(all).toContain('1×40HQ'); expect(all).toContain('请代为投保'); }
+      else expect(all).toContain('CSNU7234561');
+    }
+  });
+});
+

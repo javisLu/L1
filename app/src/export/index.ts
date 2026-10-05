@@ -16,10 +16,15 @@ export async function buildFile(o: Order, doc: DocKey, fmt: Fmt): Promise<OutFil
     const range = doc === 'labels' ? useUI.getState().labelRange : null;
     return { name, data: await renderPdf(o, doc, assets, { ...labels, ...range }) };
   }
+  if (fmt === 'Excel' && (doc === 'booking' || doc === 'si')) {
+    const { renderShipExcel } = await import('./shipexcel');
+    const ff = useData.getState().partners.find((p) => p.id === o.partners.forwarder);
+    return { name, data: await renderShipExcel(o, doc, ff ? [ff.name, ff.contact, ff.phone].filter(Boolean).join('  ') : '') };
+  }
   if (fmt === 'Excel') {
-    if (doc === 'contract' || doc === 'marks' || doc === 'labels') throw new Error(`${DOCNAMES[doc]}不支持导出 Excel`);
+    if (doc === 'contract' || doc === 'marks' || doc === 'labels' || doc === 'advice') throw new Error(`${DOCNAMES[doc]}不支持导出 Excel`);
     const { renderExcel } = await import('./excel');
-    return { name, data: await renderExcel(o, doc, assets) };
+    return { name, data: await renderExcel(o, doc as Parameters<typeof renderExcel>[1], assets) };
   }
   if (doc !== 'contract') throw new Error(`${DOCNAMES[doc]}不支持导出 Word`);
   const { renderContractDocx } = await import('./word');

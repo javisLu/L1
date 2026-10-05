@@ -9,6 +9,7 @@ import type { Order } from '../domain/types';
 import { uid } from '../domain/calc';
 import { openItemImport } from './itemImport';
 import { PackingTable } from './packing';
+import { ContainerList } from './containers';
 
 type FieldSpec = Extract<FieldDef, { kind: 'field' }>;
 
@@ -27,6 +28,7 @@ export function FieldView({ order, def }: { order: Order; def: FieldDef }) {
     const t = def.text(order);
     return t ? <div className="note w2" style={{ marginTop: -4 }}>{t}</div> : null;
   }
+  if (def.kind === 'containers') return <ContainerList order={order} />;
   const d: FieldSpec = def;
   if (d.show && !d.show(order)) return null;
   const id = inputId(d.path);

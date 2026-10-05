@@ -15,7 +15,7 @@ export function TopBar({ children }: { children?: ReactNode }) {
       </button>
       <nav className="crumbs">{children}</nav>
       <div className="top-r">
-        <span className="proto">M1 开发版</span>
+        <span className="proto">M2 开发版</span>
         <button className={'btn ghost sm' + (page === 'settings' ? ' on' : '')} onClick={() => go('settings')} title={hasLogo ? '设置' : '设置公司信息、Logo 与公章'}>设置</button>
       </div>
     </header>

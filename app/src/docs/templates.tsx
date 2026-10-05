@@ -7,6 +7,8 @@ import type { Order } from '../domain/types';
 import type { DocKey } from '../modules/defs';
 import { Labels, type LabelOptions } from './labels';
 import { pkgNote, pkgSummary } from '../domain/package';
+import { blTypeCn, blTypeText, consigneeText, containerRows, freightText, goodsLines, insureNeeded, notifyText, shipperText } from '../domain/shipping';
+import { useData } from '../store/data';
 
 const MONO = 'var(--f-doc-num)';
 const accent = (o: Order) => THEMES[o.docset.theme] ?? '#1d3f72';
@@ -419,6 +421,117 @@ function Marks({ o }: { o: Order }) {
   );
 }
 
+/* ---------- 订舱 / 提单补料 / 装船通知（M2-1） ---------- */
+/** 本单选择的货代（合作方库） */
+function forwarderOf(o: Order) {
+  const p = useData.getState().partners.find((x) => x.id === o.partners.forwarder);
+  return { name: p?.name ?? '', contact: p?.contact ?? '', phone: p?.phone ?? '' };
+}
+/** 表格式的「字段 + 内容」格子：span 以 1/4 宽为单位 */
+const gcell = (label: string, v: ReactNode, span = 2, minH = 26) => (
+  <Box style={{ width: `${span * 25}%`, borderRight: '0.75px solid #9aa3ae', borderBottom: '0.75px solid #9aa3ae', padding: '3px 6px', minHeight: minH }}>
+    <Txt style={{ fontSize: 6.3, color: '#5b6470' }}>{label}</Txt>
+    <Txt style={{ whiteSpace: 'pre-line' }}>{v}</Txt>
+  </Box>
+);
+const Grid = ({ children }: { children: ReactNode }) => <Box style={{ borderTop: '0.75px solid #9aa3ae', borderLeft: '0.75px solid #9aa3ae' }}>{children}</Box>;
+const ph = (v: string, p: string) => (v.trim() ? v : <Txt style={{ color: '#b8322a' }}>{p}</Txt>);
+
+function Booking({ o }: { o: Order }) {
+  const k = calcOrder(o), a = accent(o), pk = pkgSummary(o, k);
+  const ff = forwarderOf(o);
+  const ins = insureNeeded(o);
+  return (
+    <Page accent={a}>
+      <Head o={o} title="BOOKING FORM" meta={[['订舱委托', `BK-${o.no}`], ['Date', F(o, 'numbers.date')], ['PO No.', F(o, 'numbers.po', '—')]]} />
+      <Txt style={{ width: '100%', textAlign: 'center', fontSize: 12, fontWeight: 700, letterSpacing: 4, marginBottom: 8 }}>订 舱 委 托 书</Txt>
+      <Row style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+        <Txt><B>致 TO：</B>{ff.name || <Txt style={{ color: '#b8322a' }}>[在订单菜单选择货代]</Txt>}{ff.contact ? `（${ff.contact}${ff.phone ? ' ' + ff.phone : ''}）` : ''}</Txt>
+        <Txt><B>委托方 FROM：</B>{o.seller.nameCn || o.seller.name}{o.seller.phone ? `  ${o.seller.phone}` : ''}</Txt>
+      </Row>
+      <Grid>
+        <Row>{gcell('托运人 Shipper', shipperText(o), 2, 54)}{gcell('收货人 Consignee', ph(consigneeText(o), '[收货人]'), 2, 54)}</Row>
+        <Row>{gcell('通知人 Notify Party', ph(notifyText(o), '[通知人]'), 2, 54)}{gcell('运费 / 提单 / 贸易术语', `${freightText(o)}\n${blTypeText(o)}（${blTypeCn(o)}）\n${o.terms.incoterm} ${o.terms.place}`, 2, 54)}</Row>
+        <Row>{gcell('起运港 Port of Loading', F(o, 'terms.pol'), 1)}{gcell('目的港 Port of Discharge', F(o, 'terms.pod', '[目的港]'), 1)}{gcell('交货地 Place of Delivery', o.terms.deliveryAddress && needAddr(o) ? o.terms.deliveryAddress : F(o, 'terms.pod', '—'), 2)}</Row>
+        <Row>{gcell('柜型柜量 Equipment', F(o, 'shipping.equipment', '[柜型柜量]'), 1)}{gcell('货好时间 Cargo Ready', F(o, 'shipping.cargoReady', '—'), 1)}{gcell('预计开船 ETD', F(o, 'shipping.etd', '—'), 1)}{gcell('运输方式', o.terms.transport, 1)}</Row>
+        <Row>{gcell('件数 Packages', `${pk.count} ${pk.unitEn}${pk.contains ? `\n(${pk.contains})` : ''}`, 1)}{gcell('毛重 G.W.', `${fixed(pk.gw, 2)} KGS`, 1)}{gcell('体积 Meas.', `${fixed(pk.cbm, 3)} CBM`, 1)}{gcell('净重 N.W.', `${fixed(k.nw, 2)} KGS`, 1)}</Row>
+        <Row>{gcell('品名 Description of Goods / HS Code', goodsLines(o, k).join('\n') || '—', 3, 40)}{gcell('唛头 Marks', F(o, 'shipping.marks', 'N/M'), 1, 40)}</Row>
+        <Row>{gcell('投保 Insurance', ins ? `请代为投保，保额按发票金额 110%（发票金额 ${sym(o.terms.currency)}${money(k.amount)}）\nPlease arrange insurance for 110% of invoice value.` : '无需投保 No insurance required.', 4)}</Row>
+        <Row>{gcell('特殊要求 Remarks', o.shipping.bookingNote || '—', 4, 34)}</Row>
+      </Grid>
+      <Txt style={{ marginTop: 8, color: '#555', fontSize: 7 }}>请确认船期后回传订舱确认（S/O），并在开船前发送提单草稿核对。Please confirm the booking and send us the draft B/L before sailing.</Txt>
+      <Sign o={o} left={<>委托方签章 For <B>{o.seller.name}</B></>} right="货代确认 Forwarder" />
+    </Page>
+  );
+}
+
+function Si({ o }: { o: Order }) {
+  const k = calcOrder(o), a = accent(o), pk = pkgSummary(o, k);
+  const boxes = containerRows(o, k);
+  return (
+    <Page accent={a}>
+      <Head o={o} title="SHIPPING INSTRUCTION" meta={[['Ref.', `SI-${o.no}`], ['B/L No.', F(o, 'shipping.blNo', '—')], ['Date', F(o, 'numbers.date')]]} />
+      <Grid>
+        <Row>{gcell('SHIPPER', shipperText(o), 2, 54)}{gcell('VESSEL / VOYAGE · PORTS', <>{F(o, 'shipping.vessel', '[船名航次]')}{'\n'}POL: {F(o, 'terms.pol')}{'\n'}POD: {F(o, 'terms.pod', '[目的港]')}{o.terms.deliveryAddress && needAddr(o) ? `\nPLACE OF DELIVERY: ${o.terms.deliveryAddress}` : ''}</>, 2, 54)}</Row>
+        <Row>{gcell('CONSIGNEE', ph(consigneeText(o), '[收货人]'), 2, 54)}{gcell('NOTIFY PARTY', ph(notifyText(o), '[通知人]'), 2, 54)}</Row>
+        <Row>{gcell('FREIGHT', freightText(o), 1)}{gcell('B/L TYPE', blTypeText(o), 1)}{gcell('ETD', F(o, 'shipping.etd', '—'), 1)}{gcell('INVOICE / PO', `${o.numbers.ci}${o.numbers.po ? ' / ' + o.numbers.po : ''}`, 1)}</Row>
+      </Grid>
+      <Box style={{ marginTop: 10 }}>
+        <Table
+          accent={a}
+          cols={[{ label: 'Marks & Nos.', w: '20%' }, { label: 'No. & Kind of Packages', w: '17%', align: 'center' }, { label: 'Description of Goods', w: '39%' }, { label: 'G.W. (KGS)', w: '12%', align: 'right' }, { label: 'Meas. (CBM)', w: '12%', align: 'right' }]}
+          rows={[[F(o, 'shipping.marks', 'N/M'), `${pk.count} ${pk.unitEn}${pk.contains ? `\n(${k.ctns} CARTONS)` : ''}`, goodsLines(o, k).join('\n') || '—', fixed(pk.gw, 2), fixed(pk.cbm, 3)]]}
+        />
+      </Box>
+      {boxes.length > 0 && (
+        <Box style={{ marginTop: 8 }}>
+          <Table
+            accent={a}
+            cols={[{ label: 'Container No.', w: '24%' }, { label: 'Seal No.', w: '20%' }, { label: 'Type', w: '12%', align: 'center' }, { label: 'Packages', w: '14%', align: 'right' }, { label: 'G.W. (KGS)', w: '15%', align: 'right' }, { label: 'CBM', w: '15%', align: 'right' }]}
+            rows={boxes.map((b) => [b.no || '—', b.seal || '—', b.type || '—', String(b.pkgs ?? ''), fixed(toNum(b.gw), 2), fixed(toNum(b.cbm), 3)])}
+          />
+        </Box>
+      )}
+      <Words o={o}>{pk.words}</Words>
+      <Txt style={{ color: '#555' }}>{freightText(o)} · {blTypeText(o)}{o.shipping.bookingNote ? ` · ${o.shipping.bookingNote}` : ''}</Txt>
+      <Sign o={o} left={<>For and on behalf of <B>{o.seller.name}</B></>} right="Authorized Signature" />
+    </Page>
+  );
+}
+
+function Advice({ o }: { o: Order }) {
+  const k = calcOrder(o), a = accent(o), pk = pkgSummary(o, k), c = o.terms.currency;
+  const boxes = containerRows(o, k);
+  const line = (l: string, v: ReactNode) => (
+    <Row style={{ marginBottom: 3 }}><Txt style={{ width: '28%', color: '#5b6470' }}>{l}</Txt><Txt style={{ width: '72%', whiteSpace: 'pre-line' }}>{v}</Txt></Row>
+  );
+  return (
+    <Page accent={a}>
+      <Head o={o} title="SHIPPING ADVICE" meta={[['Date', F(o, 'shipping.etd', '—')], ['Invoice No.', F(o, 'numbers.ci')], ['PO No.', F(o, 'numbers.po', '—')]]} />
+      <Two><BuyerBox o={o} label="TO" /><ShipBox o={o} /></Two>
+      <Txt style={{ marginBottom: 6 }}>Dear {o.buyer.contact ? o.buyer.contact.split(' ')[0] : 'Sirs'},</Txt>
+      <Txt style={{ marginBottom: 10 }}>We are pleased to advise that the goods under the above order have been shipped. Details are as follows:</Txt>
+      <Box style={{ padding: '8px 10px', background: '#f6f7f9', marginBottom: 10 }}>
+        {line('Commodity', goodsLines(o, k, false).join('\n') || '—')}
+        {line('Quantity', `${int(k.qty)} ${k.rows[0]?.unit ?? 'PCS'}`)}
+        {line('Packages', `${pk.count} ${pk.unitEn}${pk.contains ? ` (${pk.contains})` : ''}`)}
+        {line('Gross / Net Weight', `${fixed(pk.gw, 2)} KGS / ${fixed(k.nw, 2)} KGS`)}
+        {line('Measurement', `${fixed(pk.cbm, 3)} CBM`)}
+        {line('Invoice Amount', `${c} ${money(k.amount)}`)}
+        {line('Vessel / Voyage', F(o, 'shipping.vessel', '[船名航次]'))}
+        {line('B/L No.', F(o, 'shipping.blNo', '[提单号]'))}
+        {line('Container / Seal', boxes.length ? boxes.map((b) => `${b.no || '—'} / ${b.seal || '—'}${b.type ? ` (${b.type})` : ''}`).join('\n') : '—')}
+        {line('Port of Loading', F(o, 'terms.pol'))}
+        {line('Port of Discharge', F(o, 'terms.pod', '[目的港]'))}
+        {line('ETD / ETA', <>{F(o, 'shipping.etd', '—')} / {F(o, 'shipping.eta', '—')}</>)}
+      </Box>
+      <Txt>Original documents will be sent to you as agreed. Please arrange customs clearance and pick-up accordingly.</Txt>
+      <Txt style={{ marginTop: 6 }}>Best regards,</Txt>
+      <Sign o={o} left={<>For and on behalf of <B>{o.seller.name}</B></>} right="" />
+    </Page>
+  );
+}
+
 const NO_ASSETS: DocAssets = { logo: '', stamp: '', signature: '' };
 
 const DEFAULT_LABELS: LabelOptions = { layout: 'a4-4', info: true };
@@ -437,5 +550,8 @@ function DocBody({ doc, order, labels }: { doc: DocKey; order: Order; labels: La
     case 'customs': return <CustomsDraft o={order} />;
     case 'marks': return <Marks o={order} />;
     case 'labels': return <Labels o={order} opt={labels} />;
+    case 'booking': return <Booking o={order} />;
+    case 'si': return <Si o={order} />;
+    case 'advice': return <Advice o={order} />;
   }
 }

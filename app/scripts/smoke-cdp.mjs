@@ -148,6 +148,18 @@ await step('17-mixed-carton', async () => {
   await page.click('.mod-head button:has-text("导出 Excel")'); await waitToast('已保存 PL-.*\\.xlsx');
 });
 
+await step('18-booking-si-advice', async () => {
+  // M2-1：订舱委托书、SI 补料、装船通知
+  await page.click('button:has-text("← 订单菜单")'); await page.click('.mcard:has-text("订舱 / 提单")');
+  await page.click('.step:has-text("运输信息")');
+  await page.selectOption('#in-shipping-consigneeMode', 'order');
+  await page.fill('#in-shipping-equipment', '1×40HQ');
+  await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 BK-.*\\.pdf');
+  await page.click('.mod-head button:has-text("导出 Excel")'); await waitToast('已保存 BK-.*\\.xlsx');
+  await page.click('.pv-bar .tab:has-text("SI 提单补料")'); await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 SI-.*\\.pdf');
+  await page.click('.pv-bar .tab:has-text("装船通知")'); await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 SA-.*\\.pdf');
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

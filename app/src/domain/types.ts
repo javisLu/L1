@@ -122,7 +122,33 @@ export interface Shipping {
   origin: string;
   marks: string;
   side: string;
+  /* —— 以下为 M2 订舱 / 提单补料用，老订单没有时按默认处理（见 domain/shipping.ts） —— */
+  /** 收货人：同买方 / TO ORDER / 自定义 */
+  consigneeMode?: 'buyer' | 'order' | 'custom';
+  consignee?: string;
+  /** 通知人：自动（收货人是买方 → SAME AS CONSIGNEE，TO ORDER → 买方）/ 同买方 / 自定义 */
+  notifyMode?: 'auto' | 'buyer' | 'custom';
+  notify?: string;
+  /** 运费：空 = 按贸易术语自动 */
+  freight?: '' | 'PREPAID' | 'COLLECT';
+  /** 提单类型：正本 / 电放 / 海运单 */
+  blType?: 'original' | 'telex' | 'seaway';
+  /** 正本份数 */
+  originals?: Num;
+  /** 柜型柜量，如 1×40HQ、LCL 拼箱 */
+  equipment?: string;
+  /** 投保：空 = 按贸易术语自动（CIF / CIP 需要） */
+  insure?: '' | 'yes' | 'no';
+  /** 货好时间 */
+  cargoReady?: string;
+  eta?: string;
+  /** 订舱特殊要求 */
+  bookingNote?: string;
+  /** 多柜明细（一个柜子时直接用 container / seal） */
+  boxes?: ContainerRow[];
 }
+
+export interface ContainerRow { no: string; seal: string; type: string; pkgs: Num; gw: Num; cbm: Num }
 
 export interface Customs {
   exportPort: string;

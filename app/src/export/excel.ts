@@ -7,7 +7,7 @@ import type { DocAssets } from '../docs/primitives';
 import { pkgNote, pkgSummary } from '../domain/package';
 import { fit, imageInfo } from './images';
 
-type ExcelDoc = Exclude<DocKey, 'contract' | 'marks' | 'labels'>;
+type ExcelDoc = Exclude<DocKey, 'contract' | 'marks' | 'labels' | 'booking' | 'si' | 'advice'>;
 const MONEY = '#,##0.00';
 const thin = { style: 'thin' as const, color: { argb: 'FFC9CFD8' } };
 const box = { top: thin, left: thin, bottom: thin, right: thin };

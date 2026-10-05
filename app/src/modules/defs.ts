@@ -4,8 +4,14 @@ import {
 } from '../domain/constants';
 import { addrLabel, needAddr, toNum } from '../domain/calc';
 import type { Order } from '../domain/types';
+import { autoFreight, blTypeText, consigneeText, insureNeeded, notifyText } from '../domain/shipping';
 
-export type DocKey = 'quote' | 'pi' | 'contract' | 'ci' | 'pl' | 'customs' | 'marks' | 'labels';
+/** 运输信息里的提示：当前运费条款、提单类型、是否投保 */
+const shippingNote = (o: Order) =>
+  `提单上会写：收货人 ${firstLine(consigneeText(o)) || '（未填）'} · 通知人 ${firstLine(notifyText(o)) || '（未填）'} · FREIGHT ${o.shipping.freight || autoFreight(o)}${o.shipping.freight ? '' : `（${o.terms.incoterm} 自动）`} · ${blTypeText(o)} · ${insureNeeded(o) ? '订舱委托书注明请货代代为投保' : '不投保'}`;
+const firstLine = (s: string) => s.split('\n')[0];
+
+export type DocKey = 'quote' | 'pi' | 'contract' | 'ci' | 'pl' | 'customs' | 'marks' | 'labels' | 'booking' | 'si' | 'advice';
 export type StepKey = 'parties' | 'items' | 'packing' | 'customsItems' | 'terms' | 'contractClauses' | 'shipping' | 'customs' | 'docset' | 'marks';
 export type ModKey = 'quote' | 'pi' | 'ci' | 'pl' | 'customs' | 'booking' | 'marks' | 'export' | 'bl' | 'lc' | 'payment';
 export type Src = 'S' | 'B' | 'FF' | 'CB' | 'F';
@@ -31,7 +37,7 @@ export const MODS: Record<ModKey, ModDef> = {
   ci: { code: 'CI', name: '商业发票', desc: 'Commercial Invoice：船名、提单号、原产地', grp: 'doc', docs: ['ci'], steps: ['parties', 'items', 'terms', 'shipping', 'docset'] },
   pl: { code: 'PL', name: '箱单', desc: 'Packing List：箱号、净毛重、体积自动计算', grp: 'doc', docs: ['pl'], steps: ['parties', 'packing', 'shipping', 'docset'] },
   customs: { code: 'CD', name: '报关资料', desc: '报关预录入表 + 发票 + 箱单，发报关行', grp: 'doc', docs: ['customs', 'ci', 'pl'], steps: ['customs', 'customsItems', 'packing'] },
-  booking: { code: 'SI', name: '订舱 / SI', desc: '订舱委托书、提单补料', grp: 'doc', ph: 'M2', plan: ['订舱委托书：自动带入发货人、收货人、通知人、港口、柜型柜量、件毛体', 'SI 提单补料：按船公司格式生成，发给货代', '数据与箱单自动一致，改一处全同步'] },
+  booking: { code: 'SI', name: '订舱 / 提单', desc: '订舱委托书、SI 提单补料、装船通知', grp: 'doc', docs: ['booking', 'si', 'advice'], steps: ['parties', 'shipping'] },
   marks: { code: 'SM', name: '唛头箱贴', desc: '正唛、侧唛，按箱号批量打印', grp: 'doc', docs: ['marks', 'labels'], steps: ['marks'] },
   export: { code: 'ZIP', name: '单据导出', desc: '按客户 / 工厂 / 报关行 / 货代一键打包', grp: 'doc', special: 'export' },
   bl: { code: 'B/L', name: '提单核对', desc: '货代提单确认件与订单自动比对', grp: 'biz', ph: 'M4', plan: ['上传货代提单确认件（PDF）或直接粘贴文字', '自动比对发货人、收货人、通知人、货描、唛头、件数、毛重、体积、柜号封号', '差异标红，一键生成修改意见发给货代', '文字版 PDF 离线可用；扫描件需在设置里配置自己的 AI Key'] },
@@ -41,16 +47,18 @@ export const MODS: Record<ModKey, ModDef> = {
 
 export const DOCNAMES: Record<DocKey, string> = {
   quote: '报价单', pi: 'PI 形式发票', contract: '销售合同', ci: '商业发票', pl: '装箱单', customs: '报关预录入表', marks: '唛头', labels: '箱贴',
+  booking: '订舱委托书', si: 'SI 提单补料', advice: '装船通知',
 };
 
 export type Fmt = 'PDF' | 'Excel' | 'Word';
 export const DOC_FMT: Record<DocKey, Fmt[]> = {
   quote: ['PDF', 'Excel'], pi: ['PDF', 'Excel'], contract: ['PDF', 'Word'], ci: ['PDF', 'Excel'], pl: ['PDF', 'Excel'], customs: ['PDF', 'Excel'], marks: ['PDF'], labels: ['PDF'],
+  booking: ['PDF', 'Excel'], si: ['PDF', 'Excel'], advice: ['PDF'],
 };
 export const EXT: Record<Fmt, string> = { PDF: 'pdf', Excel: 'xlsx', Word: 'docx' };
 
 export function docFile(o: Order, d: DocKey): string {
-  return { quote: o.numbers.quote, pi: o.numbers.pi, contract: o.numbers.contract, ci: o.numbers.ci, pl: 'PL-' + o.no, customs: 'CD-' + o.no, marks: 'Marks-' + o.no, labels: 'Labels-' + o.no }[d];
+  return { quote: o.numbers.quote, pi: o.numbers.pi, contract: o.numbers.contract, ci: o.numbers.ci, pl: 'PL-' + o.no, customs: 'CD-' + o.no, marks: 'Marks-' + o.no, labels: 'Labels-' + o.no, booking: 'BK-' + o.no, si: 'SI-' + o.no, advice: 'SA-' + o.no }[d];
 }
 
 /* ---------- 表单字段 ---------- */
@@ -61,6 +69,7 @@ export const dyn = <T,>(v: Dyn<T>, o: Order): T => (typeof v === 'function' ? (v
 export type FieldDef =
   | { kind: 'head'; label: string; tools?: 'buyer' }
   | { kind: 'note'; text: (o: Order) => string }
+  | { kind: 'containers' }
   | {
       kind: 'field';
       path: string;
@@ -142,14 +151,32 @@ export const STEPS: Record<StepKey, StepDef> = {
   },
   contractClauses: { label: '合同条款', hint: '下列条款可以开关、修改、排序，也可以添加自定义条款或从条款库插入。', list: 'contractClauses' },
   shipping: {
-    label: '运输信息', hint: '货代订舱后回填；唛头会同步到箱单和唛头模块。',
+    label: '运输信息', hint: '订舱、提单补料、装船通知都从这里取数；唛头会同步到箱单和唛头模块。',
     fields: [
+      head('船期与柜子'),
       f('shipping.vessel', '船名航次', { wide: true, src: 'FF' }),
       f('shipping.blNo', '提单号 B/L No.', { src: 'FF' }),
+      f('shipping.equipment', '柜型柜量', { src: 'S', placeholder: '如 1×40HQ、2×20GP、LCL 拼箱' }),
+      f('shipping.cargoReady', '货好时间', { type: 'date', src: 'F' }),
       f('shipping.etd', '开船日期 ETD', { type: 'date', src: 'FF' }),
-      f('shipping.container', '柜号 / 柜型', { src: 'FF' }),
+      f('shipping.eta', '到港日期 ETA', { type: 'date', src: 'FF' }),
+      f('shipping.container', '柜号 / 柜型', { src: 'FF', placeholder: '如 CSNU7234561 / 40HQ' }),
       f('shipping.seal', '封号', { src: 'FF' }),
       f('shipping.origin', '原产地', { src: 'S' }),
+      head('收货人与通知人（提单）'),
+      f('shipping.consigneeMode', '收货人 Consignee', { type: 'select', options: ['buyer', 'order', 'custom'], optionLabels: { buyer: '同买方', order: 'TO ORDER（凭指示）', custom: '自定义' }, rerender: true, src: 'B' }),
+      f('shipping.notifyMode', '通知人 Notify Party', { type: 'select', options: ['auto', 'buyer', 'custom'], optionLabels: { auto: '自动（推荐）', buyer: '同买方', custom: '自定义' }, rerender: true, src: 'B' }),
+      f('shipping.consignee', '收货人（自定义）', { type: 'textarea', wide: true, show: (o) => o.shipping.consigneeMode === 'custom', placeholder: '公司名称、地址、电话' }),
+      f('shipping.notify', '通知人（自定义）', { type: 'textarea', wide: true, show: (o) => o.shipping.notifyMode === 'custom', placeholder: '公司名称、地址、电话' }),
+      head('提单与运费'),
+      f('shipping.freight', '运费', { type: 'select', options: ['', 'PREPAID', 'COLLECT'], optionLabels: { '': '按贸易术语自动', PREPAID: '预付 FREIGHT PREPAID', COLLECT: '到付 FREIGHT COLLECT' }, rerender: true }),
+      f('shipping.blType', '提单类型', { type: 'select', options: ['original', 'telex', 'seaway'], optionLabels: { original: '正本提单', telex: '电放', seaway: '海运单 Sea Waybill' }, rerender: true }),
+      f('shipping.originals', '正本份数', { show: (o) => (o.shipping.blType ?? 'original') === 'original', placeholder: '3' }),
+      f('shipping.insure', '投保', { type: 'select', options: ['', 'yes', 'no'], optionLabels: { '': '按贸易术语自动（CIF / CIP 需要）', yes: '需要，请货代代为投保', no: '不需要' } }),
+      { kind: 'note', text: shippingNote },
+      f('shipping.bookingNote', '订舱特殊要求', { type: 'textarea', wide: true, placeholder: '如：指定船公司、免柜期、危险品、需要熏蒸等' }),
+      head('多柜明细（多个柜子时逐个填写；一个柜子填上面的柜号封号即可）'),
+      { kind: 'containers' },
       f('shipping.marks', '唛头 Shipping Marks', { type: 'textarea', wide: true, src: 'B' }),
     ],
   },
@@ -292,15 +319,15 @@ export function neededMods(o: Order): Set<ModKey> {
 export const inputId = (p: string) => 'in-' + p.replace(/[.*]/g, '-');
 
 /* ---------- 导出中心 ---------- */
-export type ExpKey = DocKey | 'poa' | 'booking' | 'si' | 'po';
+export type ExpKey = DocKey | 'po';
 export const EXPDOCS: { key: ExpKey; name: string; ph?: string }[] = [
   { key: 'quote', name: '报价单' }, { key: 'pi', name: 'PI 形式发票' }, { key: 'contract', name: '销售合同' },
   { key: 'ci', name: '商业发票' }, { key: 'pl', name: '装箱单' }, { key: 'customs', name: '报关预录入表' }, { key: 'marks', name: '唛头' },
   { key: 'labels', name: '箱贴（每箱一张）' },
-  { key: 'poa', name: '报关委托书', ph: 'M2' }, { key: 'booking', name: '订舱委托书', ph: 'M2' },
-  { key: 'si', name: 'SI 提单补料', ph: 'M2' }, { key: 'po', name: '采购单（给工厂）', ph: 'M2' },
+  { key: 'booking', name: '订舱委托书' }, { key: 'si', name: 'SI 提单补料' }, { key: 'advice', name: '装船通知' },
+  { key: 'po', name: '采购单（给工厂）', ph: 'M2' },
 ];
 export type Bundle = '客户' | '工厂' | '报关行' | '货代';
 export const BUNDLES: Record<Bundle, ExpKey[]> = {
-  客户: ['pi', 'contract', 'ci', 'pl'], 工厂: ['po', 'marks', 'labels', 'pl'], 报关行: ['customs', 'ci', 'pl', 'contract', 'poa'], 货代: ['pl', 'booking', 'si'],
+  客户: ['pi', 'contract', 'ci', 'pl'], 工厂: ['po', 'marks', 'labels', 'pl'], 报关行: ['customs', 'ci', 'pl', 'contract'], 货代: ['pl', 'booking', 'si'],
 };

@@ -2,6 +2,7 @@ import { fillMarks, fixed, int, needAddr, toNum, calcOrder } from '../domain/cal
 import { STATUSES } from '../domain/constants';
 import { CNO_LINE } from '../domain/labels';
 import { pkgSummary } from '../domain/package';
+import { autoFreight } from '../domain/shipping';
 import { MODS, STEPS, missing, neededMods, type ModKey, type StepKey } from './defs';
 import type { Order } from '../domain/types';
 
@@ -140,7 +141,20 @@ export function checkOrder(o: Order): Issue[] {
     if (n && n !== pk.count) out.push({ level: 'warn', text: `外包装尺寸里一共写了 ${n} 件，总件数是 ${pk.count} ${pk.unitCn}`, mod: 'pl', path: 'pkg.count' });
   }
 
-  // 6. 日期与出货状态
+  // 6. 订舱 / 提单
+  const sh = o.shipping;
+  if (sh.consigneeMode === 'custom' && !sh.consignee?.trim()) out.push({ level: 'error', text: '收货人选了「自定义」但没有填写', mod: 'booking', path: 'shipping.consignee' });
+  if (sh.notifyMode === 'custom' && !sh.notify?.trim()) out.push({ level: 'error', text: '通知人选了「自定义」但没有填写', mod: 'booking', path: 'shipping.notify' });
+  if (sh.freight && sh.freight !== autoFreight(o)) out.push({ level: 'warn', text: `${inc} 成交一般是 FREIGHT ${autoFreight(o)}，现在选的是 FREIGHT ${sh.freight}`, mod: 'booking', path: 'shipping.freight' });
+  if (sh.consigneeMode === 'order' && sh.blType && sh.blType !== 'original') out.push({ level: 'warn', text: '收货人是 TO ORDER 时一般出正本提单；电放、海运单需要写明收货人', mod: 'booking', path: 'shipping.blType' });
+  if (need.has('booking') && !sh.equipment?.trim() && STATUSES.indexOf(o.status) >= STATUSES.indexOf('生产')) out.push({ level: 'warn', text: '订舱委托书还没填柜型柜量（如 1×40HQ、LCL 拼箱）', mod: 'booking', path: 'shipping.equipment' });
+  const boxes = (sh.boxes ?? []).filter((b) => b.no || toNum(b.pkgs));
+  if (boxes.length > 1 || (boxes.length === 1 && (sh.boxes ?? []).length === 1 && toNum(boxes[0].pkgs))) {
+    const n = boxes.reduce((a, b) => a + toNum(b.pkgs), 0);
+    if (n && n !== pk.count) out.push({ level: 'warn', text: `多柜明细里的件数合计 ${n} 与总件数 ${pk.count} ${pk.unitCn} 不一致`, mod: 'booking', step: 'shipping' });
+  }
+
+  // 7. 日期与出货状态
   const d = o.numbers.date;
   if (o.numbers.validUntil && d && o.numbers.validUntil < d) out.push({ level: 'warn', text: `报价有效期 ${o.numbers.validUntil} 早于单据日期 ${d}`, mod: 'quote', path: 'numbers.validUntil' });
   if (o.shipping.etd && d && o.shipping.etd < d) out.push({ level: 'warn', text: `开船日期 ${o.shipping.etd} 早于单据日期 ${d}`, mod: 'ci', path: 'shipping.etd' });
