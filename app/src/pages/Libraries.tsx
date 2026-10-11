@@ -108,9 +108,10 @@ export function Customers() {
                       title="粘贴客户的邮件签名或名片，自动拆成公司、地址、国家、税号和联系人"
                       onClick={() => openSmartPaste({
                         title: '智能粘贴 · 客户档案',
-                        fields: ['name', 'address', 'country', 'tax', 'contact', 'title', 'phone', 'email'],
+                        fields: ['name', 'address', 'country', 'tax', 'contact', 'title', 'phone', 'email', 'note'],
                         apply: (p) => updateCustomer(c.id, (x) => {
                           for (const k of ['name', 'address', 'country', 'tax'] as const) if (p[k]) x[k] = p[k]!;
+                          if (p.note) x.notes = x.notes ? `${x.notes}\n${p.note}` : p.note;
                           if (p.contact || p.email || p.phone) {
                             // 第一位联系人是空的就填进去；已有别人时新增一位
                             const first = x.contacts[0];

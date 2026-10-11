@@ -4,7 +4,7 @@ import { toast, useUI } from '../store/ui';
 
 type Key = keyof ContactParse;
 const LABEL: Record<Key, string> = {
-  name: '公司名称', address: '地址', contact: '联系人', title: '职位', phone: '电话 / WhatsApp', email: '邮箱', tax: '税号 / VAT', country: '国家',
+  name: '公司名称', address: '地址', contact: '联系人', title: '职位', phone: '电话 / WhatsApp', email: '邮箱', tax: '税号 / VAT', country: '国家', note: '备注',
 };
 
 /**

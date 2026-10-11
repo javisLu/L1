@@ -203,6 +203,69 @@ CNPJ: 12.345.678/0001-90`);
     expect(p).toMatchObject({ contact: 'Anna', name: '', email: 'anna@shop-demo.de' });
   });
 
+  it('Chinese natural text: closing, name (title), "任职于" prefix, disclaimer', () => {
+    const p = parseContact(`祝您工作顺利！
+李明（业务厂长）
+任职于苏州盛达精工机械制造有限公司
+随时联系：18699887766
+邮件：liming@shengdajinggong.cn
+本邮件包含机密信息，如误发请删除`);
+    expect(p).toMatchObject({ contact: '李明', title: '业务厂长', name: '苏州盛达精工机械制造有限公司', phone: '18699887766', email: 'liming@shengdajinggong.cn', address: '' });
+    expect(p.leftover).toEqual([]);
+  });
+
+  it('English first name + Chinese name; bracketed translations stay with their line', () => {
+    const p = parseContact(`Kevin 刘伟
+高级产品经理 (Senior Product Manager) | ByteDance Ltd. (字节跳动)
+移动电话/Mob: +86 135-0000-1111
+邮箱/Email: liuwei.kevin@bytedance.com
+Web: bytedance.com`);
+    expect(p).toMatchObject({ contact: 'Kevin 刘伟', title: '高级产品经理 (Senior Product Manager)', name: 'ByteDance Ltd. (字节跳动)', phone: '+86 135-0000-1111', email: 'liuwei.kevin@bytedance.com', country: '中国' });
+    expect(p.leftover).toEqual([]);
+  });
+
+  it('mixed punctuation: company，address on one line, Ext appended to the phone', () => {
+    const p = parseContact(`王小红 Hong Wang（海外市场部总监 / Overseas Marketing Director）
+宏图国际贸易(上海)有限公司，上海市浦东新区陆家嘴环路100号
+Tel: +86(21)61234567 | Ext: 808 | MP: 13122334455 | Email:
+h.wang@hongtutrade.com`);
+    expect(p).toMatchObject({ contact: '王小红 Hong Wang', title: '海外市场部总监 / Overseas Marketing Director', name: '宏图国际贸易(上海)有限公司',
+      address: '上海市浦东新区陆家嘴环路100号', phone: '+86(21)61234567 ext. 808 / 13122334455', email: 'h.wang@hongtutrade.com', country: '中国' });
+    expect(p.leftover).toEqual([]);
+  });
+
+  it('two positions at two companies: the second goes to the note, both phones kept', () => {
+    const p = parseContact(`Dr. Elizabeth Montgomery
+VP of Research, BioTech Industries Inc.
+Managing Director, GeneCore Solutions Ltd. (Subsidiary)
+
+US Office: +1 (212) 555-0155 | UK Lab: +44 20 7946 0199
+Email: e.montgomery@biotech-industries.com
+Corporate Portal: biotech.com`);
+    expect(p).toMatchObject({ contact: 'Elizabeth Montgomery', title: 'VP of Research', name: 'BioTech Industries Inc.', phone: '+1 (212) 555-0155 / +44 20 7946 0199',
+      email: 'e.montgomery@biotech-industries.com', note: '另任：Managing Director, GeneCore Solutions Ltd. (Subsidiary)' });
+    expect(p.leftover).toEqual([]);
+  });
+
+  it('company name over two lines, Ph. / M. phones, email after "Contact:"', () => {
+    const p = parseContact(`Sincerely yours,
+Arthur Pendragon
+Chief Executive Officer
+The Pendragon & Merlin
+Consulting Group, LLC
+Ph. (415) 555-9000
+M. (415) 555-9001
+Contact: arthur@pm-consulting.co.uk`);
+    expect(p).toMatchObject({ contact: 'Arthur Pendragon', title: 'Chief Executive Officer', name: 'The Pendragon & Merlin Consulting Group, LLC', phone: '(415) 555-9000 / (415) 555-9001', email: 'arthur@pm-consulting.co.uk' });
+    expect(p.leftover).toEqual([]);
+  });
+
+  it('one long line joined by commas, words joined by dots and underscores', () => {
+    const p = parseContact('regards,tony.stark,director_of_engineering,stark_industries,phone:+13105550144,mail:tony@starkindustries.com,web:starkindustries.com');
+    expect(p).toMatchObject({ contact: 'Tony Stark', title: 'Director of Engineering', name: 'Stark Industries', phone: '+13105550144', email: 'tony@starkindustries.com' });
+    expect(p.leftover).toEqual([]);
+  });
+
   it('Chinese labels', () => {
     const p = parseContact(`公司：深圳市某某贸易有限公司
 联系人：王先生

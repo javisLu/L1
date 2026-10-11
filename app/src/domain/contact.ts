@@ -11,19 +11,21 @@ export interface ContactParse {
   email: string;
   tax: string;
   country: string;
+  /** 第二个职位 / 公司等（客户库填进备注） */
+  note: string;
 }
 
 const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
 const URL_RE = /^(https?:\/\/|www\.)\S+$|^[\w-]+(\.[\w-]+)*\.(com|net|org|io|co|biz|info|shop|store|[a-z]{2})(\/\S*)?$/i;
 /** 网站、社交账号、链接占位：整行跳过 */
 const SKIP = /^(w|web|website|site|url|homepage|网址|主页|connect|follow(\s+us)?|find us|linkedin|twitter|x|facebook|instagram|youtube|wechat|微信|skype|teams)\b\s*[:：]?|^\[[^\]]*\]$/i;
-const BYE = /^(best|kind|warm)?\s*regards\b|^thanks?\b|^thank you|^sincerely|^br,?$|^cheers|^yours\b|^(saludos|atentamente|cordialmente|cordialement|bien à vous|mit freundlichen|viele grüße|beste grüße|cumprimentos|atenciosamente|distinti saluti|cordiali saluti|met vriendelijke)|^(此致|祝好|顺祝|谢谢)/i;
+const BYE = /^(best|kind|warm)?\s*regards\b|^祝(您|你|好|商祺|工作|生活|一切|顺)|^(敬礼|顺颂|盼复|期待您的回复)|^best wishes|^thanks?\b|^thank you|^sincerely|^br,?$|^cheers|^yours\b|^(saludos|atentamente|cordialmente|cordialement|bien à vous|mit freundlichen|viele grüße|beste grüße|cumprimentos|atenciosamente|distinti saluti|cordiali saluti|met vriendelijke)|^(此致|祝好|顺祝|谢谢)/i;
 /** 公司法律形式（强信号）：LLC、Ltd、GmbH、S.L.、有限公司… */
 const LEGAL = /\b(l\.?l\.?c|ltd|limited|inc|incorporated|corp|corporation|co\.?|company|gmbh|ag|s\.?a\.?(s|c|rl)?|s\.?r\.?l|s\.?l|b\.?v|n\.?v|a\.?b|a\/s|aps|oy|plc|llp|pty|pte|jsc|ooo|kft|sp\.?\s?z\s?o\.?o|ltda|eireli|s\.?p\.?a)\b\.?|有限公司|公司|株式会社/i;
 /** 公司名里常见的行业词（弱信号，「Import Manager」这种职位里也会有） */
 const BIZ = /\b(trading|imports?|exports?|industr(y|ies)|group|enterprises?|holdings?|international|global|supply|supplies|wholesale|distribution|distributors?|solutions?|technolog(y|ies)|tech|systems?|labs?|laborator(y|ies)|agency|studios?|consulting|consultants|partners|associates|logistics|manufactur\w*|electronics?|ventures|capital|networks?|services|products|sourcing|stores?|shop|mart|market|foods?|motors|textiles?|furniture|hardware|packaging|apparel|fashion|retail|brands?|media|design|energy|paper|plastics?|metals?|steel|chemicals?|medical|pharma\w*|auto(motive)?|machinery|equipment|tools)\b/i;
 const COMPANY = new RegExp(`${LEGAL.source}|${BIZ.source}`, 'i');
-const TITLE = /\b(manager|director|head\s+of|head|chief|officer|president|vice\s+president|vp|ceo|cfo|cto|coo|cmo|owner|founder|co-?founder|partner|counsel|attorney|lawyer|engineer|designer|consultant|specialist|analyst|accountant|representative|rep|agent|secretary|administrator|assistant|executive|supervisor|coordinator|merchandiser|buyer|purchas\w*|procurement|sourcing|sales|marketing|operations|planner|technician|developer|lead|clerk|import|export|gerente|director[a]?|diretor[a]?|jefe|jefa|compras|ventas|comprador[a]?|directeur|directrice|responsable|acheteur|acheteuse|leiter|leiterin|geschäftsführer\w*|einkauf|verkauf|einkäufer\w*|responsabile|titolare)\b|经理|总监|采购|主管|总经理|业务|销售|老板/i;
+const TITLE = /\b(manager|director|head\s+of|head|chief|officer|president|vice\s+president|vp|ceo|cfo|cto|coo|cmo|owner|founder|co-?founder|partner|counsel|attorney|lawyer|engineer|designer|consultant|specialist|analyst|accountant|representative|rep|agent|secretary|administrator|assistant|executive|supervisor|coordinator|merchandiser|buyer|purchas\w*|procurement|sourcing|sales|marketing|operations|planner|technician|developer|lead|clerk|import|export|gerente|director[a]?|diretor[a]?|jefe|jefa|compras|ventas|comprador[a]?|directeur|directrice|responsable|acheteur|acheteuse|leiter|leiterin|geschäftsführer\w*|einkauf|verkauf|einkäufer\w*|responsabile|titolare)\b|经理|总监|采购|主管|总经理|业务|销售|老板|厂长|总裁|董事|副总|主任|专员|助理|代表|工程师|会计|跟单|外贸|部长|科长|组长|秘书/i;
 const TAX = /\b(vat|ein|tax|tin|eori|cnpj|cpf|ruc|nif|nit|rfc|inn|trn|gst|abn|uen|cuit|siret|kvk|cr\s?no|c\.?r\.?)\b|税号/i;
 const PHONE_LABEL = /^(tel|tel\.|phone|telephone|office|direct|dir|work|main|mobile|mob|cell|cellphone|hp|whats\s?app|wa|t|m|p|ph|o|d|电话|手机|座机)\b\.?\s*[:：]?\s*/i;
 const FAX = /^(fax|f|传真)\b\.?\s*[:：]?\s*/i;
@@ -33,6 +35,15 @@ const POSTNOM = /,?\s+(esq|ph\.?\s?d|mba|cpa|cfa|pmp|md|m\.d|jr|sr|ii|iii|p\.?e)
 /** 像地址的一行：有门牌 / 邮编数字，或街道、楼层等词，或国家、美国州名缩写 */
 const STREET = /\b(street|st|road|rd|avenue|ave|boulevard|blvd|way|lane|ln|drive|dr|suite|ste|floor|fl|building|bldg|tower|plaza|district|zone|park|block|unit|room|box|calle|avenida|rua|rue|strasse|straße|str|via|plot|estate|square|sq|highway|hwy)\b\.?|路|街|号|区|市|省/i;
 const US_STATE = /\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)(\s+\d{5}(-\d{4})?)?$/;
+
+/** 免责声明、保密提示：整行跳过 */
+const DISCLAIMER = /机密|保密|误发|误收|请删除|请勿转发|confidential|disclaimer|privileged|intended (solely |only )?for|if you (have )?received this|virus|unsubscribe/i;
+/** 中文姓名：常见姓（含复姓）+ 1–2 字，或「王先生」「李总」 */
+const SURNAME = '(?:欧阳|司马|上官|诸葛|东方|皇甫|令狐|慕容|尉迟|长孙|夏侯|宇文|公孙|[王李张刘陈杨黄赵吴周徐孙马朱胡郭何高林罗郑梁谢宋唐许韩冯邓曹彭曾肖田董袁潘于蒋蔡余杜叶程苏魏吕丁任沈姚卢姜崔钟谭陆汪范金石廖贾夏韦付方白邹孟熊秦邱江尹薛闫段雷侯龙史陶黎贺顾毛郝龚邵万钱严覃武戴莫孔向汤常温康施文牛樊葛邢安齐易乔伍庞颜倪庄聂章鲁岳翟殷詹申欧耿关兰焦俞左柳甘祝包宁尚符舒阮柯纪梅童凌毕单季裴霍涂成苗谷盛曲翁冉骆蓝路游辛靳管柴蒙鲍华喻祁蒲房滕屈饶解牟艾尤阳时穆农司卓古吉缪简车项连芦麦褚娄窦戚岑景党宫费卜冷晏席卫米柏宗瞿桂全佟应臧闵苟邬边卞姬师和仇栾隋商刁沙荣巫寇桑郎甄丛仲虞敖巩明佘池查麻苑迟邝])';
+const CN_NAME = new RegExp(`^${SURNAME}(?:[\\u4e00-\\u9fa5]{1,2}|先生|女士|小姐|总|经理|工)$`);
+const LATIN_NAME = "[A-Z][a-zà-ÿ'’-]+(?:\\s+[A-Z][a-zà-ÿ'’.-]*){0,2}";
+/** 「Kevin 刘伟」「王小红 Hong Wang」 */
+const MIXED_NAME = new RegExp(`^(?:${LATIN_NAME}\\s*${SURNAME}[\\u4e00-\\u9fa5]{1,2}|${SURNAME}[\\u4e00-\\u9fa5]{1,2}\\s*${LATIN_NAME})$`);
 
 const LABELS: [RegExp, keyof ContactParse][] = [
   [/^(company(\s+name)?|customer|buyer|consignee|公司(名称)?|客户)\s*[:：]\s*/i, 'name'],
@@ -90,6 +101,7 @@ const countryByPhone = (phone: string) => {
 const HONORIFIC = /^(mr|mrs|ms|miss|dr|sr|sra|herr|frau|m|mme)\.?\s+/i;
 const isPersonName = (s: string) => {
   const n = s.replace(HONORIFIC, '');
+  if (CN_NAME.test(n) || MIXED_NAME.test(n)) return true;
   return n.length <= 40 && !/\d/.test(n) && !COMPANY.test(n) && /^[A-Z][a-zà-ÿ'’-]+(\s+[A-Z][a-zà-ÿ'’.-]*){1,3}$/.test(n);
 };
 
@@ -105,21 +117,30 @@ const tidy = (x: string) => {
   t = t.replace(/^[-–—~*=_>#\s]+|[-–—~*=_<#\s]+$/g, '');
   const wrap = /^[[(（【{]\s*([^\]）)】}]*?)\s*[\])）】}]$/.exec(t);
   if (wrap && !/^\+?[\d\s-]+$/.test(wrap[1])) t = wrap[1];
+  // 「任职于苏州某某有限公司」：去掉前置词
+  t = t.replace(/^(现?任职于|就职于|供职于|服务于|来自)\s*/, '');
+  // 「director_of_engineering」「tony.stark」：下划线 / 点连起来的小写词还原成正常写法
+  if (/^[a-z]+([._][a-z]+)+$/.test(t) && !URL_RE.test(t))
+    t = t.split(/[._]/).map((w, i) => (i && /^(of|and|the|at|for|de|du|der|von)$/.test(w) ? w : w[0].toUpperCase() + w.slice(1))).join(' ');
   return t.trim();
 };
 
 /** 拆行：换行、竖线、圆点、「 / 」、破折号都当分隔；「Name [Title, Company]」「Title at Company」拆开 */
 function splitLines(text: string): string[] {
   const out: string[] = [];
-  const segs = text.replace(/\r/g, '').split(/\n|\s+[|｜]\s+|\s*[•▪●]\s*|\s+·\s+|\s+[—–]\s+|\s+-\s+(?=[A-Za-z])|\t/)
+  let src = text.replace(/\r/g, '').trim();
+  // 丢了换行、整段用逗号连起来的（手机端复制常见）：没有换行且逗号多时，按逗号切开
+  if (!src.includes('\n') && (src.match(/[,，;；]/g) ?? []).length >= 3) src = src.split(/\s*[,，;；]\s*/).join('\n');
+  const segs = src.split(/\n|\s+[|｜]\s+|\s*[•▪●]\s*|\s+·\s+|\s+[—–]\s+|\s+-\s+(?=[A-Za-z])|\t/)
     // 「e: … / w: …」才按斜杠拆；「Einkauf / Purchasing」这种双语职位不拆
     .flatMap((x) => (/[:：@]/.test(x) ? x.split(/\s+\/\s+/) : [x]));
   for (const seg of segs) {
     const t = tidy(seg);
     if (!t) continue;
-    // 「Emily Watson [HR Director, Nexus Retail Corp]」「John Lee (Purchasing, ABC Ltd)」
+    // 「Emily Watson [HR Director, Nexus Retail Corp]」「李明（业务厂长）」：人名后面括号里是职位、公司；
+    // 「ByteDance Ltd. (字节跳动)」「经理 (Manager)」这种括号是翻译，不拆
     const br = /^(.+?)\s*[[(（]([^\])）\d]+)[\])）]$/.exec(t);
-    if (br && /[A-Za-z一-龥]/.test(br[1])) {
+    if (br && isPersonName(br[1].trim().replace(POSTNOM, ''))) {
       out.push(br[1].trim(), ...br[2].split(/\s*[,，;]\s*/).map((x) => x.trim()).filter(Boolean));
       continue;
     }
@@ -127,6 +148,18 @@ function splitLines(text: string): string[] {
     const at = /^(.+?)\s+(?:at|@)\s+(.+)$/i.exec(t);
     if (at && TITLE.test(at[1]) && !/\d/.test(at[1]) && !EMAIL.test(t)) {
       out.push(at[1], at[2]);
+      continue;
+    }
+    // 「VP of Research, BioTech Industries Inc.」：职位, 公司
+    const tc = /^([^,，]+)[,，]\s*(.+)$/.exec(t);
+    if (tc && TITLE.test(tc[1]) && !LEGAL.test(tc[1]) && !/\d/.test(tc[1]) && !isPersonName(tc[1]) && (LEGAL.test(tc[2]) || BIZ.test(tc[2]))) {
+      out.push(tc[1].trim(), tc[2].trim());
+      continue;
+    }
+    // 「宏图国际贸易(上海)有限公司，上海市浦东新区…」：公司，地址
+    const ca = /^(.*?(?:有限公司|公司|集团|厂|ltd\.?|limited|inc\.?|llc|gmbh|corp\.?|corporation))\s*[，,]\s*(.+)$/i.exec(t);
+    if (ca && addressy(ca[2]) && !LEGAL.test(ca[2].split(/\s+/)[0])) {
+      out.push(ca[1].trim(), ca[2].trim());
       continue;
     }
     out.push(t);
@@ -137,7 +170,7 @@ function splitLines(text: string): string[] {
 const addressy = (s: string) => (/\d/.test(s) && !PHONE.test(s)) || STREET.test(s) || !!countryOf(s);
 
 export function parseContact(text: string): ContactParse & { leftover: string[] } {
-  const r: ContactParse = { name: '', address: '', contact: '', title: '', phone: '', email: '', tax: '', country: '' };
+  const r: ContactParse = { name: '', address: '', contact: '', title: '', phone: '', email: '', tax: '', country: '', note: '' };
   const phones: string[] = [];
   const labelled: string[] = [];
   const lines = splitLines(text);
@@ -150,9 +183,18 @@ export function parseContact(text: string): ContactParse & { leftover: string[] 
     if (em) {
       if (!r.email) r.email = em[0];
       line = line.replace(em[0], '').replace(/[,;/\s]+$/, '').trim();
-      if (!line || /^[\p{L}-]{0,8}\s*[:：]?$/u.test(line)) continue;
+      if (!line || /^[\p{L}\s/&.-]{0,20}[:：]?$/u.test(line)) continue;
     }
-    if (SKIP.test(line) || URL_RE.test(line) || BYE.test(line)) continue;
+    if (SKIP.test(line) || URL_RE.test(line) || BYE.test(line) || (DISCLAIMER.test(line) && line.length > 8)) continue;
+    // 「Corporate Portal: biotech.com」：冒号后是网址
+    const url = /^[^:：]{1,30}[:：]\s*(\S+)$/.exec(line);
+    if (url && URL_RE.test(url[1])) continue;
+    // 「Ext: 808」：分机号接在上一个电话后面
+    const ext = /^(ext|extension|分机)\.?\s*[:：]?\s*(\d{1,6})$/i.exec(line);
+    if (ext) {
+      if (phones.length) phones[phones.length - 1] += ' ext. ' + ext[2];
+      continue;
+    }
     const lab = LABELS.find(([re]) => re.test(line));
     if (lab) {
       const v = line.replace(lab[0], '').trim();
@@ -195,6 +237,10 @@ export function parseContact(text: string): ContactParse & { leftover: string[] 
   /** 人名是从一行单独的文字猜的（没有标签、没有职位） */
   let guessed = false;
   let prevAddr = false;
+  /** 第二个职位、第二家公司（同时在子公司任职）→ 备注 */
+  const extraTitles: string[] = [];
+  const extraNames: string[] = [];
+  let prev: { kind: string; line: string } | null = null;
   for (let i = 0; i < rest.length; i++) {
     const line = rest[i];
     const next = rest[i + 1] ?? '';
@@ -208,7 +254,9 @@ export function parseContact(text: string): ContactParse & { leftover: string[] 
     const person = isPersonName(parts[0]) && !countryOf(parts[0]) && !US_STATE.test(parts[0]) &&
       (parts.length > 1 ? TITLE.test(parts.slice(1).join(' ')) : !addr.length || TITLE.test(next));
 
+    let kind2 = '';
     if (!r.name && !/^\d/.test(line) && LEGAL.test(line)) kind = 'name';
+    else if (!r.contact && (CN_NAME.test(line) || MIXED_NAME.test(line))) kind = 'contact';
     else if (!r.contact && person && parts.length > 1) kind = 'contact';
     else if (isTitle && !BIZ.test(line.replace(TITLE, ''))) kind = 'title';
     else if (!r.contact && person) kind = 'contact';
@@ -217,8 +265,23 @@ export function parseContact(text: string): ContactParse & { leftover: string[] 
     else if (isAddr || (prevAddr && !/[@]/.test(line))) kind = 'addr';
     else kind = 'unknown';
 
-    if (kind === 'name') r.name = line;
-    else if (kind === 'title') r.title ||= line;
+    // 已经有公司了又来一家（有法律后缀、不像地址）→ 第二家公司
+    if (kind !== 'name' && r.name && LEGAL.test(line) && !isAddr && !/^\d/.test(line) && !isTitle) kind2 = 'name2';
+    if (kind2 === 'name2') {
+      extraNames.push(line);
+      prev = { kind: 'name2', line };
+      prevAddr = false;
+      continue;
+    }
+    // 公司名分两行写：「The Pendragon & Merlin」+「Consulting Group, LLC」
+    if (kind === 'name' && prev?.kind === 'unknown' && (/^\S+\s/.test(line) && BIZ.test(line.split(/\s+/)[0]) || /(&|and|of|-)$/i.test(prev.line))) {
+      unknown.splice(unknown.lastIndexOf(prev.line), 1);
+      r.name = prev.line + ' ' + line;
+    } else if (kind === 'name') r.name = line;
+    else if (kind === 'title') {
+      if (r.title) extraTitles.push(line);
+      else r.title = line;
+    }
     else if (kind === 'contact') {
       r.contact = parts[0].replace(HONORIFIC, '');
       if (parts.length > 1) r.title ||= parts.slice(1).join(', ');
@@ -226,7 +289,10 @@ export function parseContact(text: string): ContactParse & { leftover: string[] 
     } else if (kind === 'addr') addr.push(line);
     else unknown.push(line);
     prevAddr = kind === 'addr';
+    prev = { kind, line };
   }
+  const extras = extraNames.map((n, i) => (extraTitles[i] ? `${extraTitles[i]}, ${n}` : n)).concat(extraTitles.slice(extraNames.length));
+  if (extras.length) r.note = '另任：' + extras.join('；');
   // 只有名字的一行（「Anna」）：和邮箱用户名对得上就是联系人
   const local = r.email.split('@')[0].toLowerCase().split(/[._-]/);
   const byMail = unknown.findIndex((x) => !r.contact && /^\p{Lu}[\p{L}'’-]+$/u.test(x) && local.includes(x.toLowerCase()));
