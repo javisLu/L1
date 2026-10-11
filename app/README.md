@@ -26,6 +26,7 @@ npm run typecheck
 - 总件数 / 外包装（箱单 → 包装装箱下方）：散箱按箱数自动；托盘、木箱或其他单位填件数、每件尺寸（可几种）和每件自重。箱单写 SAY TOTAL … PALLETS ONLY 与「1 PALLET CONTAINS 12 CARTONS」，报关资料件数、包装种类、毛重（含自重）、PI 的 Packing 行和邮件正文同步；导入时备注里的「Pallet 1@120*80*136cm」自动识别。汇总在 `src/domain/package.ts`。
 - 订舱 / 提单（M2-1）：订舱委托书（PDF / Excel）、SI 提单补料（PDF / Excel）、装船通知（PDF）。数据来自订单：发票 / 箱单的「运输信息」里补了收货人（同买方 / TO ORDER / 自定义）、通知人（自动 / 同买方 / 自定义）、运费（按贸易术语自动 PREPAID / COLLECT）、提单类型与正本份数、柜型柜量、货好时间、ETA、投保（CIF / CIP 自动）、订舱特殊要求、多柜明细。规则在 `src/domain/shipping.ts`。
 - 导出记录：每次导出 / 打包记下时间、收件人和单据指纹（`src/domain/exports.ts`，只取该单据用到的数据）。订单菜单卡片、单据页、导出页显示「未导出 / 已导出 / 导出后又改过」。
+- 发出记录与改版对比：`src/domain/history.ts`。导出时 `takeSnap` 留底，`recordSend` 记到 `Order.sent` / `Order.snaps`（按内容去重，最多 60 条）；`docVersions` 算每份单据的版本；`diffDoc` + `totalChanges` 逐项对比；`changeNote` 生成中英文改版说明。界面在 `src/components/history.tsx`。
 - 今天要做（首页）与关键日期（订单页）：规则在 `src/domain/reminders.ts`（报价到期、货好未订舱、截关、开船未改状态 / 未发装船通知、尾款、到港、信用证），尾款到期日没填时按付款方式和 ETD / ETA 推算；「知道了」存在 `Order.dismissed`，键里带日期。
 - 客户要求清单：客户库 →「单据要求清单」，规则在 `src/domain/requirements.ts`（每条有 describe / check / apply）。新建订单或更换客户时 `applyCustomer` 自动套用 apply；`checkOrder(o, reqs)` 第 8 节逐条核对（确认之后不符合算错误，带一键修正）；自定义提醒的确认记在 `Order.reqDone`。订单页面板在 `src/components/requirements.tsx`。
 - 智能粘贴：买方信息、客户库里的「智能粘贴」，或在买方公司名 / 地址里直接粘贴整块签名。离线规则识别，见 `src/domain/contact.ts`。

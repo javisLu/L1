@@ -10,7 +10,8 @@ import type { Order } from './types';
 const PRICE = ['price'];
 const strip = (o: Order, drop: string[]) => o.items.map((it) => Object.fromEntries(Object.entries(it).filter(([k]) => !drop.includes(k))));
 
-function project(o: Order, doc: DocKey): unknown {
+/** 这份单据用到的数据（指纹和改版对比都按这个算） */
+export function project(o: Order, doc: DocKey): unknown {
   const base = { seller: o.seller, buyer: o.buyer, numbers: o.numbers, docset: o.docset };
   const pack = { packs: o.packs ?? [], pkg: o.pkg ?? null };
   switch (doc) {
@@ -36,7 +37,7 @@ function project(o: Order, doc: DocKey): unknown {
 }
 
 /** FNV-1a，够用来判断「有没有变」 */
-function hash(s: string): string {
+export function hashText(s: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -45,7 +46,7 @@ function hash(s: string): string {
   return (h >>> 0).toString(36);
 }
 
-export const docSig = (o: Order, doc: DocKey) => hash(JSON.stringify(project(o, doc)));
+export const docSig = (o: Order, doc: DocKey) => hashText(JSON.stringify(project(o, doc)));
 
 export const nowStamp = (d = new Date()) => {
   const p = (n: number) => String(n).padStart(2, '0');

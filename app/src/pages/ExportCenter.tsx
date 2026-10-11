@@ -9,6 +9,8 @@ import { CheckPanel, countErrors } from '../components/CheckPanel';
 import { confirmAction } from '../components/confirm';
 import { pkgSummary } from '../domain/package';
 import { docState, shortStamp } from '../domain/exports';
+import { docVersions } from '../domain/history';
+import { openDiff } from '../components/history';
 import type { Order } from '../domain/types';
 
 const isDoc = (k: ExpKey): k is DocKey => k in DOC_FMT;
@@ -121,9 +123,15 @@ export function ExportCenter({ order: o }: { order: Order }) {
 function DocMark({ order, doc }: { order: Order; doc: DocKey }) {
   const st = docState(order, doc);
   if (st.kind === 'none') return null;
+  const canDiff = docVersions(order, doc).length > 0;
   return (
-    <span className={'dmark' + (st.kind === 'changed' ? ' warn' : '')} title={`上次导出 ${st.at}${st.to ? '，发给' + st.to : ''}`}>
-      {st.kind === 'changed' ? '导出后改过' : `已导出 ${shortStamp(st.at)}`}
-    </span>
+    <button
+      type="button"
+      className={'dmark' + (st.kind === 'changed' ? ' warn' : '')}
+      title={`上次导出 ${st.at}${st.to ? '，发给' + st.to : ''}${canDiff ? '；点击看改了什么' : ''}`}
+      onClick={(e) => { e.preventDefault(); if (canDiff) openDiff(order, doc); }}
+    >
+      {st.kind === 'changed' ? '导出后改过 · 看改动' : `已导出 ${shortStamp(st.at)}`}
+    </button>
   );
 }

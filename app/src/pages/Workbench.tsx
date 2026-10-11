@@ -10,6 +10,8 @@ import { DOCNAMES, DOC_FMT, MODS, STEPS, missing, stepPaths, type DocKey, type M
 import { exportDoc } from '../export/actions';
 import { flash } from '../components/jump';
 import { docState, shortStamp } from '../domain/exports';
+import { docVersions } from '../domain/history';
+import { openDiff } from '../components/history';
 import type { LabelLayout, Order } from '../domain/types';
 
 
@@ -72,11 +74,14 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
         <h1><span className="code">{m.code}</span>{m.name}</h1>
         <span className="ord">{o.no} · {o.buyer.name || '未选择客户'}</span>
         <div className="r">
-          {last.kind !== 'none' && (
-            <span className={'last-exp' + (last.kind === 'changed' ? ' warn' : '')} title={last.at}>
-              {last.kind === 'changed' ? `⚠ ${shortStamp(last.at)} 导出后又改过` : `上次导出 ${shortStamp(last.at)}`}{last.to ? ` · 发给${last.to}` : ''}
-            </span>
-          )}
+          {last.kind !== 'none' && (() => {
+            const vs = docVersions(o, doc);
+            const ver = vs.length ? ` · 第 ${vs[vs.length - 1].v} 版` : '';
+            const txt = last.kind === 'changed' ? `⚠ ${shortStamp(last.at)} 导出后又改过` : `上次导出 ${shortStamp(last.at)}${ver}`;
+            return vs.length
+              ? <button className={'last-exp' + (last.kind === 'changed' ? ' warn' : '')} title="看发出后改了什么" onClick={() => openDiff(o, doc)}>{txt}{last.to ? ` · 发给${last.to}` : ''}{last.kind === 'changed' ? ' · 看改了什么' : ''}</button>
+              : <span className={'last-exp' + (last.kind === 'changed' ? ' warn' : '')} title={last.at}>{txt}{last.to ? ` · 发给${last.to}` : ''}</span>;
+          })()}
           {fmts.filter((f) => f !== 'PDF').map((f) => <button key={f} className="btn" disabled={ui.busy} onClick={() => exportDoc(o, doc, f)}>导出 {f}</button>)}
           <button className="btn pri" disabled={ui.busy} onClick={() => exportDoc(o, doc, 'PDF')}>导出 PDF</button>
         </div>

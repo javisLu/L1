@@ -120,6 +120,8 @@ export function copyOrder(src: Order, no: string, numbering: Numbering = default
   delete o.dismissed;
   delete o.dates;
   delete o.reqDone;
+  delete o.sent;
+  delete o.snaps;
   o.items.forEach((i) => (i.id = uid()));
   o.contractClauses.forEach((c) => (c.id = uid()));
   return o;

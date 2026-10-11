@@ -189,6 +189,18 @@ await step('20-customer-requirements', async () => {
   await page.waitForSelector('.req-row:has-text("托盘 / 木箱高度不超过")', { timeout: 5000 });
 });
 
+await step('21-send-history-diff', async () => {
+  // 发出记录与改版对比：导出 PI → 改数量 → 看改了什么 → 订单页发出记录
+  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("合同 / PI")');
+  await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 PI-.*\\.pdf');
+  await page.click('.step:has-text("货物明细")');
+  await page.fill('#in-items-0-qty', '123');
+  await page.click('button.last-exp.warn'); await page.waitForSelector('.diff-tbl tr.d-mod', { timeout: 5000 });
+  await page.click('.diff-note button:has-text("中文")');
+  await page.click('.modal-h button:has-text("关闭")');
+  await page.click('button:has-text("← 订单菜单")'); await page.waitForSelector('.sent-panel .sent-doc', { timeout: 5000 });
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

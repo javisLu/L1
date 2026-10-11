@@ -214,6 +214,25 @@ export interface Order {
   dismissed?: string[];
   /** 客户要求里「自定义提醒」本单已确认的条目 id */
   reqDone?: string[];
+  /** 发出记录：每次导出 / 打包一条（最近 60 条） */
+  sent?: SendRecord[];
+  /** 发出时的数据留底，按内容去重（键 = 内容指纹），供改版对比 */
+  snaps?: Record<string, OrderSnap>;
+}
+
+/** 单据用到的订单数据（不含导出记录、提醒等） */
+export type OrderSnap = Pick<Order, 'seller' | 'buyer' | 'terms' | 'numbers' | 'items' | 'packs' | 'pkg' | 'shipping' | 'customs' | 'partners' | 'docset' | 'contractClauses'>;
+
+export interface SendRecord {
+  id: string;
+  at: string;
+  docs: string[];
+  /** 打包时的收件人；单独导出为空 */
+  to?: string;
+  /** 文件名（单个文件或资料包） */
+  file?: string;
+  /** 留底的键（Order.snaps） */
+  snap: string;
 }
 
 export interface KeyDates {
@@ -227,6 +246,8 @@ export interface KeyDates {
 
 export interface ExportMark {
   at: string;
+  /** 留底的键（Order.snaps）；升级前的记录没有 */
+  snap?: string;
   sig: string;
   /** 打包时的收件人（客户 / 工厂 / 报关行 / 货代）；单独导出为空 */
   to?: string;

@@ -6,10 +6,12 @@ import { PAYMENT_KEYS } from './paths';
 import { seed } from '../domain/seed';
 import { applyCustomer, autoPlace, blankOrder, copyOrder, orderNo, syncPay } from '../domain/factory';
 import { today, uid } from '../domain/calc';
-import { nowStamp } from '../domain/exports';
+import { docSig, nowStamp } from '../domain/exports';
+import { asOrder, recordSend } from '../domain/history';
+import type { DocKey } from '../modules/defs';
 import { defaultSettings } from '../domain/settings';
 import { mergeCustomer, mergeProduct } from '../io/library';
-import type { Customer, DataState, Order, Partner, PartnerType, Product, Seller, Settings } from '../domain/types';
+import type { Customer, DataState, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings } from '../domain/types';
 
 export type ImportMode = 'overwrite' | 'skip';
 export interface ImportResult { added: number; updated: number; skipped: number }
@@ -35,7 +37,7 @@ interface Actions {
   setOrderField: (id: string, path: string, value: unknown) => void;
   updateOrder: (id: string, recipe: (o: Order) => void) => void;
   /** 记下导出（不改「更新于」日期） */
-  markExported: (id: string, marks: { doc: string; sig: string }[], to?: string) => void;
+  markExported: (id: string, rec: { docs: string[]; snap: OrderSnap; to?: string; file?: string }) => void;
   /** 首页提醒「知道了」 */
   dismissReminder: (id: string, key: string) => void;
   createOrder: (customerId: string, name: string) => Order;
@@ -94,13 +96,14 @@ export const useData = create<DataStore>()(
           o.updated = today();
         }),
 
-      markExported: (id, marks, to) =>
+      markExported: (id, { docs, snap, to, file }) =>
         setState((s) => {
           const o = s.orders.find((x) => x.id === id);
           if (!o) return;
           const at = nowStamp();
+          const key = recordSend(o, { id: uid(), at, docs, to, file, snap });
           o.exports ??= {};
-          for (const m of marks) o.exports[m.doc] = { at, sig: m.sig, ...(to ? { to } : {}) };
+          for (const d of docs) o.exports[d] = { at, sig: docSig(asOrder(snap, o), d as DocKey), snap: key, ...(to ? { to } : {}) };
         }),
 
       dismissReminder: (id, key) =>
