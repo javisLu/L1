@@ -47,6 +47,11 @@ function SmartPaste({ initial = '', fields, apply }: { initial?: string; fields:
               : <input id={'sp-' + k} value={val(k)} onChange={(e) => setEdits({ ...edits, [k]: e.target.value })} />}
           </div>
         ))}
+        {!!parsed.leftover.length && (
+          <div className="sp-left" title="这些内容没有自动归类，需要的话复制到上面对应的框里">
+            没识别的内容：{parsed.leftover.map((x, i) => <code key={i}>{x}</code>)}
+          </div>
+        )}
         <div className="sp-foot">
           <button className="btn" onClick={close}>取消</button>
           <button
