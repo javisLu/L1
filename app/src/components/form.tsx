@@ -10,6 +10,8 @@ import { uid } from '../domain/calc';
 import { openItemImport } from './itemImport';
 import { PackingTable } from './packing';
 import { ContainerList } from './containers';
+import { openSmartPaste } from './smartPaste';
+import { looksLikeContact } from '../domain/contact';
 
 type FieldSpec = Extract<FieldDef, { kind: 'field' }>;
 
@@ -65,9 +67,16 @@ export function FieldView({ order, def }: { order: Order; def: FieldDef }) {
     )
   ) : null;
 
+  // 买方公司名、地址里粘进一整块签名 / 名片时，自动打开智能粘贴拆成各个字段
+  const onPaste = d.path === 'buyer.name' || d.path === 'buyer.address'
+    ? (e: React.ClipboardEvent) => {
+        const t = e.clipboardData.getData('text');
+        if (looksLikeContact(t)) { e.preventDefault(); openBuyerPaste(order, t); }
+      }
+    : undefined;
   let input;
   if (d.type === 'textarea') {
-    input = <textarea id={id} rows={3} value={String(v ?? '')} placeholder={d.placeholder} onChange={(e) => set(e.target.value)} />;
+    input = <textarea id={id} rows={3} value={String(v ?? '')} placeholder={d.placeholder} onChange={(e) => set(e.target.value)} onPaste={onPaste} />;
   } else if (d.type === 'select') {
     const opts = d.options ?? [];
     const all = v && !opts.includes(String(v)) ? [String(v), ...opts] : opts;
@@ -77,7 +86,7 @@ export function FieldView({ order, def }: { order: Order; def: FieldDef }) {
       </select>
     );
   } else {
-    input = <input id={id} type={d.type === 'date' ? 'date' : 'text'} value={String(v ?? '')} placeholder={d.placeholder} onChange={(e) => set(e.target.value)} />;
+    input = <input id={id} type={d.type === 'date' ? 'date' : 'text'} value={String(v ?? '')} placeholder={d.placeholder} onChange={(e) => set(e.target.value)} onPaste={onPaste} />;
   }
   return (
     <div className={'fi' + (d.wide ? ' w2' : '')}>
@@ -96,6 +105,7 @@ function BuyerTools({ order }: { order: Order }) {
   const save = useData((s) => s.saveBuyerToLibrary);
   return (
     <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <button className="btn sm" title="粘贴客户的邮件签名或名片，自动拆成公司、地址、联系人、电话、邮箱、税号" onClick={() => openBuyerPaste(order)}>智能粘贴</button>
       <button className="btn sm" onClick={() => openCustomerPicker(order.id)}>从客户库选择</button>
       <button
         className="btn sm"
@@ -109,6 +119,18 @@ function BuyerTools({ order }: { order: Order }) {
       </button>
     </span>
   );
+}
+
+function openBuyerPaste(order: Order, initial?: string) {
+  openSmartPaste({
+    title: '智能粘贴 · 买方信息',
+    initial,
+    fields: ['name', 'address', 'contact', 'phone', 'email', 'tax'],
+    apply: (p) =>
+      useData.getState().updateOrder(order.id, (o) => {
+        for (const k of ['name', 'address', 'contact', 'phone', 'email', 'tax'] as const) if (p[k]) o.buyer[k] = p[k]!;
+      }),
+  });
 }
 
 export function openCustomerPicker(orderId: string) {

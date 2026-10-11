@@ -8,6 +8,7 @@ import { exportZip } from '../export/actions';
 import { CheckPanel, countErrors } from '../components/CheckPanel';
 import { confirmAction } from '../components/confirm';
 import { pkgSummary } from '../domain/package';
+import { docState, shortStamp } from '../domain/exports';
 import type { Order } from '../domain/types';
 
 const isDoc = (k: ExpKey): k is DocKey => k in DOC_FMT;
@@ -61,7 +62,7 @@ export function ExportCenter({ order: o }: { order: Order }) {
           </div>
           <div className="eyebrow" style={{ marginBottom: 8 }}>包含单据</div>
           <div className="dl">
-            {EXPDOCS.map((d) => (
+            {EXPDOCS.filter((d) => !d.ph).map((d) => (
               <label key={d.key} className={focus === d.key ? 'foc' : ''}>
                 <input
                   type="checkbox"
@@ -70,6 +71,7 @@ export function ExportCenter({ order: o }: { order: Order }) {
                   onChange={(e) => ui.set({ expSel: e.target.checked ? [...sel, d.key] : sel.filter((x) => x !== d.key), ...(e.target.checked && isDoc(d.key) ? { expDoc: d.key } : {}) })}
                 />
                 {d.name}
+                {isDoc(d.key) && <DocMark order={o} doc={d.key} />}
                 {d.ph ? <span className="ph">{d.ph} 开发</span> : (
                   <>
                     <span className="fmt">{fmts(d.key as DocKey).join(' + ')}</span>
@@ -112,5 +114,16 @@ export function ExportCenter({ order: o }: { order: Order }) {
         <Preview order={o} doc={focus} bar={<><span className="tab on">{DOCNAMES[focus]}</span><div className="r"><span className="tip">预览</span></div></>} />
       </div>
     </>
+  );
+}
+
+/** 单据旁的小标记：上次导出时间；导出后改过的标黄 */
+function DocMark({ order, doc }: { order: Order; doc: DocKey }) {
+  const st = docState(order, doc);
+  if (st.kind === 'none') return null;
+  return (
+    <span className={'dmark' + (st.kind === 'changed' ? ' warn' : '')} title={`上次导出 ${st.at}${st.to ? '，发给' + st.to : ''}`}>
+      {st.kind === 'changed' ? '导出后改过' : `已导出 ${shortStamp(st.at)}`}
+    </span>
   );
 }

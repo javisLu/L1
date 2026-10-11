@@ -1,14 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { OrderCrumbs, TopBar } from '../components/common';
 import { ClauseList, FieldView, ItemTable } from '../components/form';
 import { Preview } from '../components/Preview';
 import { useData } from '../store/data';
-import { toast, useUI } from '../store/ui';
+import { savePref, toast, useUI } from '../store/ui';
 import { fillMarks, calcOrder } from '../domain/calc';
 import { LABEL_LAYOUTS, cartonLabels, labelPages } from '../domain/labels';
 import { DOCNAMES, DOC_FMT, MODS, STEPS, missing, stepPaths, type DocKey, type ModKey, type StepKey } from '../modules/defs';
 import { exportDoc } from '../export/actions';
 import { flash } from '../components/jump';
+import { docState, shortStamp } from '../domain/exports';
 import type { LabelLayout, Order } from '../domain/types';
 
 
@@ -36,7 +37,33 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
     setTimeout(() => flash(path), 30);
   };
 
+  // 填表格的步骤默认收起预览，表格占满宽度；预览可随时展开
+  const collapsed = !!s.table && ui.tableWide && !ui.expand;
+  const setWide = (v: boolean) => { ui.set({ tableWide: v }); savePref('tableWide', v); };
+  const modRef = useRef<HTMLDivElement>(null);
+  const startSplit = (e: React.PointerEvent) => {
+    const el = modRef.current;
+    if (!el) return;
+    e.preventDefault();
+    const box = el.getBoundingClientRect();
+    const steps = (el.firstElementChild as HTMLElement | null)?.offsetWidth ?? 188;
+    const move = (ev: PointerEvent) => {
+      const r = Math.min(0.7, Math.max(0.3, (box.right - ev.clientX) / (box.width - steps)));
+      ui.set({ pvRatio: r });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      document.body.classList.remove('resizing');
+      savePref('pvRatio', useUI.getState().pvRatio);
+    };
+    document.body.classList.add('resizing');
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   const fmts = DOC_FMT[doc];
+  const last = docState(o, doc);
   return (
     <>
       <TopBar><OrderCrumbs order={o} current={m.name} /></TopBar>
@@ -45,11 +72,20 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
         <h1><span className="code">{m.code}</span>{m.name}</h1>
         <span className="ord">{o.no} · {o.buyer.name || '未选择客户'}</span>
         <div className="r">
+          {last.kind !== 'none' && (
+            <span className={'last-exp' + (last.kind === 'changed' ? ' warn' : '')} title={last.at}>
+              {last.kind === 'changed' ? `⚠ ${shortStamp(last.at)} 导出后又改过` : `上次导出 ${shortStamp(last.at)}`}{last.to ? ` · 发给${last.to}` : ''}
+            </span>
+          )}
           {fmts.filter((f) => f !== 'PDF').map((f) => <button key={f} className="btn" disabled={ui.busy} onClick={() => exportDoc(o, doc, f)}>导出 {f}</button>)}
           <button className="btn pri" disabled={ui.busy} onClick={() => exportDoc(o, doc, 'PDF')}>导出 PDF</button>
         </div>
       </div>
-      <div className={'mod' + (ui.expand ? ' expand' : '')}>
+      <div
+        ref={modRef}
+        className={'mod' + (ui.expand ? ' expand' : '') + (collapsed ? ' wide' : '')}
+        style={{ '--pvc': `calc((100% - 188px) * ${ui.pvRatio})` } as React.CSSProperties}
+      >
         <aside className="steps">
           <div className="lbl">填写步骤</div>
           {steps.map((st) => {
@@ -76,20 +112,29 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
               : <button className="btn pri" onClick={() => exportDoc(o, doc, 'PDF')}>完成，导出 PDF</button>}
           </div>
         </section>
-        <Preview
-          order={o}
-          doc={doc}
-          onJump={jumpTo}
-          bar={
-            <>
-              {docs.map((d) => <button key={d} className={'tab' + (doc === d ? ' on' : '')} onClick={() => ui.set({ doc: d })}>{DOCNAMES[d]}</button>)}
-              <div className="r">
-                <span className="tip">点单据上的内容可直接跳到输入框</span>
-                <button className="btn ghost sm" onClick={() => ui.set({ expand: !ui.expand })}>{ui.expand ? '收起预览' : '放大预览'}</button>
-              </div>
-            </>
-          }
-        />
+        {collapsed ? (
+          <button className="pv-strip" onClick={() => setWide(false)} title="表格已加宽；点这里显示单据预览">
+            <span className="pv-strip-ic">◂</span>
+            <span className="pv-strip-t">显示预览</span>
+          </button>
+        ) : (
+          <Preview
+            order={o}
+            doc={doc}
+            onJump={jumpTo}
+            split={!ui.expand && <div className="pv-split" role="separator" aria-orientation="vertical" aria-label="拖动调整表单和预览的宽度" title="拖动调整宽度，双击恢复" onPointerDown={startSplit} onDoubleClick={() => { ui.set({ pvRatio: 0.52 }); savePref('pvRatio', 0.52); }} />}
+            bar={
+              <>
+                {docs.map((d) => <button key={d} className={'tab' + (doc === d ? ' on' : '')} onClick={() => ui.set({ doc: d })}>{DOCNAMES[d]}</button>)}
+                <div className="r">
+                  <span className="tip">点单据上的内容可直接跳到输入框</span>
+                  {!!s.table && !ui.expand && <button className="btn ghost sm" onClick={() => setWide(true)}>收起，表格加宽</button>}
+                  <button className="btn ghost sm" onClick={() => ui.set({ expand: !ui.expand })}>{ui.expand ? '收起预览' : '放大预览'}</button>
+                </div>
+              </>
+            }
+          />
+        )}
       </div>
     </>
   );

@@ -60,6 +60,7 @@ export function seed(): DataState {
   const orders: Order[] = [
     make(customers[0], '2026-003', '外贸订单3', '报价', '2026-09-26', [['AL-S200', 100], ['AL-H500', 20], ['AC-01', 200]], (o) => {
       o.numbers.po = 'GV-PO-7781';
+      o.numbers.validUntil = '2026-10-15';
       o.partners = { forwarder: 'p1', broker: 'p3', factory: 'p4' };
       applyCustomer(o, customers[0]);
     }),
@@ -69,6 +70,7 @@ export function seed(): DataState {
       Object.assign(o.customs, { freight: 'USD 2,350', insFee: 'USD 30' });
       Object.assign(o.shipping, { equipment: '1×40HQ', cargoReady: '2026-10-02', eta: '2026-11-03' });
       o.partners = { forwarder: 'p2', broker: 'p3', factory: 'p4' };
+      o.dates = { lcLatest: '2026-10-10', lcExpiry: '2026-10-20' };
     }),
     make(customers[2], '2026-001', '外贸订单1', '完结', '2026-07-12', [['SH-80', 500]], (o) => {
       Object.assign(o.shipping, { vessel: 'MAERSK EINDHOVEN V.231W', blNo: 'MAEU231889012', container: 'MSKU8812345 / 40GP', seal: 'ML882211', etd: '2026-08-01' });

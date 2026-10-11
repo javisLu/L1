@@ -8,7 +8,7 @@ import type { Order } from '../domain/types';
 const PAGE_W = 595;
 
 /** A4 预览：按容器宽度自动缩放；点击单据上的字段回调 onJump(path) */
-export function Preview({ order, doc, bar, onJump }: { order: Order; doc: DocKey; bar: ReactNode; onJump?: (path: string) => void }) {
+export function Preview({ order, doc, bar, onJump, split }: { order: Order; doc: DocKey; bar: ReactNode; onJump?: (path: string) => void; split?: ReactNode }) {
   const wrap = useRef<HTMLDivElement>(null);
   const page = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -33,6 +33,7 @@ export function Preview({ order, doc, bar, onJump }: { order: Order; doc: DocKey
 
   return (
     <section className="pv">
+      {split}
       <div className="pv-bar">{bar}</div>
       <div className="pv-wrap" ref={wrap}>
         <div className="pv-hold" style={{ width: PAGE_W * scale, height: height * scale }}>

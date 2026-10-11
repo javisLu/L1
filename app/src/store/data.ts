@@ -6,6 +6,7 @@ import { PAYMENT_KEYS } from './paths';
 import { seed } from '../domain/seed';
 import { applyCustomer, autoPlace, blankOrder, copyOrder, orderNo, syncPay } from '../domain/factory';
 import { today, uid } from '../domain/calc';
+import { nowStamp } from '../domain/exports';
 import { defaultSettings } from '../domain/settings';
 import { mergeCustomer, mergeProduct } from '../io/library';
 import type { Customer, DataState, Order, Partner, PartnerType, Product, Seller, Settings } from '../domain/types';
@@ -33,6 +34,10 @@ interface Actions {
   /** 修改订单任意字段，并处理联动（付款条款、指定地点） */
   setOrderField: (id: string, path: string, value: unknown) => void;
   updateOrder: (id: string, recipe: (o: Order) => void) => void;
+  /** 记下导出（不改「更新于」日期） */
+  markExported: (id: string, marks: { doc: string; sig: string }[], to?: string) => void;
+  /** 首页提醒「知道了」 */
+  dismissReminder: (id: string, key: string) => void;
   createOrder: (customerId: string, name: string) => Order;
   duplicateOrder: (id: string) => Order;
   deleteOrder: (id: string) => void;
@@ -87,6 +92,21 @@ export const useData = create<DataStore>()(
           if (!o) return;
           recipe(o);
           o.updated = today();
+        }),
+
+      markExported: (id, marks, to) =>
+        setState((s) => {
+          const o = s.orders.find((x) => x.id === id);
+          if (!o) return;
+          const at = nowStamp();
+          o.exports ??= {};
+          for (const m of marks) o.exports[m.doc] = { at, sig: m.sig, ...(to ? { to } : {}) };
+        }),
+
+      dismissReminder: (id, key) =>
+        setState((s) => {
+          const o = s.orders.find((x) => x.id === id);
+          if (o && !o.dismissed?.includes(key)) (o.dismissed ??= []).push(key);
         }),
 
       createOrder: (customerId, name) => {

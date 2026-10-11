@@ -111,7 +111,11 @@ export function copyOrder(src: Order, no: string, numbering: Numbering = default
   o.status = '询价';
   o.created = o.updated = d;
   o.numbers = { ...o.numbers, ...docNumbers(numbering, no), po: '', date: d };
-  o.shipping = { ...o.shipping, vessel: '', blNo: '', container: '', seal: '', etd: '' };
+  o.shipping = { ...o.shipping, vessel: '', blNo: '', container: '', seal: '', etd: '', eta: '', cargoReady: '', cutoff: '', boxes: [] };
+  // 返单是新的一票货：导出记录、提醒、日期都从头开始
+  delete o.exports;
+  delete o.dismissed;
+  delete o.dates;
   o.items.forEach((i) => (i.id = uid()));
   o.contractClauses.forEach((c) => (c.id = uid()));
   return o;

@@ -158,6 +158,7 @@ export const STEPS: Record<StepKey, StepDef> = {
       f('shipping.blNo', '提单号 B/L No.', { src: 'FF' }),
       f('shipping.equipment', '柜型柜量', { src: 'S', placeholder: '如 1×40HQ、2×20GP、LCL 拼箱' }),
       f('shipping.cargoReady', '货好时间', { type: 'date', src: 'F' }),
+      f('shipping.cutoff', '截关时间', { type: 'date', src: 'FF' }),
       f('shipping.etd', '开船日期 ETD', { type: 'date', src: 'FF' }),
       f('shipping.eta', '到港日期 ETA', { type: 'date', src: 'FF' }),
       f('shipping.container', '柜号 / 柜型', { src: 'FF', placeholder: '如 CSNU7234561 / 40HQ' }),

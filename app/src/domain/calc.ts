@@ -214,5 +214,6 @@ export function fillMarks(tpl: string, o: Order): string {
   return tpl.replace('{PO}', o.numbers.po || '—').replace('{CTNS}', k.ctns ? String(k.ctns) : 'UP');
 }
 
-export const today = () => new Date().toISOString().slice(0, 10);
+/** 本地日期（不用 UTC：在中国早上 8 点前 UTC 还是前一天） */
+export const today = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export const uid = () => Math.random().toString(36).slice(2, 10);

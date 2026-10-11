@@ -146,6 +146,8 @@ export interface Shipping {
   bookingNote?: string;
   /** 多柜明细（一个柜子时直接用 container / seal） */
   boxes?: ContainerRow[];
+  /** 截关 / 截港时间 */
+  cutoff?: string;
 }
 
 export interface ContainerRow { no: string; seal: string; type: string; pkgs: Num; gw: Num; cbm: Num }
@@ -202,6 +204,28 @@ export interface Order {
   partners: { forwarder: string; broker: string; factory: string };
   docset: DocSettings;
   contractClauses: ContractClause[];
+  /** 关键日期（首页「今天要做」用；货好、ETD、ETA、截关在 shipping 里，报价有效期在 numbers 里） */
+  dates?: KeyDates;
+  /** 每份单据最近一次导出：时间、发给谁、单据指纹（用来判断导出后有没有改过） */
+  exports?: Partial<Record<string, ExportMark>>;
+  /** 首页提醒里点了「知道了」的条目（键里带日期，日期改了会重新提醒） */
+  dismissed?: string[];
+}
+
+export interface KeyDates {
+  /** 尾款到期日（空 = 按付款方式和 ETD 推算） */
+  balanceDue?: string;
+  /** 信用证有效期 */
+  lcExpiry?: string;
+  /** 信用证最迟装运期 */
+  lcLatest?: string;
+}
+
+export interface ExportMark {
+  at: string;
+  sig: string;
+  /** 打包时的收件人（客户 / 工厂 / 报关行 / 货代）；单独导出为空 */
+  to?: string;
 }
 
 export interface Contact {

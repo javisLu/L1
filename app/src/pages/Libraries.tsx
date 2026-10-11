@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { LibCrumbs, LibPage, StatusPill, TopBar, soon } from '../components/common';
+import { openSmartPaste } from '../components/smartPaste';
 import { confirmAction } from '../components/confirm';
 import { exportLibrary, startImport } from '../components/importer';
 import { useData, getPath, setPath } from '../store/data';
@@ -101,7 +102,29 @@ export function Customers() {
                     <div className="stat"><b>{st.total}</b><span>累计金额</span></div>
                     <div className="stat"><b>{st.last}</b><span>最近下单</span></div>
                   </div>
-                  <div className="cblock"><h3>基本信息</h3><div className="grid">
+                  <div className="cblock"><h3 className="cblock-h">基本信息
+                    <button
+                      className="btn sm"
+                      title="粘贴客户的邮件签名或名片，自动拆成公司、地址、国家、税号和联系人"
+                      onClick={() => openSmartPaste({
+                        title: '智能粘贴 · 客户档案',
+                        fields: ['name', 'address', 'country', 'tax', 'contact', 'title', 'phone', 'email'],
+                        apply: (p) => updateCustomer(c.id, (x) => {
+                          for (const k of ['name', 'address', 'country', 'tax'] as const) if (p[k]) x[k] = p[k]!;
+                          if (p.contact || p.email || p.phone) {
+                            // 第一位联系人是空的就填进去；已有别人时新增一位
+                            const first = x.contacts[0];
+                            const same = first && (!first.name || first.name === p.contact);
+                            const k = same ? first : (x.contacts[x.contacts.push({ name: '', title: '', email: '', phone: '' }) - 1]);
+                            if (p.contact) k.name = p.contact;
+                            if (p.title) k.title = p.title;
+                            if (p.email) k.email = p.email;
+                            if (p.phone) k.phone = p.phone;
+                          }
+                        }),
+                      })}
+                    >智能粘贴</button>
+                  </h3><div className="grid">
                     {fi('name', '公司名称', { wide: true })}{fi('address', '地址', { wide: true, ta: true })}
                     {fi('country', '国家')}{fi('tax', '税号 / VAT / EORI')}{fi('notify', '通知方')}{fi('level', '客户等级', { opts: ['A', 'B', 'C'] })}
                   </div></div>

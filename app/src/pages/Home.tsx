@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { TopBar, StatusPill, soon } from '../components/common';
+import { TopBar, StatusPill } from '../components/common';
 import { useData } from '../store/data';
+import { TodayPanel } from '../components/today';
 import { toast, useUI, type Page } from '../store/ui';
 import { money, sym, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
@@ -46,6 +47,7 @@ export function Home() {
               <div className="stat"><b>{toShip}</b><span>待出货</span></div>
               <div className="stat"><b>{recv.length ? recv.map(orderAmount).join(' + ') : '—'}</b><span>已出货待收款</span></div>
             </div>
+            <TodayPanel />
             <div className="panel">
               <div className="toolbar">
                 <label className="search">
@@ -102,8 +104,6 @@ export function Home() {
             </div></div>
             <div className="side-group"><h3>小工具</h3><div className="lib">
               {lib('calc', '¥→$', '报价计算器', '成本 + 运费 + 退税 → FOB / CIF')}
-              <button onClick={() => soon('汇率换算')}><span className="ic">FX</span><span><b>汇率换算</b><small>常用币种汇率</small></span></button>
-              <button onClick={() => soon('金额英文大写')}><span className="ic">SAY</span><span><b>金额英文大写</b><small>SAY US DOLLARS … ONLY</small></span></button>
             </div></div>
           </aside>
         </div>

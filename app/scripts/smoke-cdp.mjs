@@ -160,6 +160,26 @@ await step('18-booking-si-advice', async () => {
   await page.click('.pv-bar .tab:has-text("装船通知")'); await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 SA-.*\\.pdf');
 });
 
+await step('19-today-wide-export-paste', async () => {
+  // 首页「今天要做」、订单「关键日期」、表格加宽、导出后改过、智能粘贴
+  await page.click('.brand'); await page.waitForSelector('.today', { timeout: 5000 });
+  await page.click('.orow[role=button]'); await page.waitForSelector('.kd', { timeout: 5000 });
+  await page.click('.mcard:has-text("箱单")'); await page.click('.step:has-text("包装装箱")');
+  await page.waitForSelector('.pv-strip', { timeout: 5000 });
+  await page.click('.pv-strip'); await page.waitForSelector('.pv-split', { state: 'attached', timeout: 5000 });
+  await page.click('button:has-text("收起，表格加宽")'); await page.waitForSelector('.pv-strip', { timeout: 5000 });
+  await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 PL-.*\\.pdf');
+  await page.fill('#in-items-0-gw', '99');
+  await page.waitForSelector('.last-exp.warn', { timeout: 5000 });
+  await page.click('button:has-text("← 订单菜单")'); await page.waitForSelector('.mcard .st.chg', { timeout: 5000 });
+  await page.click('.mcard:has-text("合同 / PI")'); await page.click('.step:has-text("双方信息")');
+  await page.click('button:has-text("智能粘贴")');
+  await page.fill('#sp-text', 'Maria Lopez\nImport Manager\nCasa Verde Imports S.L.\nCalle Mayor 5, 28013 Madrid, Spain\nTel: +34 91 123 4567\nmaria@casaverde-demo.es');
+  await page.click('.sp-foot .btn.pri');
+  const v = await page.inputValue('#in-buyer-name');
+  if (v !== 'Casa Verde Imports S.L.') throw new Error('智能粘贴结果不对：' + v);
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

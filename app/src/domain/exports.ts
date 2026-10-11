@@ -1,0 +1,64 @@
+import type { DocKey } from '../modules/defs';
+import type { Order } from './types';
+
+/**
+ * 导出记录：每次导出或打包时记下时间和「单据指纹」。
+ * 指纹只取这份单据用得到的数据，所以改报关要素不会让 PI 显示「导出后改过」。
+ */
+
+/** 单价只出现在商务单据上；箱单、唛头、订舱等不看单价 */
+const PRICE = ['price'];
+const strip = (o: Order, drop: string[]) => o.items.map((it) => Object.fromEntries(Object.entries(it).filter(([k]) => !drop.includes(k))));
+
+function project(o: Order, doc: DocKey): unknown {
+  const base = { seller: o.seller, buyer: o.buyer, numbers: o.numbers, docset: o.docset };
+  const pack = { packs: o.packs ?? [], pkg: o.pkg ?? null };
+  switch (doc) {
+    case 'quote':
+    case 'pi':
+      return { ...base, terms: o.terms, items: o.items, ...pack };
+    case 'contract':
+      return { ...base, terms: o.terms, items: o.items, ...pack, clauses: o.contractClauses };
+    case 'ci':
+      return { ...base, terms: o.terms, items: o.items, ...pack, shipping: o.shipping };
+    case 'pl':
+      return { ...base, terms: o.terms, items: strip(o, PRICE), ...pack, shipping: o.shipping };
+    case 'customs':
+      return { ...base, terms: o.terms, items: o.items, ...pack, shipping: o.shipping, customs: o.customs };
+    case 'marks':
+    case 'labels':
+      return { po: o.numbers.po, marks: o.shipping.marks, side: o.shipping.side, items: strip(o, PRICE), ...pack };
+    case 'booking':
+    case 'si':
+    case 'advice':
+      return { ...base, terms: o.terms, items: strip(o, PRICE), ...pack, shipping: o.shipping, forwarder: o.partners.forwarder };
+  }
+}
+
+/** FNV-1a，够用来判断「有没有变」 */
+function hash(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+export const docSig = (o: Order, doc: DocKey) => hash(JSON.stringify(project(o, doc)));
+
+export const nowStamp = (d = new Date()) => {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
+export type DocState = { kind: 'none' } | { kind: 'sent'; at: string; to?: string } | { kind: 'changed'; at: string; to?: string };
+
+export function docState(o: Order, doc: DocKey): DocState {
+  const r = o.exports?.[doc];
+  if (!r) return { kind: 'none' };
+  return { kind: r.sig === docSig(o, doc) ? 'sent' : 'changed', at: r.at, to: r.to };
+}
+
+/** 「10-08 14:20」：今年的日期省略年份 */
+export const shortStamp = (at: string, now = new Date()) => (at.startsWith(String(now.getFullYear())) ? at.slice(5) : at.slice(0, 10));

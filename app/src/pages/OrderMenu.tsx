@@ -2,12 +2,14 @@ import { OrderCrumbs, TopBar } from '../components/common';
 import { openCustomerPicker } from '../components/form';
 import { confirmAction } from '../components/confirm';
 import { CheckPanel } from '../components/CheckPanel';
+import { KeyDates } from '../components/today';
 import { pkgSummary } from '../domain/package';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { fixed, int, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
-import { MODS, modProgress, neededMods, type ModKey } from '../modules/defs';
+import { DOCNAMES, MODS, missing, neededMods, type DocKey, type ModKey } from '../modules/defs';
+import { docState, shortStamp } from '../domain/exports';
 import { orderAmount } from './Home';
 import type { Order, PartnerType } from '../domain/types';
 
@@ -29,19 +31,39 @@ export function OrderMenu({ order: o }: { order: Order }) {
 
   const card = (key: ModKey) => {
     const m = MODS[key];
-    const pr = modProgress(o, key);
     let st;
-    if (m.ph) st = <span className="st ph">规划中 · {m.ph}</span>;
-    else if (m.special) st = <span className="st ph">{k.rows.length} 行货物 · 可导出</span>;
-    else if (pr && pr.done === pr.total) st = <span className="st ok">✓ 资料齐全，可导出</span>;
-    else st = <span className="st warn">{pr?.done} / {pr?.total} 步完成</span>;
+    let dls = null;
+    if (m.special) {
+      const last = Object.values(o.exports ?? {}).filter((x) => x?.to).sort((a, b) => b!.at.localeCompare(a!.at))[0];
+      st = last ? <span className="st ok">上次打包 {shortStamp(last.at)} · 发给{last.to}</span> : <span className="st ph">按收件人选好单据，一键打包</span>;
+    } else {
+      const miss = (m.steps ?? []).flatMap((x) => missing(o, x));
+      // 报关资料模块里的发票、箱单属于各自模块，这里只看报关预录入表
+      const own = key === 'customs' ? (['customs'] as DocKey[]) : m.docs ?? [];
+      const states = own.map((d) => ({ d, s: docState(o, d) }));
+      const changed = states.filter((x) => x.s.kind === 'changed');
+      if (miss.length) st = <span className="st warn" title={miss.slice(0, 12).join('、')}>缺 {miss.length} 项资料</span>;
+      else if (changed.length) st = <span className="st chg">⚠ 导出后又改过，需要重发</span>;
+      else st = <span className="st ok">✓ 资料齐全</span>;
+      dls = (
+        <span className="dls">
+          {states.map(({ d, s: x }) => (
+            <span key={d} className={x.kind}>
+              <i />{DOCNAMES[d]}
+              <em>{x.kind === 'none' ? '未导出' : `${x.kind === 'changed' ? '改过 · ' : ''}${shortStamp(x.at)}${x.to ? ' ' + x.to : ''}`}</em>
+            </span>
+          ))}
+        </span>
+      );
+    }
     return (
-      <button key={key} className={'mcard' + (m.ph ? ' dim' : '')} onClick={() => ui.openMod(key)}>
-        {need.has(key) && !m.ph && <span className="need">本单需要</span>}
+      <button key={key} className="mcard" onClick={() => ui.openMod(key)}>
+        {!need.has(key) && <span className="need" title="按本单的运输方式和付款方式，一般用不到">本单可不做</span>}
         <span className="code">{m.code}</span>
         <b>{m.name}</b>
         <small>{m.desc}</small>
         {st}
+        {dls}
       </button>
     );
   };
@@ -114,13 +136,10 @@ export function OrderMenu({ order: o }: { order: Order }) {
             </div>
           </div>
         </div>
+        <KeyDates order={o} />
         <div className="mgroup">
-          <div className="sec-title"><h2>单据</h2><span className="muted" style={{ fontSize: 12.5 }}>按本单的运输方式和付款方式标出需要的单据；所有单据共用本订单数据</span></div>
-          <div className="mods">{keys.filter((x) => MODS[x].grp === 'doc').map(card)}</div>
-        </div>
-        <div className="mgroup">
-          <div className="sec-title"><h2>业务</h2></div>
-          <div className="mods">{keys.filter((x) => MODS[x].grp === 'biz').map(card)}</div>
+          <div className="sec-title"><h2>单据</h2><span className="muted" style={{ fontSize: 12.5 }}>所有单据共用本订单数据；导出后再改动，会提示哪份单据需要重发</span></div>
+          <div className="mods">{keys.filter((x) => MODS[x].grp === 'doc' && !MODS[x].ph).map(card)}</div>
         </div>
       </main>
     </>
