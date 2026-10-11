@@ -1,3 +1,4 @@
+import { applyReqs } from './requirements';
 import { CONTRACT_LIB, DEFAULT_CLAUSES, ORIGIN_TERMS } from './constants';
 import { fillMarks, payText, today, uid } from './calc';
 import { defaultSettings, docNumbers, formatOrderNo } from './settings';
@@ -55,7 +56,8 @@ export function snapCustomer(c: Customer): Buyer {
 const COUNTRY_CN = new Set(['新加坡', '美国', '丹麦', '德国', '英国', '法国', '日本', '澳大利亚', '加拿大', '阿联酋']);
 
 /** 把客户信息与默认交易习惯带入订单（带入的是快照，之后改客户库不影响本单） */
-export function applyCustomer(o: Order, c: Customer) {
+/** 带入客户信息、交易习惯和单据要求；返回按客户要求自动设置的条数 */
+export function applyCustomer(o: Order, c: Customer): number {
   o.customerId = c.id;
   o.buyer = snapCustomer(c);
   const h = c.habits;
@@ -74,6 +76,7 @@ export function applyCustomer(o: Order, c: Customer) {
   o.terms.paymentManual = false;
   syncPay(o);
   o.shipping.marks = fillMarks(h.marks, o);
+  return applyReqs(o, c.reqs);
 }
 
 /** 切换贸易术语时，若指定地点是系统带出的（等于装运港城市或目的港），跟着切换 */
@@ -116,6 +119,7 @@ export function copyOrder(src: Order, no: string, numbering: Numbering = default
   delete o.exports;
   delete o.dismissed;
   delete o.dates;
+  delete o.reqDone;
   o.items.forEach((i) => (i.id = uid()));
   o.contractClauses.forEach((c) => (c.id = uid()));
   return o;

@@ -206,6 +206,7 @@ export const STEPS: Record<StepKey, StepDef> = {
       f('numbers.validUntil', '报价有效期至', { type: 'date' }), f('numbers.signedAt', '签约地点'),
       f('docset.remarks', '备注 Remarks', { type: 'textarea', wide: true }),
       f('docset.clauses', 'PI / 报价单条款（每行一条）', { type: 'textarea', wide: true }),
+      f('docset.statement', '发票 / 箱单上注明（声明文字，如 NO WOOD PACKING MATERIAL IS USED）', { type: 'textarea', wide: true, src: 'B' }),
       f('docset.theme', '单据配色', { type: 'select', options: Object.keys(THEMES) }),
       f('docset.stamp', '显示公章位置', { type: 'checkbox' }),
     ],

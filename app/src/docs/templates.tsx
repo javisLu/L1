@@ -263,6 +263,11 @@ function Contract({ o }: { o: Order }) {
   );
 }
 
+/** 发票 / 箱单上注明的文字（客户要求的声明） */
+function Statement({ o }: { o: Order }) {
+  return o.docset.statement?.trim() ? <Section o={o} title="REMARKS">{F(o, 'docset.statement')}</Section> : null;
+}
+
 /* ---------- 商业发票 ---------- */
 function Invoice({ o }: { o: Order }) {
   const k = calcOrder(o), c = o.terms.currency, a = accent(o);
@@ -289,6 +294,7 @@ function Invoice({ o }: { o: Order }) {
         foot={[{ w: '60%', c: 'TOTAL' }, { w: '13%', align: 'right', c: int(k.qty) }, { w: '12%', c: '' }, { w: '15%', align: 'right', c: sym(c) + money(k.amount) }]}
       />
       <Words o={o}>{amountWords(k.amount, c)}</Words>
+      <Statement o={o} />
       <Section o={o} title="DECLARATION">
         <Txt>We hereby certify that the information on this invoice is true and correct and that the contents of this shipment are as stated above.</Txt>
       </Section>
@@ -332,6 +338,7 @@ function Packing({ o }: { o: Order }) {
       />
       <Words o={o}>{pk.words}</Words>
       {!!pkgNote(pk) && <Txt style={{ fontSize: 7.5, color: '#333', marginBottom: 2 }}>{pkgNote(pk)}</Txt>}
+      <Statement o={o} />
       {mixedNote && <Txt style={{ fontSize: 7, color: '#666', marginTop: 4 }}>Note: goods marked MIXED are packed together in the same carton(s); the carton gross weight is allocated to each item in proportion to its net weight.</Txt>}
       <Sign o={o} left={<>For and on behalf of <B>{o.seller.name}</B></>} right="Authorized Signature" />
     </Page>

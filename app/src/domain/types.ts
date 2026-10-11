@@ -180,6 +180,8 @@ export interface DocSettings {
   stamp: boolean;
   remarks: string;
   clauses: string;
+  /** 发票 / 箱单上注明的文字（客户要求的声明，如 NO WOOD PACKING MATERIAL IS USED） */
+  statement?: string;
 }
 
 export interface Order {
@@ -210,6 +212,8 @@ export interface Order {
   exports?: Partial<Record<string, ExportMark>>;
   /** 首页提醒里点了「知道了」的条目（键里带日期，日期改了会重新提醒） */
   dismissed?: string[];
+  /** 客户要求里「自定义提醒」本单已确认的条目 id */
+  reqDone?: string[];
 }
 
 export interface KeyDates {
@@ -258,6 +262,21 @@ export interface Customer {
   habits: CustomerHabits;
   notes: string;
   follow: { d: string; t: string }[];
+  /** 单据要求清单：新单自动套用、出货前逐条核对 */
+  reqs?: CustReq[];
+}
+
+export type ReqKey =
+  | 'note' | 'po' | 'hs' | 'spec' | 'tax' | 'statement' | 'origin'
+  | 'marksPo' | 'marksText' | 'side'
+  | 'consignee' | 'notify' | 'blType' | 'originals' | 'partial' | 'transship'
+  | 'pkgMode' | 'maxGw' | 'maxPalletH';
+
+/** 客户的一条单据要求：k = 规则（见 domain/requirements.ts），v = 参数（文字、份数、kg…） */
+export interface CustReq {
+  id: string;
+  k: ReqKey;
+  v: string;
 }
 
 export type PartnerType = '货代' | '报关行' | '工厂' | '船公司';

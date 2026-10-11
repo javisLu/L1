@@ -180,6 +180,15 @@ await step('19-today-wide-export-paste', async () => {
   if (v !== 'Casa Verde Imports S.L.') throw new Error('智能粘贴结果不对：' + v);
 });
 
+await step('20-customer-requirements', async () => {
+  // 客户要求清单：订单页逐条核对、一键按要求改；客户库里添加一条要求
+  await page.click('.brand'); await page.click('.orow[role=button] >> nth=1'); await page.waitForSelector('.req-panel', { timeout: 5000 });
+  await page.click('.req-item.bad >> nth=0 >> button:has-text("按要求改")'); await waitToast('已按客户要求改好');
+  await page.click('.req-panel button:has-text("编辑要求")'); await page.waitForSelector('.req-ed', { timeout: 5000 });
+  await page.selectOption('.req-add select', 'maxPalletH');
+  await page.waitForSelector('.req-row:has-text("托盘 / 木箱高度不超过")', { timeout: 5000 });
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { LibCrumbs, LibPage, StatusPill, TopBar, soon } from '../components/common';
 import { openSmartPaste } from '../components/smartPaste';
+import { ReqEditor } from '../components/requirements';
+import { autoReqCount } from '../domain/requirements';
 import { confirmAction } from '../components/confirm';
 import { exportLibrary, startImport } from '../components/importer';
 import { useData, getPath, setPath } from '../store/data';
@@ -94,7 +96,7 @@ export function Customers() {
                           if (ok) { deleteCustomer(c.id); ui.set({ custId: null }); toast('已删除客户 ' + c.name); }
                         }}
                       >删除客户</button>
-                      <button className="btn pri" onClick={() => { const o = createOrder(c.id, ''); ui.openOrder(o.id); toast(`已新建 ${o.no}，已带入 ${c.name} 的客户信息和交易习惯`); }}>为该客户新建订单</button>
+                      <button className="btn pri" onClick={() => { const o = createOrder(c.id, ''); ui.openOrder(o.id); toast(`已新建 ${o.no}，已带入 ${c.name} 的客户信息和交易习惯${autoReqCount(c.reqs) ? `，并按客户要求设置了 ${autoReqCount(c.reqs)} 项` : ''}`); }}>为该客户新建订单</button>
                     </div>
                   </div>
                   <div className="cstats">
@@ -139,6 +141,9 @@ export function Customers() {
                       ))}</tbody>
                     </table></div>
                     <div className="tbl-tools"><button className="btn sm" onClick={() => updateCustomer(c.id, (x) => void x.contacts.push({ name: '', title: '', email: '', phone: '' }))}>＋ 添加联系人</button></div>
+                  </div>
+                  <div className="cblock"><h3>单据要求清单 <span className="muted" style={{ fontWeight: 400 }}>· 这个客户的规矩，新单自动套用、出货前逐条核对</span></h3>
+                    <ReqEditor customer={c} />
                   </div>
                   <div className="cblock"><h3>默认交易习惯 <span className="muted" style={{ fontWeight: 400 }}>· 新建订单时自动带入</span></h3><div className="grid">
                     {fi('habits.incoterm', '贸易术语', { opts: INCOTERMS })}{fi('habits.place', '指定地点')}

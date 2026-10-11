@@ -27,6 +27,7 @@ npm run typecheck
 - 订舱 / 提单（M2-1）：订舱委托书（PDF / Excel）、SI 提单补料（PDF / Excel）、装船通知（PDF）。数据来自订单：发票 / 箱单的「运输信息」里补了收货人（同买方 / TO ORDER / 自定义）、通知人（自动 / 同买方 / 自定义）、运费（按贸易术语自动 PREPAID / COLLECT）、提单类型与正本份数、柜型柜量、货好时间、ETA、投保（CIF / CIP 自动）、订舱特殊要求、多柜明细。规则在 `src/domain/shipping.ts`。
 - 导出记录：每次导出 / 打包记下时间、收件人和单据指纹（`src/domain/exports.ts`，只取该单据用到的数据）。订单菜单卡片、单据页、导出页显示「未导出 / 已导出 / 导出后又改过」。
 - 今天要做（首页）与关键日期（订单页）：规则在 `src/domain/reminders.ts`（报价到期、货好未订舱、截关、开船未改状态 / 未发装船通知、尾款、到港、信用证），尾款到期日没填时按付款方式和 ETD / ETA 推算；「知道了」存在 `Order.dismissed`，键里带日期。
+- 客户要求清单：客户库 →「单据要求清单」，规则在 `src/domain/requirements.ts`（每条有 describe / check / apply）。新建订单或更换客户时 `applyCustomer` 自动套用 apply；`checkOrder(o, reqs)` 第 8 节逐条核对（确认之后不符合算错误，带一键修正）；自定义提醒的确认记在 `Order.reqDone`。订单页面板在 `src/components/requirements.tsx`。
 - 智能粘贴：买方信息、客户库里的「智能粘贴」，或在买方公司名 / 地址里直接粘贴整块签名。离线规则识别，见 `src/domain/contact.ts`。
 - 表格步骤默认收起预览（表格加宽），表单 / 预览分隔线可拖动；这两项个人习惯存在浏览器本地（`tw-ui-*`）。
 - 唛头箱贴 → 箱贴批量打印：每箱一张，箱号自动编为 n/总箱数，尾箱数量按余数；A4 每页 2/4/6/8 张或标签机 100×100、100×150 mm；可只打印部分箱号。

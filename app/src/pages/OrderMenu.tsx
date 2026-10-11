@@ -3,6 +3,7 @@ import { openCustomerPicker } from '../components/form';
 import { confirmAction } from '../components/confirm';
 import { CheckPanel } from '../components/CheckPanel';
 import { KeyDates } from '../components/today';
+import { ReqPanel } from '../components/requirements';
 import { pkgSummary } from '../domain/package';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
@@ -136,6 +137,7 @@ export function OrderMenu({ order: o }: { order: Order }) {
             </div>
           </div>
         </div>
+        <ReqPanel order={o} />
         <KeyDates order={o} />
         <div className="mgroup">
           <div className="sec-title"><h2>单据</h2><span className="muted" style={{ fontSize: 12.5 }}>所有单据共用本订单数据；导出后再改动，会提示哪份单据需要重发</span></div>

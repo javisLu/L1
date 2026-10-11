@@ -4,7 +4,8 @@ import { CNO_LINE } from '../domain/labels';
 import { pkgSummary } from '../domain/package';
 import { autoFreight } from '../domain/shipping';
 import { MODS, STEPS, missing, neededMods, type ModKey, type StepKey } from './defs';
-import type { Order } from '../domain/types';
+import { REQS, reqState, reqStrict } from '../domain/requirements';
+import type { CustReq, Order } from '../domain/types';
 
 export type Level = 'error' | 'warn';
 export interface Issue {
@@ -14,6 +15,8 @@ export interface Issue {
   mod: ModKey;
   step?: StepKey;
   path?: string;
+  /** 点击后回到订单页（客户要求清单在那里勾选） */
+  toOrder?: boolean;
   /** 可以一键修正的问题 */
   fix?: { label: string; apply: (o: Order) => void };
 }
@@ -34,7 +37,7 @@ const LATER: StepKey[] = ['shipping', 'customs', 'customsItems', 'packing'];
  * 单据一致性检查：本单需要的单据缺了什么、各单据之间有没有对不上的地方。
  * 所有单据共用订单数据，金额、数量这类不会不一致；这里查的是容易出错、需要人确认的地方。
  */
-export function checkOrder(o: Order): Issue[] {
+export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
   const out: Issue[] = [];
   const k = calcOrder(o);
   const shipped = STATUSES.indexOf(o.status) >= STATUSES.indexOf('出货');
@@ -160,6 +163,21 @@ export function checkOrder(o: Order): Issue[] {
   if (o.shipping.etd && d && o.shipping.etd < d) out.push({ level: 'warn', text: `开船日期 ${o.shipping.etd} 早于单据日期 ${d}`, mod: 'ci', path: 'shipping.etd' });
   if (shipped && (!o.shipping.vessel || !o.shipping.blNo)) out.push({ level: 'warn', text: '订单已出货，船名航次 / 提单号还没填', mod: 'ci', path: !o.shipping.vessel ? 'shipping.vessel' : 'shipping.blNo' });
   if (need.has('pi') && !o.seller.bank.trim()) out.push({ level: 'warn', text: 'PI 上没有收款银行信息，客户无法付款', mod: 'pi', path: 'seller.bank' });
+
+  // 8. 客户要求清单：确认之后不符合算错误（之前只提醒）；自定义提醒在生产之后还没勾选的提醒一下
+  if (o.status !== '完结') {
+    const strict = reqStrict(o);
+    const late = STATUSES.indexOf(o.status) >= STATUSES.indexOf('生产');
+    for (const r of reqs) {
+      const st = reqState(o, r);
+      if (st.kind === 'bad') {
+        const d = REQS[r.k];
+        out.push({ level: strict ? 'error' : 'warn', text: st.problem.text, mod: st.problem.mod, step: st.problem.step, path: st.problem.path,
+          ...(d.apply ? { fix: { label: '按要求改', apply: (x: Order) => d.apply!(x, r.v) } } : {}) });
+      } else if (st.kind === 'manual' && !st.done && late && r.v.trim())
+        out.push({ level: 'warn', text: `客户要求（待确认）：${r.v.trim()}`, mod: 'export', toOrder: true });
+    }
+  }
 
   return out.sort((a, b) => (a.level === b.level ? 0 : a.level === 'error' ? -1 : 1));
 }

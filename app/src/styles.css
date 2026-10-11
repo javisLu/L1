@@ -526,3 +526,43 @@ body.resizing .pv-scale{pointer-events:none}
 }
 .sp-left{font-size:12px;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .sp-left code{font:12px var(--f-ui);background:var(--surface-2);border-radius:4px;padding:1px 6px;color:var(--ink-2);user-select:all}
+
+/* 客户要求清单 */
+.req-ed{display:flex;flex-direction:column;gap:6px}
+.req-row{display:grid;grid-template-columns:auto minmax(150px,auto) minmax(0,1fr) auto;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.req-row b{font-size:13px;font-weight:500}
+.req-row input,.req-row select,.req-row textarea{border:1px solid var(--line-2);border-radius:5px;padding:5px 8px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;min-width:0;width:100%}
+.req-row textarea{resize:vertical}
+.req-row .req-num{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-3)}
+.req-row .req-num input{width:90px}
+.req-tag{font-size:11px;padding:1px 7px;border-radius:99px;background:var(--brand-soft);color:var(--brand);white-space:nowrap}
+.req-row.note .req-tag{background:var(--warn-soft);color:var(--warn)}
+.req-add{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:2px}
+.req-add select{border:1px dashed var(--line-2);border-radius:6px;padding:6px 10px;background:var(--surface);color:var(--brand);font:inherit;font-size:13px}
+.req-add .muted{font-size:12px;flex:1;min-width:220px}
+.req-panel{padding:14px 16px;margin:-8px 0 28px}
+.req-panel.bad{border-color:var(--stamp)}
+.req-panel.empty-req{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;color:var(--ink-2)}
+.req-sum{font-size:12px;padding:1px 8px;border-radius:99px}
+.req-sum.ok{color:var(--ok);background:var(--ok-soft)}
+.req-sum.todo{color:var(--warn);background:var(--warn-soft)}
+.req-sum.bad{color:var(--stamp);background:var(--stamp-soft)}
+.req-acts{margin-left:auto;display:flex;gap:4px}
+.req-list{display:flex;flex-direction:column}
+.req-item{display:flex;align-items:center;gap:10px;padding:7px 2px;border-top:1px solid var(--line);font-size:13.5px}
+.req-ic{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700}
+.req-item.ok .req-ic{background:var(--ok-soft);color:var(--ok)}
+.req-item.bad .req-ic{background:var(--stamp-soft);color:var(--stamp)}
+.req-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.req-t small{color:var(--stamp);font-size:12px}
+.req-chk{flex:1;display:flex;align-items:center;gap:8px;min-width:0}
+.req-chk input{width:16px;height:16px;flex:none}
+.req-item.todo .req-chk span{color:var(--warn)}
+.req-r{flex:none;display:flex;gap:4px;align-items:center;font-size:12px}
+@media (max-width:640px){
+  .req-row{grid-template-columns:auto 1fr auto}
+  .req-row > :nth-child(3){grid-column:1 / -1;grid-row:2}
+  .req-item{flex-wrap:wrap}
+  .req-r{width:100%;justify-content:flex-end}
+  .req-panel.empty-req{flex-direction:column;align-items:flex-start}
+}

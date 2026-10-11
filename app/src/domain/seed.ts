@@ -27,12 +27,24 @@ export function seed(): DataState {
       habits: { incoterm: 'FOB', place: 'Qingdao', deliveryAddress: '', payment: 'T/T 电汇', payDeposit: 30, payBalanceAt: 'before shipment', payDays: '', payCustom: '', currency: 'USD', pod: 'Singapore', marks: 'G.V.\nPO NO.: {PO}\nSINGAPORE\nC/NO. 1-{CTNS}\nMADE IN CHINA' },
       notes: '要求中性包装，外箱印 PO 号；付款准时。',
       follow: [{ d: '2026-09-20', t: '询价 3 款铝合金展架，要求 10 月底前出货' }, { d: '2026-08-02', t: '外贸订单1 已收尾款，客户反馈包装良好' }],
+      reqs: [
+        { id: 'r1', k: 'marksText', v: 'MADE IN CHINA' },
+        { id: 'r2', k: 'blType', v: 'telex' },
+        { id: 'r3', k: 'note', v: 'PI 需客户签字回传后再安排生产' },
+      ],
     },
     {
       id: 'c2', name: 'ABC Trading LLC', short: 'ABC', country: '美国', address: '123 Main St, Los Angeles, CA 90001, USA', tax: 'EIN 95-1234567', notify: 'ABC Logistics Inc., same address', level: 'A', source: '阿里巴巴国际站',
       contacts: [{ name: 'John Miller', title: 'Owner', email: 'john@abctrading-demo.com', phone: '+1 213 555 0100' }],
       habits: { incoterm: 'CIF', place: 'Los Angeles', deliveryAddress: '', payment: 'L/C 信用证', payDeposit: '', payBalanceAt: '', payDays: 0, payCustom: '', currency: 'USD', pod: 'Los Angeles', marks: 'ABC\nLOS ANGELES\nC/NO. 1-{CTNS}\nMADE IN CHINA' },
       notes: '信用证付款，单据要求严格，货描须与 L/C 一致。', follow: [{ d: '2026-09-02', t: 'L/C 已开到，最迟装期 10-15' }],
+      reqs: [
+        { id: 'r4', k: 'marksPo', v: '' },
+        { id: 'r5', k: 'statement', v: 'NO WOOD PACKING MATERIAL IS USED' },
+        { id: 'r6', k: 'hs', v: '' },
+        { id: 'r7', k: 'maxGw', v: '30' },
+        { id: 'r8', k: 'note', v: '正本提单 DHL 寄到客户芝加哥办公室' },
+      ],
     },
     {
       id: 'c3', name: 'Nordhavn Supply ApS', short: 'NS', country: '丹麦', address: 'Havnegade 12, 1058 Copenhagen K, Denmark', tax: 'VAT DK12345678', notify: 'SAME AS CONSIGNEE', level: 'B', source: 'LinkedIn',

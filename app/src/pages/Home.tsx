@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { TopBar, StatusPill } from '../components/common';
 import { useData } from '../store/data';
 import { TodayPanel } from '../components/today';
+import { autoReqCount } from '../domain/requirements';
 import { toast, useUI, type Page } from '../store/ui';
 import { money, sym, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
@@ -145,7 +146,7 @@ function NewOrderForm() {
             const c = customers.find((x) => x.id === cid);
             ui.closeModal();
             ui.openOrder(o.id);
-            toast(c ? `已新建 ${o.no}，已带入 ${c.name} 的客户信息和交易习惯` : `已新建 ${o.no}`);
+            toast(c ? `已新建 ${o.no}，已带入 ${c.name} 的客户信息和交易习惯${autoReqCount(c.reqs) ? `，并按客户要求设置了 ${autoReqCount(c.reqs)} 项` : ''}` : `已新建 ${o.no}`);
           }}
         >
           创建订单

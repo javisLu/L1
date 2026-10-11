@@ -228,6 +228,7 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
     if (o.docset.remarks) line('Remarks: ' + o.docset.remarks, { size: 9 });
     o.docset.clauses.split('\n').filter((x) => x.trim()).forEach((x, i) => line(`${i + 1}. ${x}`, { size: 9 }));
   }
+  if ((doc === 'ci' || doc === 'pl') && o.docset.statement?.trim()) o.docset.statement.trim().split('\n').forEach((x) => line(x, { size: 9, bold: true }));
   if (doc === 'ci') line('We hereby certify that the information on this invoice is true and correct.', { size: 9 });
   r++;
   // 签字区（右侧）：卖方名称 → 留白盖章、签名 → 签字线
