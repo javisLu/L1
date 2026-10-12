@@ -44,6 +44,23 @@ export function blankOrder(seller: Seller, no: string, name: string, created = t
   return order;
 }
 
+/**
+ * 空白单据（单据模板库「下载空白模板」用）：只保留我方公司信息、Logo / 公章设置和标准条款，
+ * 其余全部留空，没有货物——单据上合计、大写留空，货物表留空行。
+ */
+export function blankForm(seller: Seller, settings: Settings = defaultSettings()): Order {
+  const o = blankOrder(seller, '', '', '', settings);
+  o.id = '__blank__';
+  o.terms = {
+    ...o.terms, incoterm: '', place: '', payment: '', payDeposit: '', payBalanceAt: '', payDays: '', paymentText: '', paymentManual: true,
+    pol: '', pod: '', transport: '', leadTime: '', shipment: '', partial: '', transship: '', insurance: '', packing: '',
+  };
+  o.numbers = { quote: '', pi: '', contract: '', ci: '', po: '', date: '', validUntil: '', signedAt: '' };
+  o.shipping = { ...o.shipping, origin: '' };
+  o.customs = { exportPort: '', supervision: '', exemption: '', license: '', tradeCountry: '', destCountry: '', sourceArea: '', packageType: '', freight: '', insFee: '', docs: '' };
+  return o;
+}
+
 export function syncPay(o: Order) {
   if (!o.terms.paymentManual) o.terms.paymentText = payText(o.terms);
 }

@@ -380,28 +380,6 @@ export interface Settings {
   lastAutoBackup: string;
 }
 
-/** Excel 模板：客户 / 货代 / 工厂 / 报关行自己的格式 */
-export type TplFor = '客户' | '货代' | '工厂' | '报关行' | '通用';
-/** 单个字段填在哪个单元格 */
-export interface TplCell { sheet: string; cell: string; field: string; label?: string }
-/** 货物表：表头行、第一行货物、原有空行数、合计行；每列对应的货物字段（唛头列写整票唛头） */
-export interface TplTable { sheet: string; header: number; first: number; rows: number; total?: number; cols: { col: number; field: string; label: string }[] }
-export interface ExcelTpl {
-  id: string;
-  name: string;
-  for: TplFor;
-  /** 只用于某个客户 / 合作方（空 = 这一类都适用） */
-  partnerId?: string;
-  fileName: string;
-  /** xlsx 文件（base64） */
-  file: string;
-  created: string;
-  cells: TplCell[];
-  tables: TplTable[];
-  /** 文件里写了的占位符 */
-  placeholders: string[];
-}
-
 export interface DataState {
   settings: Settings;
   seller: Seller;
@@ -410,6 +388,4 @@ export interface DataState {
   partners: Partner[];
   orders: Order[];
   seq: number;
-  /** Excel 模板（可选，老数据没有） */
-  templates?: ExcelTpl[];
 }

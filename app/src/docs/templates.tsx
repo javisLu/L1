@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { AssetsProvider, Box, Fld, Img, Page, Row, Table, Txt, useAssets, useIsPdf, type DocAssets, type St } from './primitives';
+import { AssetsProvider, CleanProvider, Box, Fld, Img, Page, Row, Table, Txt, useAssets, useIsPdf, type DocAssets, type St } from './primitives';
 import { THEMES, TRANSPORT_CD } from '../domain/constants';
 import { amountWords, fixed, int, money, needAddr, sym, calcOrder, toNum, type Row as CalcRow } from '../domain/calc';
 import { getPath } from '../store/data';
@@ -7,7 +7,7 @@ import type { Order } from '../domain/types';
 import type { DocKey } from '../modules/defs';
 import { Labels, type LabelOptions } from './labels';
 import { pkgNote, pkgSummary } from '../domain/package';
-import { blTypeCn, blTypeText, consigneeText, containerRows, freightText, goodsLines, insureNeeded, notifyText, shipperText } from '../domain/shipping';
+import { isBlank, blTypeCn, blTypeText, consigneeText, containerRows, freightText, goodsLines, insureNeeded, notifyText, shipperText } from '../domain/shipping';
 import { useData } from '../store/data';
 
 const MONO = 'var(--f-doc-num)';
@@ -121,7 +121,13 @@ function Sign({ o, left, right }: { o: Order; left: ReactNode; right: ReactNode 
   );
 }
 
-const EmptyRow = (n: number): ReactNode[][] => [[<Txt style={{ color: '#999' }}>尚未添加货物</Txt>, ...Array(n - 1).fill('')]];
+/** 还没有货物：表格留 8 行空白（预览第一行有灰色提示，导出不打印），合计、大写留空——空白模板也用这个 */
+function NoItems() {
+  return useIsPdf() ? <Txt>{' '}</Txt> : <Txt style={{ color: '#999' }}>尚未添加货物</Txt>;
+}
+const EmptyRow = (n: number): ReactNode[][] => Array.from({ length: 8 }, (_, i) => [i ? ' ' : <NoItems />, ...Array(n - 1).fill(' ')]);
+/** 没有货物时合计数字留空 */
+const nz = (k: { rows: unknown[] }, s: string) => (k.rows.length ? s : '');
 
 /* ---------- 报价单 / PI ---------- */
 function QuotePI({ o, kind }: { o: Order; kind: 'quote' | 'pi' }) {
@@ -166,10 +172,10 @@ function QuotePI({ o, kind }: { o: Order; kind: 'quote' | 'pi' }) {
         accent={a}
         cols={[{ label: 'No.', w: '5%', align: 'center' }, { label: 'Model', w: '12%' }, { label: 'Description', w: '37%' }, { label: 'Unit', w: '7%', align: 'center' }, { label: 'Qty', w: '10%', align: 'right' }, { label: `Unit Price (${c})`, w: '13%', align: 'right' }, { label: `Amount (${c})`, w: '16%', align: 'right' }]}
         rows={rows.length ? rows : EmptyRow(7)}
-        foot={[{ w: '61%', c: `TOTAL  ${(o.terms.incoterm + ' ' + o.terms.place).toUpperCase()}` }, { w: '10%', align: 'right', c: int(k.qty) }, { w: '13%', c: '' }, { w: '16%', align: 'right', c: sym(c) + money(k.amount) }]}
+        foot={[{ w: '61%', c: `TOTAL  ${(o.terms.incoterm + ' ' + o.terms.place).toUpperCase()}` }, { w: '10%', align: 'right', c: nz(k, int(k.qty)) }, { w: '13%', c: '' }, { w: '16%', align: 'right', c: nz(k, sym(c) + money(k.amount)) }]}
       />
-      <Words o={o}>{amountWords(k.amount, c)}</Words>
-      <Txt style={{ color: '#666' }}>Packing: {pk.short}  ·  G.W. {fixed(pk.gw, 2)} kg  ·  Meas. {fixed(pk.cbm, 3)} m³</Txt>
+      {k.rows.length > 0 && <Words o={o}>{amountWords(k.amount, c)}</Words>}
+      {k.rows.length > 0 && <Txt style={{ color: '#666' }}>Packing: {pk.short}  ·  G.W. {nz(k, fixed(pk.gw, 2))} kg  ·  Meas. {nz(k, fixed(pk.cbm, 3))} m³</Txt>}
       {!!o.docset.remarks && <Section o={o} title="REMARKS">{F(o, 'docset.remarks')}</Section>}
       {clauses.length > 0 && (
         <Section o={o} title="TERMS & CONDITIONS">
@@ -247,9 +253,9 @@ function Contract({ o }: { o: Order }) {
         accent={a}
         cols={[{ label: '序号 No.', w: '7%', align: 'center' }, { label: '品名及规格 Commodity & Specification', w: '43%' }, { label: '数量 Quantity', w: '15%', align: 'right' }, { label: `单价 (${c}) Unit Price`, w: '15%', align: 'right' }, { label: `金额 (${c}) Amount`, w: '20%', align: 'right' }]}
         rows={rows.length ? rows : EmptyRow(5)}
-        foot={[{ w: '50%', c: `总计 TOTAL ${(o.terms.incoterm + ' ' + o.terms.place).toUpperCase()}` }, { w: '15%', align: 'right', c: `${pk.count} ${pk.unitEn}` }, { w: '15%', c: '' }, { w: '20%', align: 'right', c: sym(c) + money(k.amount) }]}
+        foot={[{ w: '50%', c: `总计 TOTAL ${(o.terms.incoterm + ' ' + o.terms.place).toUpperCase()}` }, { w: '15%', align: 'right', c: nz(k, `${pk.count} ${pk.unitEn}`) }, { w: '15%', c: '' }, { w: '20%', align: 'right', c: nz(k, sym(c) + money(k.amount)) }]}
       />
-      <Words o={o}>金额大写 Amount in Words: {amountWords(k.amount, c)}</Words>
+      {k.rows.length > 0 && <Words o={o}>金额大写 Amount in Words: {amountWords(k.amount, c)}</Words>}
       <Box style={{ marginTop: 4 }}>
         {clauses.map(([t, v], i) => (
           <Row key={i} style={{ marginBottom: 2.5 }}>
@@ -291,9 +297,9 @@ function Invoice({ o }: { o: Order }) {
         lead={{ label: 'Marks & Nos.', w: '17%', content: <Txt style={{ fontSize: 7 }}>{F(o, 'shipping.marks', 'N/M')}</Txt> }}
         cols={[{ label: 'Description of Goods', w: '43%' }, { label: 'Quantity', w: '13%', align: 'right' }, { label: `Unit Price (${c})`, w: '12%', align: 'right' }, { label: `Amount (${c})`, w: '15%', align: 'right' }]}
         rows={rows.length ? rows : EmptyRow(4)}
-        foot={[{ w: '60%', c: 'TOTAL' }, { w: '13%', align: 'right', c: int(k.qty) }, { w: '12%', c: '' }, { w: '15%', align: 'right', c: sym(c) + money(k.amount) }]}
+        foot={[{ w: '60%', c: 'TOTAL' }, { w: '13%', align: 'right', c: nz(k, int(k.qty)) }, { w: '12%', c: '' }, { w: '15%', align: 'right', c: nz(k, sym(c) + money(k.amount)) }]}
       />
-      <Words o={o}>{amountWords(k.amount, c)}</Words>
+      {k.rows.length > 0 && <Words o={o}>{amountWords(k.amount, c)}</Words>}
       <Statement o={o} />
       <Section o={o} title="DECLARATION">
         <Txt>We hereby certify that the information on this invoice is true and correct and that the contents of this shipment are as stated above.</Txt>
@@ -334,9 +340,9 @@ function Packing({ o }: { o: Order }) {
         lead={{ label: 'Marks', w: '15%', content: <Txt style={{ fontSize: 7 }}>{F(o, 'shipping.marks', 'N/M')}</Txt> }}
         cols={[{ label: 'C/No.', w: '8%', align: 'center' }, { label: 'Description', w: '29%' }, { label: 'Qty', w: '9%', align: 'right' }, { label: 'CTNs', w: '7%', align: 'right' }, { label: 'N.W. (kg)', w: '11%', align: 'right' }, { label: 'G.W. (kg)', w: '11%', align: 'right' }, { label: 'Meas. (m³)', w: '10%', align: 'right' }]}
         rows={rows.length ? rows : EmptyRow(7)}
-        foot={[{ w: '52%', c: 'TOTAL' }, { w: '9%', align: 'right', c: int(k.qty) }, { w: '7%', align: 'right', c: String(k.ctns) }, { w: '11%', align: 'right', c: fixed(k.nw, 2) }, { w: '11%', align: 'right', c: fixed(k.gw, 2) }, { w: '10%', align: 'right', c: fixed(k.cbm, 3) }]}
+        foot={[{ w: '52%', c: 'TOTAL' }, { w: '9%', align: 'right', c: nz(k, int(k.qty)) }, { w: '7%', align: 'right', c: nz(k, String(k.ctns)) }, { w: '11%', align: 'right', c: nz(k, fixed(k.nw, 2)) }, { w: '11%', align: 'right', c: nz(k, fixed(k.gw, 2)) }, { w: '10%', align: 'right', c: nz(k, fixed(k.cbm, 3)) }]}
       />
-      <Words o={o}>{pk.words}</Words>
+      {k.rows.length > 0 && <Words o={o}>{pk.words}</Words>}
       {!!pkgNote(pk) && <Txt style={{ fontSize: 7.5, color: '#333', marginBottom: 2 }}>{pkgNote(pk)}</Txt>}
       <Statement o={o} />
       {mixedNote && <Txt style={{ fontSize: 7, color: '#666', marginTop: 4 }}>Note: goods marked MIXED are packed together in the same carton(s); the carton gross weight is allocated to each item in proportion to its net weight.</Txt>}
@@ -381,7 +387,7 @@ function CustomsDraft({ o }: { o: Order }) {
         <Row>{cell('生产销售单位', F(o, 'seller.nameCn', '[中文名称]'), 2)}{cell('监管方式', F(o, 'customs.supervision'))}{cell('征免性质', F(o, 'customs.exemption'))}</Row>
         <Row>{cell('提运单号', F(o, 'shipping.blNo', '—'))}{cell('许可证号', F(o, 'customs.license', '—'))}{cell('贸易国（地区）', F(o, 'customs.tradeCountry', '—'))}{cell('运抵国（地区）', F(o, 'customs.destCountry', '—'))}</Row>
         <Row>{cell('指运港', F(o, 'terms.pod', '—'))}{cell('离境口岸', F(o, 'terms.pol'))}{cell('包装种类', F(o, 'customs.packageType'))}{cell('件数', `${pk.count} ${pk.unitCn}`)}</Row>
-        <Row>{cell('毛重（千克）', fixed(pk.gw, 2))}{cell('净重（千克）', fixed(k.nw, 2))}{cell('成交方式', F(o, 'terms.incoterm'))}{cell('运费 / 保费', <>{F(o, 'customs.freight', '—')} / {F(o, 'customs.insFee', '—')}</>)}</Row>
+        <Row>{cell('毛重（千克）', nz(k, fixed(pk.gw, 2)))}{cell('净重（千克）', nz(k, fixed(k.nw, 2)))}{cell('成交方式', F(o, 'terms.incoterm'))}{cell('运费 / 保费', <>{F(o, 'customs.freight', '—')} / {F(o, 'customs.insFee', '—')}</>)}</Row>
         <Row>{cell('随附单证', F(o, 'customs.docs', '—'), 4)}</Row>
         <Row>{cell('标记唛码及备注', F(o, 'shipping.marks', 'N/M'), 4)}</Row>
       </Box>
@@ -421,7 +427,7 @@ function Marks({ o }: { o: Order }) {
           accent={a}
           cols={[{ label: '品名', w: '60%' }, { label: '箱号段', w: '22%', align: 'center' }, { label: '张数', w: '18%', align: 'right' }]}
           rows={k.rows.map((x) => [x.nameEn, x.n ? `${x.from}-${x.to}` : '—', String(x.n)])}
-          foot={[{ w: '82%', c: '合计（每箱一张，A4 每页 4 张）' }, { w: '18%', align: 'right', c: String(k.ctns) }]}
+          foot={[{ w: '82%', c: '合计（每箱一张，A4 每页 4 张）' }, { w: '18%', align: 'right', c: nz(k, String(k.ctns)) }]}
         />
       </Section>
     </Page>
@@ -442,7 +448,12 @@ const gcell = (label: string, v: ReactNode, span = 2, minH = 26) => (
   </Box>
 );
 const Grid = ({ children }: { children: ReactNode }) => <Box style={{ borderTop: '0.75px solid #9aa3ae', borderLeft: '0.75px solid #9aa3ae' }}>{children}</Box>;
-const ph = (v: string, p: string) => (v.trim() ? v : <Txt style={{ color: '#b8322a' }}>{p}</Txt>);
+/** 预览里的红色提示（导出的 PDF 不打印） */
+function Hint({ text }: { text: string }) {
+  return useIsPdf() ? null : <Txt style={{ color: '#b8322a' }}>{text}</Txt>;
+}
+const ph = (v: string, p: string) => (v.trim() ? v : <Hint text={p} />);
+const ref = (prefix: string, o: Order) => (o.no ? `${prefix}-${o.no}` : '');
 
 function Booking({ o }: { o: Order }) {
   const k = calcOrder(o), a = accent(o), pk = pkgSummary(o, k);
@@ -450,20 +461,20 @@ function Booking({ o }: { o: Order }) {
   const ins = insureNeeded(o);
   return (
     <Page accent={a}>
-      <Head o={o} title="BOOKING FORM" meta={[['订舱委托', `BK-${o.no}`], ['Date', F(o, 'numbers.date')], ['PO No.', F(o, 'numbers.po', '—')]]} />
+      <Head o={o} title="BOOKING FORM" meta={[['订舱委托', ref('BK', o)], ['Date', F(o, 'numbers.date')], ['PO No.', F(o, 'numbers.po', '—')]]} />
       <Txt style={{ width: '100%', textAlign: 'center', fontSize: 12, fontWeight: 700, letterSpacing: 4, marginBottom: 8 }}>订 舱 委 托 书</Txt>
       <Row style={{ justifyContent: 'space-between', marginBottom: 8 }}>
-        <Txt><B>致 TO：</B>{ff.name || <Txt style={{ color: '#b8322a' }}>[在订单菜单选择货代]</Txt>}{ff.contact ? `（${ff.contact}${ff.phone ? ' ' + ff.phone : ''}）` : ''}</Txt>
+        <Txt><B>致 TO：</B>{ff.name || (isBlank(o) ? '' : <Hint text="[在订单菜单选择货代]" />)}{ff.contact ? `（${ff.contact}${ff.phone ? ' ' + ff.phone : ''}）` : ''}</Txt>
         <Txt><B>委托方 FROM：</B>{o.seller.nameCn || o.seller.name}{o.seller.phone ? `  ${o.seller.phone}` : ''}</Txt>
       </Row>
       <Grid>
         <Row>{gcell('托运人 Shipper', shipperText(o), 2, 54)}{gcell('收货人 Consignee', ph(consigneeText(o), '[收货人]'), 2, 54)}</Row>
-        <Row>{gcell('通知人 Notify Party', ph(notifyText(o), '[通知人]'), 2, 54)}{gcell('运费 / 提单 / 贸易术语', `${freightText(o)}\n${blTypeText(o)}（${blTypeCn(o)}）\n${o.terms.incoterm} ${o.terms.place}`, 2, 54)}</Row>
+        <Row>{gcell('通知人 Notify Party', ph(notifyText(o), '[通知人]'), 2, 54)}{gcell('运费 / 提单 / 贸易术语', `${freightText(o)}\n${blTypeText(o)}${blTypeCn(o) ? `（${blTypeCn(o)}）` : ''}\n${o.terms.incoterm} ${o.terms.place}`, 2, 54)}</Row>
         <Row>{gcell('起运港 Port of Loading', F(o, 'terms.pol'), 1)}{gcell('目的港 Port of Discharge', F(o, 'terms.pod', '[目的港]'), 1)}{gcell('交货地 Place of Delivery', o.terms.deliveryAddress && needAddr(o) ? o.terms.deliveryAddress : F(o, 'terms.pod', '—'), 2)}</Row>
         <Row>{gcell('柜型柜量 Equipment', F(o, 'shipping.equipment', '[柜型柜量]'), 1)}{gcell('货好时间 Cargo Ready', F(o, 'shipping.cargoReady', '—'), 1)}{gcell('预计开船 ETD', F(o, 'shipping.etd', '—'), 1)}{gcell('运输方式', o.terms.transport, 1)}</Row>
-        <Row>{gcell('件数 Packages', `${pk.count} ${pk.unitEn}${pk.contains ? `\n(${pk.contains})` : ''}`, 1)}{gcell('毛重 G.W.', `${fixed(pk.gw, 2)} KGS`, 1)}{gcell('体积 Meas.', `${fixed(pk.cbm, 3)} CBM`, 1)}{gcell('净重 N.W.', `${fixed(k.nw, 2)} KGS`, 1)}</Row>
+        <Row>{gcell('件数 Packages', nz(k, `${pk.count} ${pk.unitEn}${pk.contains ? `\n(${pk.contains})` : ''}`), 1)}{gcell('毛重 G.W.', `${nz(k, fixed(pk.gw, 2))} KGS`, 1)}{gcell('体积 Meas.', `${nz(k, fixed(pk.cbm, 3))} CBM`, 1)}{gcell('净重 N.W.', `${nz(k, fixed(k.nw, 2))} KGS`, 1)}</Row>
         <Row>{gcell('品名 Description of Goods / HS Code', goodsLines(o, k).join('\n') || '—', 3, 40)}{gcell('唛头 Marks', F(o, 'shipping.marks', 'N/M'), 1, 40)}</Row>
-        <Row>{gcell('投保 Insurance', ins ? `请代为投保，保额按发票金额 110%（发票金额 ${sym(o.terms.currency)}${money(k.amount)}）\nPlease arrange insurance for 110% of invoice value.` : '无需投保 No insurance required.', 4)}</Row>
+        <Row>{gcell('投保 Insurance', isBlank(o) ? '' : ins ? `请代为投保，保额按发票金额 110%（发票金额 ${sym(o.terms.currency)}${nz(k, money(k.amount))}）\nPlease arrange insurance for 110% of invoice value.` : '无需投保 No insurance required.', 4)}</Row>
         <Row>{gcell('特殊要求 Remarks', o.shipping.bookingNote || '—', 4, 34)}</Row>
       </Grid>
       <Txt style={{ marginTop: 8, color: '#555', fontSize: 7 }}>请确认船期后回传订舱确认（S/O），并在开船前发送提单草稿核对。Please confirm the booking and send us the draft B/L before sailing.</Txt>
@@ -477,7 +488,7 @@ function Si({ o }: { o: Order }) {
   const boxes = containerRows(o, k);
   return (
     <Page accent={a}>
-      <Head o={o} title="SHIPPING INSTRUCTION" meta={[['Ref.', `SI-${o.no}`], ['B/L No.', F(o, 'shipping.blNo', '—')], ['Date', F(o, 'numbers.date')]]} />
+      <Head o={o} title="SHIPPING INSTRUCTION" meta={[['Ref.', ref('SI', o)], ['B/L No.', F(o, 'shipping.blNo', '—')], ['Date', F(o, 'numbers.date')]]} />
       <Grid>
         <Row>{gcell('SHIPPER', shipperText(o), 2, 54)}{gcell('VESSEL / VOYAGE · PORTS', <>{F(o, 'shipping.vessel', '[船名航次]')}{'\n'}POL: {F(o, 'terms.pol')}{'\n'}POD: {F(o, 'terms.pod', '[目的港]')}{o.terms.deliveryAddress && needAddr(o) ? `\nPLACE OF DELIVERY: ${o.terms.deliveryAddress}` : ''}</>, 2, 54)}</Row>
         <Row>{gcell('CONSIGNEE', ph(consigneeText(o), '[收货人]'), 2, 54)}{gcell('NOTIFY PARTY', ph(notifyText(o), '[通知人]'), 2, 54)}</Row>
@@ -487,7 +498,7 @@ function Si({ o }: { o: Order }) {
         <Table
           accent={a}
           cols={[{ label: 'Marks & Nos.', w: '20%' }, { label: 'No. & Kind of Packages', w: '17%', align: 'center' }, { label: 'Description of Goods', w: '39%' }, { label: 'G.W. (KGS)', w: '12%', align: 'right' }, { label: 'Meas. (CBM)', w: '12%', align: 'right' }]}
-          rows={[[F(o, 'shipping.marks', 'N/M'), `${pk.count} ${pk.unitEn}${pk.contains ? `\n(${k.ctns} CARTONS)` : ''}`, goodsLines(o, k).join('\n') || '—', fixed(pk.gw, 2), fixed(pk.cbm, 3)]]}
+          rows={[[F(o, 'shipping.marks', 'N/M'), `${pk.count} ${pk.unitEn}${pk.contains ? `\n(${k.ctns} CARTONS)` : ''}`, goodsLines(o, k).join('\n') || '—', nz(k, fixed(pk.gw, 2)), nz(k, fixed(pk.cbm, 3))]]}
         />
       </Box>
       {boxes.length > 0 && (
@@ -499,7 +510,7 @@ function Si({ o }: { o: Order }) {
           />
         </Box>
       )}
-      <Words o={o}>{pk.words}</Words>
+      {k.rows.length > 0 && <Words o={o}>{pk.words}</Words>}
       <Txt style={{ color: '#555' }}>{freightText(o)} · {blTypeText(o)}{o.shipping.bookingNote ? ` · ${o.shipping.bookingNote}` : ''}</Txt>
       <Sign o={o} left={<>For and on behalf of <B>{o.seller.name}</B></>} right="Authorized Signature" />
     </Page>
@@ -520,11 +531,11 @@ function Advice({ o }: { o: Order }) {
       <Txt style={{ marginBottom: 10 }}>We are pleased to advise that the goods under the above order have been shipped. Details are as follows:</Txt>
       <Box style={{ padding: '8px 10px', background: '#f6f7f9', marginBottom: 10 }}>
         {line('Commodity', goodsLines(o, k, false).join('\n') || '—')}
-        {line('Quantity', `${int(k.qty)} ${k.rows[0]?.unit ?? 'PCS'}`)}
+        {line('Quantity', `${nz(k, int(k.qty))} ${k.rows[0]?.unit ?? 'PCS'}`)}
         {line('Packages', `${pk.count} ${pk.unitEn}${pk.contains ? ` (${pk.contains})` : ''}`)}
-        {line('Gross / Net Weight', `${fixed(pk.gw, 2)} KGS / ${fixed(k.nw, 2)} KGS`)}
-        {line('Measurement', `${fixed(pk.cbm, 3)} CBM`)}
-        {line('Invoice Amount', `${c} ${money(k.amount)}`)}
+        {line('Gross / Net Weight', `${nz(k, fixed(pk.gw, 2))} KGS / ${nz(k, fixed(k.nw, 2))} KGS`)}
+        {line('Measurement', `${nz(k, fixed(pk.cbm, 3))} CBM`)}
+        {line('Invoice Amount', `${c} ${nz(k, money(k.amount))}`)}
         {line('Vessel / Voyage', F(o, 'shipping.vessel', '[船名航次]'))}
         {line('B/L No.', F(o, 'shipping.blNo', '[提单号]'))}
         {line('Container / Seal', boxes.length ? boxes.map((b) => `${b.no || '—'} / ${b.seal || '—'}${b.type ? ` (${b.type})` : ''}`).join('\n') : '—')}
@@ -544,7 +555,11 @@ const NO_ASSETS: DocAssets = { logo: '', stamp: '', signature: '' };
 const DEFAULT_LABELS: LabelOptions = { layout: 'a4-4', info: true };
 
 export function DocView({ doc, order, assets = NO_ASSETS, labels = DEFAULT_LABELS }: { doc: DocKey; order: Order; assets?: DocAssets; labels?: LabelOptions }) {
-  return <AssetsProvider value={assets}><DocBody doc={doc} order={order} labels={labels} /></AssetsProvider>;
+  return (
+    <AssetsProvider value={assets}>
+      <CleanProvider value={isBlank(order)}><DocBody doc={doc} order={order} labels={labels} /></CleanProvider>
+    </AssetsProvider>
+  );
 }
 
 function DocBody({ doc, order, labels }: { doc: DocKey; order: Order; labels: LabelOptions }) {

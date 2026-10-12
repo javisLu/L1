@@ -3,7 +3,7 @@ import { DOCNAMES, EXT, docFile, type DocKey, type Fmt } from '../modules/defs';
 import { saveFiles, type OutFile, type SaveResult } from './save';
 import { useData } from '../store/data';
 import { useUI } from '../store/ui';
-import type { ExcelTpl, Order } from '../domain/types';
+import type { Order } from '../domain/types';
 
 export const orderFolder = (o: Order) => `${o.no} ${o.name}`;
 
@@ -38,22 +38,14 @@ export async function exportOne(o: Order, doc: DocKey, fmt: Fmt): Promise<SaveRe
 }
 
 /** 按收件人打包：生成所选单据的各格式文件，压缩为一个 zip */
-export async function exportBundle(o: Order, items: { doc: DocKey; fmt: Fmt }[], bundle: string, tpls: ExcelTpl[] = []): Promise<SaveResult & { name: string; count: number }> {
+export async function exportBundle(o: Order, items: { doc: DocKey; fmt: Fmt }[], bundle: string): Promise<SaveResult & { name: string; count: number }> {
   const zip = new JSZip();
   for (const it of items) {
     const f = await buildFile(o, it.doc, it.fmt);
     zip.file(f.name, f.data);
   }
-  // 客户 / 货代自己的 Excel 格式
-  if (tpls.length) {
-    const { buildTplFile } = await import('../components/templates');
-    for (const t of tpls) {
-      const f = await buildTplFile(o, t);
-      zip.file(f.name, f.data);
-    }
-  }
   const data = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
   const name = `${o.no}_${o.name}_${bundle}.zip`;
   const r = await saveFiles(orderFolder(o), [{ name, data }]);
-  return { ...r, name, count: items.length + tpls.length };
+  return { ...r, name, count: items.length };
 }

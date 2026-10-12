@@ -10,7 +10,7 @@ import { ExportCenter } from './pages/ExportCenter';
 import { Clauses, Customers, HsMemory, Partners, Products } from './pages/Libraries';
 import { QuoteCalc } from './pages/QuoteCalc';
 import { Settings } from './pages/Settings';
-import { TemplatesPage } from './components/templates';
+import { DocLibrary } from './pages/DocLibrary';
 import { autoBackupIfDue } from './io/backupService';
 import { MODS } from './modules/defs';
 
@@ -57,7 +57,7 @@ function Screen() {
     case 'clauses': return <Clauses />;
     case 'calc': return <QuoteCalc />;
     case 'settings': return <Settings />;
-    case 'templates': return <TemplatesPage />;
+    case 'doclib': return <DocLibrary />;
     default: return <Home />;
   }
 }

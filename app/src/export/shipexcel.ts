@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import { THEMES } from '../domain/constants';
 import { calcOrder, money, needAddr, sym, toNum } from '../domain/calc';
 import { pkgSummary } from '../domain/package';
-import { blTypeCn, blTypeText, consigneeText, containerRows, freightText, goodsLines, insureNeeded, notifyText, shipperText } from '../domain/shipping';
+import { isBlank, blTypeCn, blTypeText, consigneeText, containerRows, freightText, goodsLines, insureNeeded, notifyText, shipperText } from '../domain/shipping';
 import { docFile } from '../modules/defs';
 import type { Order } from '../domain/types';
 
@@ -48,29 +48,32 @@ export async function renderShipExcel(o: Order, doc: 'booking' | 'si', forwarder
   r += 2;
   const dest = o.terms.deliveryAddress && needAddr(o) ? o.terms.deliveryAddress : o.terms.pod;
   const goods = goodsLines(o, k).join('\n');
-  const pkgText = `${pk.count} ${pk.unitEn}${pk.contains ? ` (${pk.contains})` : ''}`;
+  // 还没有货物（空白模板）：件数、重量、体积留空
+  const has = k.rows.length > 0;
+  const z = (x: string) => (has ? x : '');
+  const pkgText = z(`${pk.count} ${pk.unitEn}${pk.contains ? ` (${pk.contains})` : ''}`);
 
   if (doc === 'booking') {
     title('订舱委托书  BOOKING FORM');
     r++;
-    pair('致 TO', forwarder || '', '委托编号 Ref.', `BK-${o.no}`);
+    pair('致 TO', forwarder || '', '委托编号 Ref.', o.no ? `BK-${o.no}` : '');
     pair('委托方 FROM', `${o.seller.nameCn || o.seller.name}  ${o.seller.phone}`, '日期 Date', o.numbers.date);
     pair('托运人 Shipper', shipperText(o), '收货人 Consignee', consigneeText(o));
-    pair('通知人 Notify Party', notifyText(o), '运费 / 提单 / 术语', `${freightText(o)}\n${blTypeText(o)}（${blTypeCn(o)}）\n${o.terms.incoterm} ${o.terms.place}`);
+    pair('通知人 Notify Party', notifyText(o), '运费 / 提单 / 术语', `${freightText(o)}\n${blTypeText(o)}${blTypeCn(o) ? `（${blTypeCn(o)}）` : ''}\n${o.terms.incoterm} ${o.terms.place}`);
     pair('起运港 POL', o.terms.pol, '目的港 POD', o.terms.pod);
     pair('交货地 Place of Delivery', dest, '运输方式', o.terms.transport);
     pair('柜型柜量 Equipment', o.shipping.equipment ?? '', '货好时间 Cargo Ready', o.shipping.cargoReady ?? '');
     pair('预计开船 ETD', o.shipping.etd, 'PO No.', o.numbers.po);
-    pair('件数 Packages', pkgText, '毛重 G.W. (KGS)', pk.gw.toFixed(2));
-    pair('体积 Meas. (CBM)', pk.cbm.toFixed(3), '净重 N.W. (KGS)', k.nw.toFixed(2));
+    pair('件数 Packages', pkgText, '毛重 G.W. (KGS)', z(pk.gw.toFixed(2)));
+    pair('体积 Meas. (CBM)', z(pk.cbm.toFixed(3)), '净重 N.W. (KGS)', z(k.nw.toFixed(2)));
     pair('品名 / HS Code', goods);
     pair('唛头 Marks', o.shipping.marks || 'N/M');
-    pair('投保 Insurance', insureNeeded(o) ? `请代为投保，保额按发票金额 110%（发票金额 ${sym(o.terms.currency)}${money(k.amount)}）` : '无需投保');
+    pair('投保 Insurance', isBlank(o) ? '' : insureNeeded(o) ? `请代为投保，保额按发票金额 110%${has ? `（发票金额 ${sym(o.terms.currency)}${money(k.amount)}）` : ''}` : '无需投保');
     pair('特殊要求 Remarks', o.shipping.bookingNote ?? '');
   } else {
     title('SHIPPING INSTRUCTION');
     r++;
-    pair('Ref.', `SI-${o.no}`, 'B/L No.', o.shipping.blNo);
+    pair('Ref.', o.no ? `SI-${o.no}` : '', 'B/L No.', o.shipping.blNo);
     pair('SHIPPER', shipperText(o), 'VESSEL / VOYAGE', o.shipping.vessel);
     pair('CONSIGNEE', consigneeText(o), 'NOTIFY PARTY', notifyText(o));
     pair('PORT OF LOADING', o.terms.pol, 'PORT OF DISCHARGE', o.terms.pod);
@@ -78,8 +81,8 @@ export async function renderShipExcel(o: Order, doc: 'booking' | 'si', forwarder
     pair('FREIGHT', freightText(o), 'B/L TYPE', blTypeText(o));
     pair('MARKS & NOS.', o.shipping.marks || 'N/M');
     pair('DESCRIPTION OF GOODS', goods);
-    pair('PACKAGES', pkgText, 'G.W. (KGS)', pk.gw.toFixed(2));
-    pair('MEAS. (CBM)', pk.cbm.toFixed(3), 'INVOICE / PO', [o.numbers.ci, o.numbers.po].filter(Boolean).join(' / '));
+    pair('PACKAGES', pkgText, 'G.W. (KGS)', z(pk.gw.toFixed(2)));
+    pair('MEAS. (CBM)', z(pk.cbm.toFixed(3)), 'INVOICE / PO', [o.numbers.ci, o.numbers.po].filter(Boolean).join(' / '));
     const boxes = containerRows(o, k);
     if (boxes.length) {
       r++;
@@ -93,7 +96,7 @@ export async function renderShipExcel(o: Order, doc: 'booking' | 'si', forwarder
     }
     r++;
     ws.mergeCells(r, 1, r, 4);
-    ws.getCell(r, 1).value = pk.words; ws.getCell(r, 1).font = { name: 'Arial', bold: true, size: 10 };
+    ws.getCell(r, 1).value = z(pk.words); ws.getCell(r, 1).font = { name: 'Arial', bold: true, size: 10 };
   }
   ws.headerFooter.oddFooter = `&L${docFile(o, doc)}&R&P / &N`;
   const buf = await wb.xlsx.writeBuffer();

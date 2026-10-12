@@ -30,8 +30,11 @@ export function Img({ src, style }: { src: string; style?: St }) {
   if (pdf) return <pdf.Image src={src} style={[pdf.style(style ?? {}), { objectFit: 'contain', objectPositionX: 0 }] as never} />;
   return <img src={src} alt="" style={{ display: 'block', objectFit: 'contain', ...style }} />;
 }
-/** 是否在渲染导出用的 PDF（预览专用的提示元素在 PDF 里不输出） */
-export const useIsPdf = () => useContext(Pdf) != null;
+/** 「干净」预览：空白模板的缩略图 / 预览和导出的文件一样，不显示红色占位和提示 */
+const Clean = createContext(false);
+export const CleanProvider = Clean.Provider;
+/** 是否不显示预览专用的提示元素（导出 PDF，或空白模板的干净预览） */
+export const useIsPdf = () => useContext(Pdf) != null || useContext(Clean);
 
 const InText = createContext(false);
 
@@ -65,10 +68,12 @@ export function Txt({ style, children }: { style?: St; children?: ReactNode }) {
 /** 可点击字段：点预览上的内容跳到对应输入框；空值显示红色占位 */
 export function Fld({ p, v, ph = '待填写', style }: { p: string; v: unknown; ph?: string; style?: St }) {
   const pdf = useContext(Pdf);
+  const clean = useContext(Clean);
   const s = v == null ? '' : String(v);
   const empty = !s.trim();
   // 导出的 PDF 里空字段留白，不打印占位提示
   if (pdf) return <pdf.Text style={pdf.style(style ?? {})}>{empty ? '' : s}</pdf.Text>;
+  if (clean && empty) return null;
   return (
     <span className={'fld' + (empty ? ' miss' : '')} data-f={p} style={{ whiteSpace: 'pre-line', ...style }}>
       {empty ? ph : s}

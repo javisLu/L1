@@ -600,44 +600,20 @@ button.last-exp:hover{background:var(--surface-2)}
 .seg.sm button{padding:4px 10px;font-size:12px;white-space:nowrap;flex:none}
 .diff-note textarea{width:100%;border:1px solid var(--line-2);border-radius:6px;padding:10px 12px;font:12.5px/1.55 var(--f-num);background:var(--surface-2);color:var(--ink);resize:vertical}
 
-/* Excel 模板 */
-.tpl-intro{margin-bottom:16px;line-height:1.7}
-.tpl-intro code,.tpl-hint code{font:12px var(--f-num);background:var(--surface-2);padding:1px 5px;border-radius:4px}
-.tpl-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-.tpl-card{padding:14px 16px;display:flex;flex-direction:column;gap:6px}
-.tpl-card-h{display:flex;align-items:center;gap:8px}
-.tpl-card-h .code{font:500 11px var(--f-num);color:var(--ok);border:1.5px solid currentColor;border-radius:4px;padding:0 5px}
-.tpl-card-h b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tpl-card small{font-size:12px}
-.tpl-card-a{display:flex;gap:6px;margin-top:4px}
-.tpl-ed{display:flex;flex-direction:column;gap:12px}
-.tpl-top{display:flex;gap:12px;flex-wrap:wrap}
-.tpl-top label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink-2);flex:1;min-width:160px}
-.tpl-ed input,.tpl-ed select{border:1px solid var(--line-2);border-radius:6px;padding:6px 8px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;min-width:0}
-.tpl-hint{font-size:12.5px;margin:0}
-.tpl-sec{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
-.tpl-sec h4{font-size:13px;margin:0 0 8px}
-.tpl-sec h4 .muted{font-weight:400;font-size:12px}
-.tpl-row{display:grid;grid-template-columns:90px minmax(0,1fr) auto minmax(150px,220px) auto;align-items:center;gap:8px;padding:4px 0;border-top:1px dashed var(--line);font-size:13px}
-.tpl-row:first-of-type{border-top:0}
-.tpl-row code{font:12px var(--f-num);color:var(--ink-2)}
-.tpl-row .tpl-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
-.tpl-arrow{font-size:12px;color:var(--ink-3)}
-.tpl-row.add{grid-template-columns:auto minmax(0,140px) auto minmax(150px,220px) auto;justify-content:start}
-.tpl-row .del{border:0;background:none;color:var(--ink-3);padding:4px 8px;border-radius:4px}
-.tpl-row .del:hover{color:var(--stamp);background:var(--stamp-soft)}
-.tpl-cols{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
-.tpl-col{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--ink-2);min-width:120px}
-.tpl-ph{display:flex;flex-wrap:wrap;gap:6px}
-.tpl-ph code,.tpl-ph button{font:12px var(--f-num);background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:2px 7px;color:var(--ink)}
-.tpl-ph button:hover{border-color:var(--brand);color:var(--brand)}
-.tpl-ph code.bad{border-color:var(--stamp);color:var(--stamp)}
-.tpl-warn{font-size:12px;color:var(--stamp);margin:6px 0 0}
-.tpl-fields{display:flex;flex-direction:column;gap:12px}
-.tpl-fields h4{font-size:13px;margin:0 0 6px}
-.tpl-foot{margin:4px -20px -16px;align-items:center}
-.tpl-try{display:flex;align-items:center;gap:6px;margin-right:auto;font-size:12.5px;color:var(--ink-2);flex-wrap:wrap}
-@media (max-width:640px){
-  .tpl-row,.tpl-row.add{grid-template-columns:1fr auto}
-  .tpl-row .tpl-arrow{display:none}
-}
+/* 单据模板库 */
+.dlib-intro{margin-bottom:16px;line-height:1.7}
+.dlib-pick{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+.dlib-pick select{border:1px solid var(--line-2);border-radius:6px;padding:6px 8px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;max-width:320px}
+.dlib{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px}
+.dlib-card{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"tb body" "acts acts";gap:12px 14px;padding:12px;min-width:0}
+.dlib-tb{grid-area:tb;border:1px solid var(--line);background:var(--desk);border-radius:6px;padding:5px;cursor:zoom-in;align-self:start}
+.dlib-tb:hover{border-color:var(--brand)}
+.dlib-thumb{width:calc(595px * 0.3);height:calc(842px * 0.3);overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.dlib-body{grid-area:body;display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.dlib-body b{font-size:15px}
+.dlib-body small{font-size:12.5px;color:var(--ink-3);line-height:1.55}
+.dlib-acts{grid-area:acts;display:flex;flex-direction:column;gap:6px;border-top:1px dashed var(--line);padding-top:10px}
+.dlib-act{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dlib-act > span:first-child{font-size:12px;color:var(--ink-3);width:72px}
+.dlib-pv .pv{min-height:70dvh;border:0}
+@media (max-width:640px){.dlib{grid-template-columns:1fr}}

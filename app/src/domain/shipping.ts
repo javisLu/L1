@@ -21,8 +21,12 @@ export function consigneeText(o: Order): string {
   return buyerText(o);
 }
 
+/** 单据模板库里的空白单据：自动推出来的默认值（运费条款、提单类型、通知人…）都留空 */
+export const isBlank = (o: Order) => o.id === '__blank__';
+
 /** 通知人（提单 Notify Party） */
 export function notifyText(o: Order): string {
+  if (isBlank(o)) return '';
   const m = o.shipping.notifyMode ?? 'auto';
   if (m === 'custom') return o.shipping.notify ?? '';
   if (m === 'buyer') return buyerText(o);
@@ -31,18 +35,19 @@ export function notifyText(o: Order): string {
 
 export const autoFreight = (o: Order): 'PREPAID' | 'COLLECT' => (PREPAID_TERMS.includes(o.terms.incoterm) ? 'PREPAID' : 'COLLECT');
 export const freightOf = (o: Order) => o.shipping.freight || autoFreight(o);
-export const freightText = (o: Order) => `FREIGHT ${freightOf(o)}`;
+export const freightText = (o: Order) => (isBlank(o) ? '' : `FREIGHT ${freightOf(o)}`);
 export const insureNeeded = (o: Order) => (o.shipping.insure ? o.shipping.insure === 'yes' : INSURE_TERMS.includes(o.terms.incoterm));
 
 /** 提单类型文字：3/3 ORIGINAL B/L、TELEX RELEASE、SEA WAYBILL */
 export function blTypeText(o: Order): string {
+  if (isBlank(o)) return '';
   const t = o.shipping.blType ?? 'original';
   if (t === 'telex') return 'TELEX RELEASE';
   if (t === 'seaway') return 'SEA WAYBILL';
   const n = Math.max(1, Math.round(toNum(o.shipping.originals ?? 3)) || 3);
   return `${n}/${n} ORIGINAL B/L`;
 }
-export const blTypeCn = (o: Order) => ({ original: '正本提单', telex: '电放', seaway: '海运单' })[o.shipping.blType ?? 'original'];
+export const blTypeCn = (o: Order) => (isBlank(o) ? '' : { original: '正本提单', telex: '电放', seaway: '海运单' }[o.shipping.blType ?? 'original']);
 
 /** 柜子明细：填了多柜明细用明细，否则用柜号 / 封号 + 整票件毛体 */
 export function containerRows(o: Order, k: Totals = calcOrder(o)): ContainerRow[] {

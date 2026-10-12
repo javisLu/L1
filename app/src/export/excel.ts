@@ -189,6 +189,17 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
       if (c.num) cell.numFmt = c.num;
     });
   });
+  // 还没有货物（空白模板）：留 8 行带框的空行，方便手写或填写
+  if (!k.rows.length)
+    for (let i = 0; i < 8; i++) {
+      r++;
+      cols.forEach((_c, ci) => {
+        const cell = ws.getCell(r, ci + 1);
+        cell.border = box;
+        cell.font = { name: 'Arial', size: 9 };
+      });
+      ws.getRow(r).height = 20;
+    }
   // 箱单：混装箱的箱号、箱数合并单元格（与工厂箱单的写法一致），每行仍有自己的净重和分摊后的毛重
   if (doc === 'pl') {
     k.rows.forEach((row, i) => {
@@ -219,7 +230,8 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
   r += 2;
 
   // 大写与备注
-  if (doc === 'pl') {
+  if (!k.rows.length) { /* 没有货物：不写大写 */ }
+  else if (doc === 'pl') {
     line(pk.words, { bold: true, size: 10 });
     if (pkgNote(pk)) line(pkgNote(pk), { size: 9 });
   }

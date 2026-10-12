@@ -2,7 +2,7 @@ import { toast, useUI } from '../store/ui';
 import { DOCNAMES, type DocKey, type Fmt } from '../modules/defs';
 import { useData } from '../store/data';
 import { takeSnap } from '../domain/history';
-import type { ExcelTpl, Order } from '../domain/types';
+import type { Order } from '../domain/types';
 
 /** 导出过程只占一条提示：「正在生成…」完成后原地换成结果 */
 const KEY = 'export';
@@ -35,10 +35,10 @@ export function exportDoc(o: Order, doc: DocKey, fmt: Fmt) {
     (r) => useData.getState().markExported(o.id, { docs: [doc], snap, file: r.name }));
 }
 
-export function exportZip(o: Order, items: { doc: DocKey; fmt: Fmt }[], bundle: string, tpls: ExcelTpl[] = []) {
-  if (!items.length && !tpls.length) return toast('请先勾选要导出的单据');
+export function exportZip(o: Order, items: { doc: DocKey; fmt: Fmt }[], bundle: string) {
+  if (!items.length) return toast('请先勾选要导出的单据');
   const docs = [...new Set(items.map((x) => x.doc))];
   const snap = takeSnap(o);
-  return run(`${bundle}资料包`, async () => (await import('./index')).exportBundle(o, items, bundle, tpls), (r) => `已打包 ${r.count} 个文件：${r.name}`,
-    (r) => void (docs.length && useData.getState().markExported(o.id, { docs, snap, to: bundle, file: r.name })));
+  return run(`${bundle}资料包`, async () => (await import('./index')).exportBundle(o, items, bundle), (r) => `已打包 ${r.count} 个文件：${r.name}`,
+    (r) => useData.getState().markExported(o.id, { docs, snap, to: bundle, file: r.name }));
 }

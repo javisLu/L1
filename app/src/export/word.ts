@@ -61,6 +61,9 @@ export async function renderContractDocx(o: Order, assets?: DocAssets): Promise<
     children: ['序号\nNo.', '品名及规格\nCommodity & Specification', '数量\nQuantity', `单价 (${c})\nUnit Price`, `金额 (${c})\nAmount`].map((t, i) =>
       cell(t, { head: true, width: W[i], align: AlignmentType.CENTER })),
   });
+  // 还没有货物（空白模板）：留 8 行空行，合计、大写留空
+  const blank = !k.rows.length;
+  const blankRows = Array.from({ length: blank ? 8 : 0 }, () => new TableRow({ children: W.map((w) => cell(' ', { width: w })) }));
   const rows = k.rows.map((r, i) => new TableRow({
     children: [
       cell(String(i + 1), { width: W[0], align: AlignmentType.CENTER }),
@@ -73,9 +76,9 @@ export async function renderContractDocx(o: Order, assets?: DocAssets): Promise<
   const total = new TableRow({
     children: [
       new TableCell({ columnSpan: 2, width: { size: W[0] + W[1], type: WidthType.PERCENTAGE }, borders, margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: [para(runs(`总计 TOTAL ${(o.terms.incoterm + ' ' + o.terms.place).toUpperCase()}`, { bold: true, size: 9 }))] }),
-      cell(`${pk.count} ${pk.unitEn}`, { width: W[2], align: AlignmentType.RIGHT, bold: true }),
+      cell(blank ? '' : `${pk.count} ${pk.unitEn}`, { width: W[2], align: AlignmentType.RIGHT, bold: true }),
       cell('', { width: W[3] }),
-      cell(sym(c) + money(k.amount), { width: W[4], align: AlignmentType.RIGHT, bold: true }),
+      cell(blank ? '' : sym(c) + money(k.amount), { width: W[4], align: AlignmentType.RIGHT, bold: true }),
     ],
   });
 
@@ -129,8 +132,8 @@ export async function renderContractDocx(o: Order, assets?: DocAssets): Promise<
         para([run('电话 Tel: '), run(o.buyer.phone)], { after: 160 }),
         para([run('双方同意按下列条款由卖方出售、买方购进下述商品：')]),
         para([run('This Contract is made by and between the Buyer and the Seller, whereby the Buyer agrees to buy and the Seller agrees to sell the under-mentioned goods on the terms and conditions stated below:', { italics: true, color: '555555', size: 9 })], { after: 160 }),
-        new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows, total] }),
-        para([run('金额大写 Amount in Words: ', { bold: true }), run(amountWords(k.amount, c), { bold: true })], { before: 160, after: 200 }),
+        new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows, ...blankRows, total] }),
+        para([run('金额大写 Amount in Words: ', { bold: true }), run(blank ? '' : amountWords(k.amount, c), { bold: true })], { before: 160, after: 200 }),
         ...clauseParas,
         para([], { after: 300 }),
         new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [new TableRow({ children: [signCell('卖方 THE SELLER', sellerImages), signCell('买方 THE BUYER')] })] }),
