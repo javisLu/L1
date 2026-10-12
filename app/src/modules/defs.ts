@@ -321,7 +321,7 @@ export function neededMods(o: Order): Set<ModKey> {
 export const inputId = (p: string) => 'in-' + p.replace(/[.*]/g, '-');
 
 /* ---------- 导出中心 ---------- */
-export type ExpKey = DocKey | 'po';
+export type ExpKey = DocKey | 'po' | `tpl:${string}`;
 export const EXPDOCS: { key: ExpKey; name: string; ph?: string }[] = [
   { key: 'quote', name: '报价单' }, { key: 'pi', name: 'PI 形式发票' }, { key: 'contract', name: '销售合同' },
   { key: 'ci', name: '商业发票' }, { key: 'pl', name: '装箱单' }, { key: 'customs', name: '报关预录入表' }, { key: 'marks', name: '唛头' },

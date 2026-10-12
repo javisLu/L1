@@ -11,7 +11,7 @@ import type { Order } from '../domain/types';
 export const orderAmount = (o: Order) => sym(o.terms.currency) + money(calcOrder(o).amount);
 
 export function Home() {
-  const { orders, customers, products, partners } = useData();
+  const { orders, customers, products, partners, templates = [] } = useData();
   const ui = useUI();
   const duplicate = useData((s) => s.duplicateOrder);
   const sorted = [...orders].sort((a, b) => b.no.localeCompare(a.no));
@@ -101,6 +101,7 @@ export function Home() {
               {lib('products', '产品', '产品库', '型号、HS、箱规、重量', products.length)}
               {lib('clauses', '条款', '条款库', '合同条款、付款、交货等')}
               {lib('hs', 'HS', 'HS 记忆库', '品名 ↔ 编码 ↔ 申报要素', products.length)}
+              {lib('templates', 'XLS', 'Excel 模板', '客户、货代的固定格式，一键填好', templates.length)}
               {lib('settings', '设置', '设置', '公司信息、Logo、公章、编号、备份')}
             </div></div>
             <div className="side-group"><h3>小工具</h3><div className="lib">

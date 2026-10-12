@@ -10,15 +10,17 @@ import { confirmAction } from '../components/confirm';
 import { pkgSummary } from '../domain/package';
 import { docState, shortStamp } from '../domain/exports';
 import { docVersions } from '../domain/history';
+import { exportTpl, tplMatches } from '../components/templates';
 import { openDiff } from '../components/history';
-import type { Order } from '../domain/types';
+import type { ExcelTpl, Order } from '../domain/types';
 
 const isDoc = (k: ExpKey): k is DocKey => k in DOC_FMT;
+const NO_TPL: ExcelTpl[] = [];
 
-function mailText(o: Order, bundle: Bundle, sel: ExpKey[], partnerContact?: string) {
+function mailText(o: Order, bundle: Bundle, sel: ExpKey[], partnerContact?: string, extra: string[] = []) {
   const k = calcOrder(o);
   const pk = pkgSummary(o, k);
-  const names = sel.map((d) => EXPDOCS.find((x) => x.key === d)?.name).filter(Boolean);
+  const names = [...sel.map((d) => EXPDOCS.find((x) => x.key === d)?.name).filter(Boolean), ...extra];
   if (bundle === '客户') {
     const first = (o.buyer.contact || 'Sir/Madam').split(' ')[0];
     return `Dear ${first},\n\nPlease find attached the documents for order ${o.numbers.po || o.no}:\n${names.map((x) => '- ' + x).join('\n')}\n\nTotal amount: ${o.terms.currency} ${money(k.amount)} (${o.terms.incoterm} ${o.terms.place})\nPayment: ${o.terms.paymentText}\nPacking: ${pk.short}, G.W. ${fixed(pk.gw, 2)} kg, ${fixed(pk.cbm, 2)} CBM\n\nPlease check and confirm at your earliest convenience.\n\nBest regards,\n${o.seller.name}`;
@@ -30,8 +32,13 @@ function mailText(o: Order, bundle: Bundle, sel: ExpKey[], partnerContact?: stri
 export function ExportCenter({ order: o }: { order: Order }) {
   const ui = useUI();
   const partners = useData((s) => s.partners);
+  // 注意：选择器里不能写 `?? []`（每次返回新数组会无限重渲染）
+  const templates = useData((s) => s.templates) ?? NO_TPL;
   const avail = EXPDOCS.filter((d) => !d.ph).map((d) => d.key);
-  const sel = ui.expSel ?? BUNDLES[ui.bundle].filter((d) => avail.includes(d));
+  // 绑定给这个收件人（或这一类收件人）的模板默认勾上
+  const tplDefault = templates.filter((t) => tplMatches(t, o, ui.bundle)).map((t) => `tpl:${t.id}` as ExpKey);
+  const sel = ui.expSel ?? [...BUNDLES[ui.bundle].filter((d) => avail.includes(d)), ...tplDefault];
+  const selTpls = templates.filter((t) => sel.includes(`tpl:${t.id}`));
   const focus: DocKey = ui.expDoc ?? (sel.find(isDoc) || 'pi');
   const fmts = (d: DocKey): Fmt[] => {
     const f = DOC_FMT[d];
@@ -43,7 +50,7 @@ export function ExportCenter({ order: o }: { order: Order }) {
     return f;
   };
   const pid = o.partners[ui.bundle === '报关行' ? 'broker' : ui.bundle === '货代' ? 'forwarder' : 'factory'];
-  const mail = mailText(o, ui.bundle, sel, partners.find((p) => p.id === pid)?.contact);
+  const mail = mailText(o, ui.bundle, sel, partners.find((p) => p.id === pid)?.contact, selTpls.map((t) => t.name));
 
   return (
     <>
@@ -83,6 +90,24 @@ export function ExportCenter({ order: o }: { order: Order }) {
               </label>
             ))}
           </div>
+          {templates.length > 0 && (
+            <>
+              <div className="eyebrow" style={{ margin: '-6px 0 8px' }}>自己的 Excel 格式</div>
+              <div className="dl">
+                {templates.map((t) => {
+                  const k = `tpl:${t.id}` as ExpKey;
+                  return (
+                    <label key={t.id}>
+                      <input type="checkbox" checked={sel.includes(k)} onChange={(e) => ui.set({ expSel: e.target.checked ? [...sel, k] : sel.filter((x) => x !== k) })} />
+                      {t.name}
+                      <span className="fmt">{t.for}{t.partnerId ? ' · 专用' : ''} · Excel</span>
+                      <button className="eye" disabled={ui.busy} onClick={(e) => { e.preventDefault(); void exportTpl(o, t); }}>导出</button>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <div className="eyebrow" style={{ marginBottom: 8 }}>格式</div>
           <div className="seg" style={{ marginBottom: 6 }}>
             {([['pdf', '仅 PDF'], ['edit', '可编辑格式'], ['both', 'PDF + 可编辑']] as const).map(([k, l]) => (
@@ -97,7 +122,7 @@ export function ExportCenter({ order: o }: { order: Order }) {
             onClick={async () => {
               const n = countErrors(o);
               if (n && !(await confirmAction({ title: '单据检查有错误', ok: '仍然导出', body: <p>单据检查发现 {n} 个错误（见上方红色项），建议改好再发出。仍然要导出吗？</p> }))) return;
-              void exportZip(o, sel.filter(isDoc).flatMap((d) => fmts(d).map((fmt) => ({ doc: d, fmt }))), ui.bundle);
+              void exportZip(o, sel.filter(isDoc).flatMap((d) => fmts(d).map((fmt) => ({ doc: d, fmt }))), ui.bundle, selTpls);
             }}
           >
             生成并打包（{sel.length} 份单据）

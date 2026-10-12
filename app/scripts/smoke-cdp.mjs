@@ -201,6 +201,25 @@ await step('21-send-history-diff', async () => {
   await page.click('button:has-text("← 订单菜单")'); await page.waitForSelector('.sent-panel .sent-doc', { timeout: 5000 });
 });
 
+await step('22-excel-template', async () => {
+  // 客户 / 货代自己的 Excel 格式：上传 → 自动识别 → 保存 → 订单里填好导出
+  const ExcelJS = (await import('exceljs')).default;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Booking');
+  ws.getCell('A1').value = 'Shipper:'; ws.getCell('A2').value = 'Port of Loading:'; ws.getCell('A3').value = 'Invoice No.:';
+  ['Description', 'Quantity', 'G.W.', 'CBM'].forEach((h, i) => (ws.getCell(5, i + 1).value = h));
+  ws.getCell('A8').value = 'TOTAL';
+  const xlsx = resolve(out, 'booking-template.xlsx');
+  writeFileSync(xlsx, Buffer.from(await wb.xlsx.writeBuffer()));
+  await page.click('.brand'); await page.click('.lib button:has-text("Excel 模板")'); await page.waitForSelector('.tpl-intro', { timeout: 5000 });
+  const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.click('button:has-text("上传 Excel 模板")')]);
+  await fc.setFiles(xlsx);
+  await page.waitForSelector('.tpl-row code:has-text("Booking!B1")', { timeout: 10000 });
+  await page.click('.tpl-foot button:has-text("保存模板")'); await page.waitForSelector('.tpl-card', { timeout: 5000 });
+  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("单据导出")');
+  await page.click('.dl label:has-text("booking-template") button:has-text("导出")'); await waitToast('已保存 booking-template-.*\\.xlsx');
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

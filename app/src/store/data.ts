@@ -11,7 +11,7 @@ import { asOrder, recordSend } from '../domain/history';
 import type { DocKey } from '../modules/defs';
 import { defaultSettings } from '../domain/settings';
 import { mergeCustomer, mergeProduct } from '../io/library';
-import type { Customer, DataState, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings } from '../domain/types';
+import type { Customer, DataState, ExcelTpl, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings } from '../domain/types';
 
 export type ImportMode = 'overwrite' | 'skip';
 export interface ImportResult { added: number; updated: number; skipped: number }
@@ -63,6 +63,9 @@ interface Actions {
   addPartner: (type: PartnerType) => string;
   updatePartner: (id: string, recipe: (p: Partner) => void) => void;
   deletePartner: (id: string) => void;
+  addTemplate: (t: ExcelTpl) => void;
+  updateTemplate: (id: string, recipe: (t: ExcelTpl) => void) => void;
+  deleteTemplate: (id: string) => void;
   /** 从备份恢复：整体替换 */
   replaceAll: (d: DataState) => void;
   /** 清空订单与资料库（保留公司信息与设置），开始正式使用 */
@@ -270,6 +273,14 @@ export const useData = create<DataStore>()(
         }),
       deletePartner: (id) => setState((s) => void (s.partners = s.partners.filter((p) => p.id !== id))),
 
+      addTemplate: (t) => setState((s) => void (s.templates ??= []).push(t)),
+      updateTemplate: (id, recipe) =>
+        setState((s) => {
+          const t = s.templates?.find((x) => x.id === id);
+          if (t) recipe(t);
+        }),
+      deleteTemplate: (id) => setState((s) => void (s.templates = (s.templates ?? []).filter((t) => t.id !== id))),
+
       replaceAll: (d) => setState(() => ({ ...d, settings: { ...defaultSettings(), ...d.settings } })),
 
       clearAll: () =>
@@ -299,7 +310,7 @@ export const useData = create<DataStore>()(
       onRehydrateStorage: () => (_state, error) => {
         if (error) hydrationError = error;
       },
-      partialize: (s) => ({ settings: s.settings, seller: s.seller, products: s.products, customers: s.customers, partners: s.partners, orders: s.orders, seq: s.seq }),
+      partialize: (s) => ({ settings: s.settings, seller: s.seller, products: s.products, customers: s.customers, partners: s.partners, orders: s.orders, seq: s.seq, templates: s.templates ?? [] }),
     },
   ),
 );
