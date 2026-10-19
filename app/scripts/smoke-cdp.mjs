@@ -108,8 +108,8 @@ await step('13-new-and-delete-order', async () => {
 
 // M1-4：粘贴导入货物、单据检查、箱贴批量打印
 await step('14-paste-items', async () => {
-  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("合同 / PI")');
-  await page.click('.step:has-text("货物明细")');
+  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("报价单")');
+  await page.click('.step:not(.use):has-text("货物明细")');
   const before = await page.locator('.tbl tbody tr').count();
   await page.click('button:has-text("粘贴 Excel / 导入 PO")');
   await page.fill('#imp-paste', 'PO No.: SMOKE-PO-1\nItem No.\tDescription\tQty\tUnit Price\nAL-S200\tRack\t10\t12.5\nNEW-9\tNew Part\t7\t1.2');
@@ -134,7 +134,7 @@ await step('16-labels', async () => {
 await step('17-mixed-carton', async () => {
   // 箱单：勾选两行设为混装，填整箱毛重，导出箱单 PDF 和 Excel
   await page.click('button:has-text("← 订单菜单")'); await page.click('.mcard:has-text("箱单")');
-  await page.click('.step:has-text("包装装箱")');
+  await page.click('.step:not(.use):has-text("包装装箱")');
   const boxes = page.locator('.pack-tbl tbody input[type=checkbox]');
   await boxes.nth(1).check(); await boxes.nth(2).check();
   await page.click('button:has-text("设为混装")'); await waitToast('设为混装');
@@ -151,7 +151,7 @@ await step('17-mixed-carton', async () => {
 await step('18-booking-si-advice', async () => {
   // M2-1：订舱委托书、SI 补料、装船通知
   await page.click('button:has-text("← 订单菜单")'); await page.click('.mcard:has-text("订舱 / 提单")');
-  await page.click('.step:has-text("运输信息")');
+  await page.click('.step:not(.use):has-text("运输信息")');
   await page.selectOption('#in-shipping-consigneeMode', 'order');
   await page.fill('#in-shipping-equipment', '1×40HQ');
   await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 BK-.*\\.pdf');
@@ -164,7 +164,7 @@ await step('19-today-wide-export-paste', async () => {
   // 首页「今天要做」、订单「关键日期」、表格加宽、导出后改过、智能粘贴
   await page.click('.brand'); await page.waitForSelector('.today', { timeout: 5000 });
   await page.click('.orow[role=button]'); await page.waitForSelector('.kd', { timeout: 5000 });
-  await page.click('.mcard:has-text("箱单")'); await page.click('.step:has-text("包装装箱")');
+  await page.click('.mcard:has-text("箱单")'); await page.click('.step:not(.use):has-text("包装装箱")');
   await page.waitForSelector('.pv-strip', { timeout: 5000 });
   await page.click('.pv-strip'); await page.waitForSelector('.pv-split', { state: 'attached', timeout: 5000 });
   await page.click('button:has-text("收起，表格加宽")'); await page.waitForSelector('.pv-strip', { timeout: 5000 });
@@ -172,7 +172,7 @@ await step('19-today-wide-export-paste', async () => {
   await page.fill('#in-items-0-gw', '99');
   await page.waitForSelector('.last-exp.warn', { timeout: 5000 });
   await page.click('button:has-text("← 订单菜单")'); await page.waitForSelector('.mcard .st.chg', { timeout: 5000 });
-  await page.click('.mcard:has-text("合同 / PI")'); await page.click('.step:has-text("双方信息")');
+  await page.click('.mcard:has-text("报价单")'); await page.click('.step:not(.use):has-text("双方信息")');
   await page.click('button:has-text("智能粘贴")');
   await page.fill('#sp-text', 'Maria Lopez\nImport Manager\nCasa Verde Imports S.L.\nCalle Mayor 5, 28013 Madrid, Spain\nTel: +34 91 123 4567\nmaria@casaverde-demo.es');
   await page.click('.sp-foot .btn.pri');
@@ -193,8 +193,10 @@ await step('21-send-history-diff', async () => {
   // 发出记录与改版对比：导出 PI → 改数量 → 看改了什么 → 订单页发出记录
   await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("合同 / PI")');
   await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 PI-.*\\.pdf');
-  await page.click('.step:has-text("货物明细")');
+  // 货物在报价单里填：点侧栏「共用信息」过去改，再回到合同 / PI
+  await page.click('.step.use:has-text("货物明细")'); await page.waitForSelector('.mod-head h1:has-text("报价单")', { timeout: 5000 });
   await page.fill('#in-items-0-qty', '123');
+  await page.click('.back-mod:has-text("合同 / PI")'); await page.waitForSelector('.mod-head h1:has-text("合同 / PI")', { timeout: 5000 });
   await page.click('button.last-exp.warn'); await page.waitForSelector('.diff-tbl tr.d-mod', { timeout: 5000 });
   await page.click('.diff-note button:has-text("中文")');
   await page.click('.modal-h button:has-text("关闭")');
@@ -210,6 +212,17 @@ await step('22-doc-library', async () => {
   await page.click('.dlib-card:has-text("商业发票") .dlib-act:has-text("订单") button:has-text("PDF")'); await waitToast('已保存 CI-.*\\.pdf');
   await page.click('.dlib-card:has-text("SI 提单补料") .dlib-tb'); await page.waitForSelector('.modal .pv', { timeout: 5000 });
   await page.click('.modal-h button:has-text("关闭")');
+});
+
+await step('23-no-duplicate-steps', async () => {
+  // 每项资料只在一个模块填：商业发票里只有发票信息；点预览上的买方 → 跳到报价单的双方信息，填完回来
+  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("商业发票")');
+  const own = await page.locator('.steps .step:not(.use)').allTextContents();
+  if (own.length !== 1 || !own[0].includes('发票信息')) throw new Error('商业发票的填写步骤应只有「发票信息」：' + own.join(' | '));
+  await page.click('.paper [data-f="buyer.name"] >> nth=0');
+  await page.waitForSelector('.mod-head h1:has-text("报价单")', { timeout: 5000 });
+  await page.waitForSelector('.step.on:has-text("双方信息")', { timeout: 5000 });
+  await page.click('.back-mod:has-text("商业发票")'); await page.waitForSelector('.mod-head h1:has-text("商业发票")', { timeout: 5000 });
 });
 
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));

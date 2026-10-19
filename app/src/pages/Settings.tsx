@@ -220,7 +220,7 @@ export function Settings() {
 
             <section id="images" className="panel set-sec">
               <h2>Logo 与公章</h2>
-              <p>上传后所有单据的预览和导出 PDF 立即生效。公章和签名只盖在卖方签字处，可在每个订单的「编号与样式」里关闭。</p>
+              <p>上传后所有单据的预览和导出 PDF 立即生效。公章和签名只盖在卖方签字处，可在每个订单「报价单 → 编号与样式」里关闭。</p>
               <div className="imgs">
                 <ImageBox k="logo" title="公司 Logo" hint="显示在单据左上角，建议横版 PNG" maxSide={600} />
                 <ImageBox k="stamp" title="公章" hint="建议红色印章 PNG；扫描件可勾选去除白底" maxSide={500} whiteOption />

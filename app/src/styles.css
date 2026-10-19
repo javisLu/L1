@@ -180,6 +180,12 @@ button.last-exp:hover{background:var(--surface-2)}
 .step b{font-size:13.5px;font-weight:600}
 .step small{font-size:11.5px}
 .step small.ok{color:var(--ok)} .step small.warn{color:var(--warn)}
+.steps .uses-lbl{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);letter-spacing:.04em}
+.step.use{padding:6px 10px}
+.step.use b{font-size:12.5px;font-weight:500;color:var(--ink-2);display:flex;justify-content:space-between;gap:6px}
+.step.use .use-mod{font-size:11px;color:var(--ink-3);font-weight:400;white-space:nowrap}
+.step.use:hover .use-mod{color:var(--brand)}
+.back-mod{border-color:var(--brand);color:var(--brand)}
 .steps .hint{margin-top:14px;padding:10px;border-radius:6px;background:var(--surface-2);font-size:12px;color:var(--ink-2);line-height:1.5}
 .form{overflow:auto;padding:20px 22px 40px;min-width:0}
 .form-head{margin-bottom:16px}
@@ -210,6 +216,7 @@ button.last-exp:hover{background:var(--surface-2)}
 .tbl .cell{padding:5px 7px;border-color:transparent;background:transparent;border-radius:4px}
 .tbl .cell:hover{border-color:var(--line-2)}
 .tbl .calc{font-family:var(--f-num);font-size:12.5px;color:var(--ink-2);text-align:right;padding-right:10px;white-space:nowrap}
+.tbl .calc.ro{text-align:left;font-family:inherit;padding-left:10px}
 .tbl .ix{color:var(--ink-3);font-size:12px;text-align:center;width:28px}
 .tbl .del{border:0;background:none;color:var(--ink-3);padding:4px 8px;border-radius:4px}
 .tbl .del:hover{color:var(--stamp);background:var(--stamp-soft)}

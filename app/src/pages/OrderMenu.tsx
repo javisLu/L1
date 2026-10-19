@@ -10,7 +10,7 @@ import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { fixed, int, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
-import { DOCNAMES, MODS, missing, neededMods, type DocKey, type ModKey } from '../modules/defs';
+import { DOCNAMES, MODS, STEP_MOD, missing, neededMods, type DocKey, type ModKey } from '../modules/defs';
 import { docState, shortStamp } from '../domain/exports';
 import { orderAmount } from './Home';
 import type { Order, PartnerType } from '../domain/types';
@@ -40,11 +40,14 @@ export function OrderMenu({ order: o }: { order: Order }) {
       st = last ? <span className="st ok">上次打包 {shortStamp(last.at)} · 发给{last.to}</span> : <span className="st ph">按收件人选好单据，一键打包</span>;
     } else {
       const miss = (m.steps ?? []).flatMap((x) => missing(o, x));
+      // 本模块自己的都填好了，但单据还用到别的模块里没填的资料
+      const wait = [...new Set((m.uses ?? []).filter((x) => missing(o, x).length).map((x) => MODS[STEP_MOD[x]].name))];
       // 报关资料模块里的发票、箱单属于各自模块，这里只看报关预录入表
       const own = key === 'customs' ? (['customs'] as DocKey[]) : m.docs ?? [];
       const states = own.map((d) => ({ d, s: docState(o, d) }));
       const changed = states.filter((x) => x.s.kind === 'changed');
       if (miss.length) st = <span className="st warn" title={miss.slice(0, 12).join('、')}>缺 {miss.length} 项资料</span>;
+      else if (wait.length) st = <span className="st warn" title="这些资料在其它模块填写，本模块的单据也会用到">等「{wait.join('」「')}」补齐资料</span>;
       else if (changed.length) st = <span className="st chg">⚠ 导出后又改过，需要重发</span>;
       else st = <span className="st ok">✓ 资料齐全</span>;
       dls = (
@@ -142,7 +145,7 @@ export function OrderMenu({ order: o }: { order: Order }) {
         <KeyDates order={o} />
         <SendHistory order={o} />
         <div className="mgroup">
-          <div className="sec-title"><h2>单据</h2><span className="muted" style={{ fontSize: 12.5 }}>所有单据共用本订单数据；导出后再改动，会提示哪份单据需要重发</span></div>
+          <div className="sec-title"><h2>单据</h2><span className="muted" style={{ fontSize: 12.5 }}>每项资料只在一个模块里填，所有单据自动共用；导出后再改动，会提示哪份单据需要重发</span></div>
           <div className="mods">{keys.filter((x) => MODS[x].grp === 'doc' && !MODS[x].ph).map(card)}</div>
         </div>
       </main>

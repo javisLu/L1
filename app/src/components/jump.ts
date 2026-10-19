@@ -1,5 +1,5 @@
 import { useUI } from '../store/ui';
-import { MODS, inputId, stepPaths, type ModKey, type StepKey } from '../modules/defs';
+import { MODS, STEP_MOD, inputId, ownerOf, stepPaths, type ModKey, type StepKey } from '../modules/defs';
 
 /** 滚动到输入框、聚焦并闪一下 */
 export function flash(path: string) {
@@ -19,10 +19,12 @@ export function stepOf(mod: ModKey, path: string): StepKey | undefined {
   return MODS[mod].steps?.find((st) => stepPaths(st).includes(norm));
 }
 
-/** 打开模块的对应步骤并定位到字段 */
+/** 打开字段所在的模块和步骤并定位到字段；每个步骤只属于一个模块，按步骤 / 字段找到它真正填写的地方 */
 export function jumpToField(mod: ModKey, step?: StepKey, path?: string) {
+  const own = step ? { mod: STEP_MOD[step], step } : path ? ownerOf(path) : undefined;
+  const target = own?.mod ?? mod;
   const ui = useUI.getState();
-  ui.openMod(mod);
-  ui.set({ step: step ?? (path ? stepOf(mod, path) : undefined) ?? null, expand: false });
+  ui.openMod(target);
+  ui.set({ step: own?.step ?? (path ? stepOf(target, path) : undefined) ?? null, expand: false });
   if (path) setTimeout(() => flash(path), 80);
 }

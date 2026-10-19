@@ -12,7 +12,7 @@ const shippingNote = (o: Order) =>
 const firstLine = (s: string) => s.split('\n')[0];
 
 export type DocKey = 'quote' | 'pi' | 'contract' | 'ci' | 'pl' | 'customs' | 'marks' | 'labels' | 'booking' | 'si' | 'advice';
-export type StepKey = 'parties' | 'items' | 'packing' | 'customsItems' | 'terms' | 'contractClauses' | 'shipping' | 'customs' | 'docset' | 'marks';
+export type StepKey = 'parties' | 'items' | 'packing' | 'customsItems' | 'terms' | 'contractClauses' | 'contractNo' | 'invoice' | 'shipping' | 'customs' | 'docset' | 'marks';
 export type ModKey = 'quote' | 'pi' | 'ci' | 'pl' | 'customs' | 'booking' | 'marks' | 'export' | 'bl' | 'lc' | 'payment';
 export type Src = 'S' | 'B' | 'FF' | 'CB' | 'F';
 
@@ -24,7 +24,10 @@ export interface ModDef {
   desc: string;
   grp: 'doc' | 'biz';
   docs?: DocKey[];
+  /** 只在这个模块填写的步骤：每个步骤只属于一个模块，同样的信息不会在两个模块里各填一遍 */
   steps?: StepKey[];
+  /** 本模块单据还用到的、在其它模块填写的步骤（侧栏里列出，点击前往） */
+  uses?: StepKey[];
   /** 规划中：显示开发阶段 */
   ph?: string;
   plan?: string[];
@@ -32,13 +35,13 @@ export interface ModDef {
 }
 
 export const MODS: Record<ModKey, ModDef> = {
-  quote: { code: 'QT', name: '报价单', desc: 'Quotation：报价、有效期、条款', grp: 'doc', docs: ['quote'], steps: ['parties', 'items', 'terms', 'docset'] },
-  pi: { code: 'PI', name: '合同 / PI', desc: '形式发票 + 中英文销售合同，条款可自定义', grp: 'doc', docs: ['pi', 'contract'], steps: ['parties', 'items', 'terms', 'contractClauses', 'docset'] },
-  ci: { code: 'CI', name: '商业发票', desc: 'Commercial Invoice：船名、提单号、原产地', grp: 'doc', docs: ['ci'], steps: ['parties', 'items', 'terms', 'shipping', 'docset'] },
-  pl: { code: 'PL', name: '箱单', desc: 'Packing List：箱号、净毛重、体积自动计算', grp: 'doc', docs: ['pl'], steps: ['parties', 'packing', 'shipping', 'docset'] },
-  customs: { code: 'CD', name: '报关资料', desc: '报关预录入表 + 发票 + 箱单，发报关行', grp: 'doc', docs: ['customs', 'ci', 'pl'], steps: ['customs', 'customsItems', 'packing'] },
-  booking: { code: 'SI', name: '订舱 / 提单', desc: '订舱委托书、SI 提单补料、装船通知', grp: 'doc', docs: ['booking', 'si', 'advice'], steps: ['parties', 'shipping'] },
-  marks: { code: 'SM', name: '唛头箱贴', desc: '正唛、侧唛，按箱号批量打印', grp: 'doc', docs: ['marks', 'labels'], steps: ['marks'] },
+  quote: { code: 'QT', name: '报价单', desc: '客户、货物、价格条款在这里填，后面的单据都从这里取', grp: 'doc', docs: ['quote'], steps: ['parties', 'items', 'terms', 'docset'] },
+  pi: { code: 'PI', name: '合同 / PI', desc: '形式发票 + 中英文销售合同：合同编号、条款', grp: 'doc', docs: ['pi', 'contract'], steps: ['contractNo', 'contractClauses'], uses: ['parties', 'items', 'terms', 'docset'] },
+  ci: { code: 'CI', name: '商业发票', desc: 'Commercial Invoice：发票号、原产地、注明文字', grp: 'doc', docs: ['ci'], steps: ['invoice'], uses: ['parties', 'items', 'terms', 'contractNo', 'shipping', 'docset'] },
+  pl: { code: 'PL', name: '箱单', desc: 'Packing List：箱号、净毛重、体积自动计算', grp: 'doc', docs: ['pl'], steps: ['packing'], uses: ['parties', 'items', 'invoice', 'shipping', 'docset'] },
+  customs: { code: 'CD', name: '报关资料', desc: '报关预录入表 + 发票 + 箱单，发报关行', grp: 'doc', docs: ['customs', 'ci', 'pl'], steps: ['customs', 'customsItems'], uses: ['parties', 'items', 'terms', 'contractNo', 'packing', 'shipping'] },
+  booking: { code: 'SI', name: '订舱 / 提单', desc: '订舱委托书、SI 提单补料、装船通知：船期、收发通、提单', grp: 'doc', docs: ['booking', 'si', 'advice'], steps: ['shipping'], uses: ['parties', 'items', 'terms', 'contractNo', 'packing', 'marks'] },
+  marks: { code: 'SM', name: '唛头箱贴', desc: '正唛、侧唛，按箱号批量打印', grp: 'doc', docs: ['marks', 'labels'], steps: ['marks'], uses: ['contractNo', 'items', 'packing'] },
   export: { code: 'ZIP', name: '单据导出', desc: '按客户 / 工厂 / 报关行 / 货代一键打包', grp: 'doc', special: 'export' },
   bl: { code: 'B/L', name: '提单核对', desc: '货代提单确认件与订单自动比对', grp: 'biz', ph: 'M4', plan: ['上传货代提单确认件（PDF）或直接粘贴文字', '自动比对发货人、收货人、通知人、货描、唛头、件数、毛重、体积、柜号封号', '差异标红，一键生成修改意见发给货代', '文字版 PDF 离线可用；扫描件需在设置里配置自己的 AI Key'] },
   lc: { code: 'L/C', name: '信用证审证', desc: '条款解析、软条款风险、与订单比对', grp: 'biz', ph: 'M4 / M5', plan: ['粘贴 MT700 信用证原文，自动解析 31D / 44C / 48 / 39A / 43P / 46A / 47A 等条款', '规则层（离线）：日期冲突、金额容差、内置软条款特征库逐条匹配', '与本订单比对：金额、货描、港口、交期、贸易术语是否一致', 'AI 层（自带 Key）：结合内置 UCP600 / ISBP745 知识库，输出风险条款、原因、改证建议措辞', '按信用证要求生成单据，货描逐字一致'] },
@@ -91,7 +94,11 @@ const f = (path: string, label: Dyn<string>, opts: Partial<Extract<FieldDef, { k
 const head = (label: string, tools?: 'buyer'): FieldDef => ({ kind: 'head', label, tools });
 
 export type TableKey = 'items' | 'packing' | 'customsItems';
-export interface ColDef { key?: string; calc?: 'a' | 'q' | 'n' | 'cno' | 'cbmT'; label: string; width: number; num?: boolean }
+export interface ColDef {
+  key?: string; calc?: 'a' | 'q' | 'n' | 'cno' | 'cbmT'; label: string; width: number; num?: boolean;
+  /** 只显示、不在这里填（在别的步骤填写，方便对照是哪一行） */
+  ro?: boolean;
+}
 
 export interface StepDef { label: string; hint: string; fields?: FieldDef[]; table?: TableKey; list?: 'contractClauses' }
 
@@ -116,12 +123,11 @@ export const STEPS: Record<StepKey, StepDef> = {
       f('buyer.phone', '电话 / WhatsApp', { src: 'B' }),
       f('buyer.email', '邮箱', { src: 'B' }),
       f('buyer.tax', '税号 / VAT / EORI', { src: 'B' }),
-      f('buyer.notify', '通知方 Notify Party', { wide: true, src: 'B' }),
     ],
   },
-  items: { label: '货物明细', hint: '先选币种，单价和金额都按这个币种；本订单所有单据统一使用。', fields: [currencyField('币种')], table: 'items' },
+  items: { label: '货物明细', hint: '先选币种，单价和金额都按这个币种；本订单所有单据统一使用。HS 编码在「报关资料」的申报商品里填。', fields: [currencyField('币种')], table: 'items' },
   packing: { label: '包装装箱', hint: '填每箱装量和箱规，箱数、箱号段、净毛重、体积自动算。', table: 'packing' },
-  customsItems: { label: '申报商品', hint: '中文品名、HS 编码、申报要素；录过的会进 HS 记忆库。', fields: [currencyField('币制')], table: 'customsItems' },
+  customsItems: { label: '申报商品', hint: '中文品名、HS 编码、申报要素；录过的会进 HS 记忆库。币制跟货物明细的币种一致。', table: 'customsItems' },
   terms: {
     label: '贸易条款', hint: '选好客户后，默认交易习惯已自动带入。',
     fields: [
@@ -151,7 +157,7 @@ export const STEPS: Record<StepKey, StepDef> = {
   },
   contractClauses: { label: '合同条款', hint: '下列条款可以开关、修改、排序，也可以添加自定义条款或从条款库插入。', list: 'contractClauses' },
   shipping: {
-    label: '运输信息', hint: '订舱、提单补料、装船通知都从这里取数；唛头会同步到箱单和唛头模块。',
+    label: '运输信息', hint: '订舱、提单补料、装船通知、发票和箱单上的船名、柜号都从这里取数。',
     fields: [
       head('船期与柜子'),
       f('shipping.vessel', '船名航次', { wide: true, src: 'FF' }),
@@ -163,7 +169,6 @@ export const STEPS: Record<StepKey, StepDef> = {
       f('shipping.eta', '到港日期 ETA', { type: 'date', src: 'FF' }),
       f('shipping.container', '柜号 / 柜型', { src: 'FF', placeholder: '如 CSNU7234561 / 40HQ' }),
       f('shipping.seal', '封号', { src: 'FF' }),
-      f('shipping.origin', '原产地', { src: 'S' }),
       head('收货人与通知人（提单）'),
       f('shipping.consigneeMode', '收货人 Consignee', { type: 'select', options: ['buyer', 'order', 'custom'], optionLabels: { buyer: '同买方', order: 'TO ORDER（凭指示）', custom: '自定义' }, rerender: true, src: 'B' }),
       f('shipping.notifyMode', '通知人 Notify Party', { type: 'select', options: ['auto', 'buyer', 'custom'], optionLabels: { auto: '自动（推荐）', buyer: '同买方', custom: '自定义' }, rerender: true, src: 'B' }),
@@ -178,7 +183,6 @@ export const STEPS: Record<StepKey, StepDef> = {
       f('shipping.bookingNote', '订舱特殊要求', { type: 'textarea', wide: true, placeholder: '如：指定船公司、免柜期、危险品、需要熏蒸等' }),
       head('多柜明细（多个柜子时逐个填写；一个柜子填上面的柜号封号即可）'),
       { kind: 'containers' },
-      f('shipping.marks', '唛头 Shipping Marks', { type: 'textarea', wide: true, src: 'B' }),
     ],
   },
   customs: {
@@ -198,17 +202,29 @@ export const STEPS: Record<StepKey, StepDef> = {
     ],
   },
   docset: {
-    label: '编号与样式', hint: '编号由订单号派生，可改。',
+    label: '编号与样式', hint: '单据日期、配色、公章本订单所有单据共用；编号由订单号派生，可改。',
     fields: [
-      f('numbers.quote', '报价单号'), f('numbers.pi', 'PI 号'),
-      f('numbers.contract', '合同号'), f('numbers.ci', '发票号'),
-      f('numbers.po', '客户 PO 号', { src: 'B' }), f('numbers.date', '单据日期', { type: 'date', req: true }),
-      f('numbers.validUntil', '报价有效期至', { type: 'date' }), f('numbers.signedAt', '签约地点'),
+      f('numbers.quote', '报价单号'), f('numbers.date', '单据日期', { type: 'date', req: true }),
+      f('numbers.validUntil', '报价有效期至', { type: 'date' }),
       f('docset.remarks', '备注 Remarks', { type: 'textarea', wide: true }),
-      f('docset.clauses', 'PI / 报价单条款（每行一条）', { type: 'textarea', wide: true }),
-      f('docset.statement', '发票 / 箱单上注明（声明文字，如 NO WOOD PACKING MATERIAL IS USED）', { type: 'textarea', wide: true, src: 'B' }),
+      f('docset.clauses', '报价单 / PI 条款（每行一条）', { type: 'textarea', wide: true }),
       f('docset.theme', '单据配色', { type: 'select', options: Object.keys(THEMES) }),
       f('docset.stamp', '显示公章位置', { type: 'checkbox' }),
+    ],
+  },
+  contractNo: {
+    label: '合同编号', hint: 'PI 号、合同号由订单号派生，可改；客户 PO 号也会印在发票、唛头、托书上。',
+    fields: [
+      f('numbers.pi', 'PI 号'), f('numbers.contract', '合同号'),
+      f('numbers.po', '客户 PO 号', { src: 'B' }), f('numbers.signedAt', '签约地点'),
+    ],
+  },
+  invoice: {
+    label: '发票信息', hint: '发票号由订单号派生，可改；注明文字同时印在发票和箱单上。',
+    fields: [
+      f('numbers.ci', '发票号'),
+      f('shipping.origin', '原产地', { src: 'S' }),
+      f('docset.statement', '发票 / 箱单上注明（声明文字，如 NO WOOD PACKING MATERIAL IS USED）', { type: 'textarea', wide: true, src: 'B' }),
     ],
   },
   marks: {
@@ -223,12 +239,12 @@ export const STEPS: Record<StepKey, StepDef> = {
 export const TABLES: Record<TableKey, ColDef[]> = {
   items: [
     { key: 'model', label: '型号', width: 92 }, { key: 'nameEn', label: '品名（英文）', width: 210 },
-    { key: 'spec', label: '规格', width: 140 }, { key: 'hs', label: 'HS 编码', width: 110 },
+    { key: 'spec', label: '规格', width: 160 },
     { key: 'unit', label: '单位', width: 70 }, { key: 'qty', label: '数量', width: 80, num: true },
     { key: 'price', label: '单价 ({CUR})', width: 92, num: true }, { calc: 'a', label: '金额 ({CUR})', width: 104 },
   ],
   packing: [
-    { key: 'nameEn', label: '品名', width: 190 }, { calc: 'q', label: '数量', width: 64 },
+    { key: 'nameEn', label: '品名', width: 190, ro: true }, { calc: 'q', label: '数量', width: 64 },
     { key: 'pcsPerCtn', label: '每箱装', width: 64, num: true }, { key: 'l', label: '长 cm', width: 60, num: true },
     { key: 'w', label: '宽 cm', width: 60, num: true }, { key: 'h', label: '高 cm', width: 60, num: true },
     { key: 'nw', label: '净重/箱', width: 70, num: true }, { key: 'gw', label: '毛重/箱', width: 70, num: true },
@@ -236,7 +252,7 @@ export const TABLES: Record<TableKey, ColDef[]> = {
   ],
   customsItems: [
     { key: 'nameCn', label: '中文品名', width: 170 }, { key: 'hs', label: '商品编号', width: 110 },
-    { key: 'elements', label: '申报要素', width: 250 }, { key: 'model', label: '型号', width: 90 }, { calc: 'q', label: '数量', width: 64 },
+    { key: 'elements', label: '申报要素', width: 250 }, { key: 'model', label: '型号', width: 90, ro: true }, { calc: 'q', label: '数量', width: 64 },
   ],
 };
 
@@ -244,7 +260,7 @@ export function stepPaths(step: StepKey): string[] {
   const s = STEPS[step];
   const out: string[] = [];
   for (const fd of s.fields ?? []) if (fd.kind === 'field') out.push(fd.path);
-  if (s.table) for (const c of TABLES[s.table]) if (c.key) out.push('items.*.' + c.key);
+  if (s.table) for (const c of TABLES[s.table]) if (c.key && !c.ro) out.push('items.*.' + c.key);
   if (s.table === 'packing') out.push('packs.*.ctns', 'packs.*.gw', 'packs.*.l', 'packs.*.w', 'packs.*.h', 'pkg.count', 'pkg.tare');
   if (s.list) out.push('contractClauses.*.title', 'contractClauses.*.body');
   return out;
@@ -304,6 +320,20 @@ export function modProgress(o: Order, key: ModKey) {
   const m = MODS[key];
   if (!m.steps) return null;
   return { done: m.steps.filter((s) => !missing(o, s).length).length, total: m.steps.length };
+}
+
+/** 每个步骤在哪个模块填写 */
+export const STEP_MOD = Object.fromEntries(
+  (Object.keys(MODS) as ModKey[]).flatMap((m) => (MODS[m].steps ?? []).map((st) => [st, m])),
+) as Record<StepKey, ModKey>;
+
+const normPath = (p: string) => p.replace(/^(items|contractClauses|packs)\.\d+\./, '$1.*.');
+
+/** 某个字段在哪个模块的哪一步填写（货物行、条款按列匹配） */
+export function ownerOf(path: string): { mod: ModKey; step: StepKey } | undefined {
+  const norm = normPath(path);
+  const step = (Object.keys(STEP_MOD) as StepKey[]).find((st) => stepPaths(st).includes(norm));
+  return step && { mod: STEP_MOD[step], step };
 }
 
 /** 按运输方式、付款方式标出本单需要的单据 */

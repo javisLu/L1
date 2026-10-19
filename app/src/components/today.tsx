@@ -78,7 +78,7 @@ export function KeyDates({ order: o }: { order: Order }) {
     <div className="panel kd">
       <div className="today-h">
         <h2>关键日期</h2>
-        <span className="muted">到期前会在首页「今天要做」提醒；和运输信息里的日期是同一份</span>
+        <span className="muted">到期前会在首页「今天要做」提醒；和「订舱 / 提单 → 运输信息」里的日期是同一份</span>
       </div>
       <div className="kd-line">
         {cells.map((c) => {

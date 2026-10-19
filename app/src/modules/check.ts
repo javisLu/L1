@@ -3,7 +3,7 @@ import { STATUSES } from '../domain/constants';
 import { CNO_LINE } from '../domain/labels';
 import { pkgSummary } from '../domain/package';
 import { autoFreight } from '../domain/shipping';
-import { MODS, STEPS, missing, neededMods, type ModKey, type StepKey } from './defs';
+import { MODS, STEPS, STEP_MOD, missing, neededMods, ownerOf, type ModKey, type StepKey } from './defs';
 import { REQS, reqState, reqStrict } from '../domain/requirements';
 import type { CustReq, Order } from '../domain/types';
 
@@ -43,12 +43,9 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
   const shipped = STATUSES.indexOf(o.status) >= STATUSES.indexOf('出货');
   const need = neededMods(o);
 
-  // 1. 必填项：每个步骤只报一次，归到第一个用到它的单据
-  const seen = new Set<StepKey>();
-  (['quote', 'pi', 'ci', 'pl', 'customs', 'marks'] as ModKey[]).filter((m) => need.has(m)).forEach((m) => {
+  // 1. 必填项：每个步骤只属于一个模块，归到填写它的模块
+  (Object.keys(MODS) as ModKey[]).filter((m) => need.has(m)).forEach((m) => {
     for (const st of MODS[m].steps ?? []) {
-      if (seen.has(st)) continue;
-      seen.add(st);
       const mi = missing(o, st);
       if (!mi.length) continue;
       const later = LATER.includes(st) && !shipped;
@@ -87,7 +84,7 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
     }
   }
   models.forEach((n, m) => {
-    if (n > 1) out.push({ level: 'warn', text: `型号 ${m} 出现了 ${n} 次，如是不同规格请在规格里注明，否则建议合并`, mod: 'pi', step: 'items' });
+    if (n > 1) out.push({ level: 'warn', text: `型号 ${m} 出现了 ${n} 次，如是不同规格请在规格里注明，否则建议合并`, mod: 'quote', step: 'items' });
   });
 
   // 3. 唛头与箱数、PO 号
@@ -114,7 +111,7 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
   // 4. 贸易术语相关
   const inc = o.terms.incoterm;
   if (needAddr(o) && !o.terms.deliveryAddress.trim()) {
-    out.push({ level: 'error', text: `${inc} 需要写明交货地址`, mod: 'pi', path: 'terms.deliveryAddress' });
+    out.push({ level: 'error', text: `${inc} 需要写明交货地址`, mod: 'quote', path: 'terms.deliveryAddress' });
   }
   if (need.has('customs')) {
     if (FREIGHT_TERMS.includes(inc) && !String(o.customs.freight ?? '').trim()) {
@@ -127,7 +124,7 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
       out.push({ level: 'warn', text: `${inc} 成交，报关单一般不填运费（现在填了 ${o.customs.freight}）`, mod: 'customs', path: 'customs.freight' });
     }
   }
-  if (toNum(o.terms.payDeposit) > 100) out.push({ level: 'error', text: `定金比例 ${o.terms.payDeposit}% 超过 100%`, mod: 'pi', path: 'terms.payDeposit' });
+  if (toNum(o.terms.payDeposit) > 100) out.push({ level: 'error', text: `定金比例 ${o.terms.payDeposit}% 超过 100%`, mod: 'quote', path: 'terms.payDeposit' });
 
   // 5. 柜型装载
   const ct = o.shipping.container;
@@ -135,8 +132,8 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
   const pk = pkgSummary(o, k);
   if (box && k.ctns) {
     const count = Number(ct.match(/(\d+)\s*[x×*]\s*(?:20|40|45)/i)?.[1] ?? 1) || 1;
-    if (pk.cbm > box.cbm * count) out.push({ level: 'warn', text: `总体积 ${fixed(pk.cbm, 2)} m³ 超过 ${count > 1 ? count + '×' : ''}${box.name} 约 ${box.cbm * count} m³ 的装载量`, mod: 'pl', path: 'shipping.container' });
-    if (pk.gw > box.kg * count) out.push({ level: 'warn', text: `总毛重 ${fixed(pk.gw, 0)} kg 超过 ${count > 1 ? count + '×' : ''}${box.name} 常见限重 ${box.kg * count} kg`, mod: 'pl', path: 'shipping.container' });
+    if (pk.cbm > box.cbm * count) out.push({ level: 'warn', text: `总体积 ${fixed(pk.cbm, 2)} m³ 超过 ${count > 1 ? count + '×' : ''}${box.name} 约 ${box.cbm * count} m³ 的装载量`, mod: 'booking', path: 'shipping.container' });
+    if (pk.gw > box.kg * count) out.push({ level: 'warn', text: `总毛重 ${fixed(pk.gw, 0)} kg 超过 ${count > 1 ? count + '×' : ''}${box.name} 常见限重 ${box.kg * count} kg`, mod: 'booking', path: 'shipping.container' });
   }
   // 外包装：各尺寸的件数加起来应等于总件数
   if (o.pkg && o.pkg.mode !== 'ctns' && pk.count) {
@@ -160,9 +157,9 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
   // 7. 日期与出货状态
   const d = o.numbers.date;
   if (o.numbers.validUntil && d && o.numbers.validUntil < d) out.push({ level: 'warn', text: `报价有效期 ${o.numbers.validUntil} 早于单据日期 ${d}`, mod: 'quote', path: 'numbers.validUntil' });
-  if (o.shipping.etd && d && o.shipping.etd < d) out.push({ level: 'warn', text: `开船日期 ${o.shipping.etd} 早于单据日期 ${d}`, mod: 'ci', path: 'shipping.etd' });
-  if (shipped && (!o.shipping.vessel || !o.shipping.blNo)) out.push({ level: 'warn', text: '订单已出货，船名航次 / 提单号还没填', mod: 'ci', path: !o.shipping.vessel ? 'shipping.vessel' : 'shipping.blNo' });
-  if (need.has('pi') && !o.seller.bank.trim()) out.push({ level: 'warn', text: 'PI 上没有收款银行信息，客户无法付款', mod: 'pi', path: 'seller.bank' });
+  if (o.shipping.etd && d && o.shipping.etd < d) out.push({ level: 'warn', text: `开船日期 ${o.shipping.etd} 早于单据日期 ${d}`, mod: 'booking', path: 'shipping.etd' });
+  if (shipped && (!o.shipping.vessel || !o.shipping.blNo)) out.push({ level: 'warn', text: '订单已出货，船名航次 / 提单号还没填', mod: 'booking', path: !o.shipping.vessel ? 'shipping.vessel' : 'shipping.blNo' });
+  if (need.has('pi') && !o.seller.bank.trim()) out.push({ level: 'warn', text: 'PI 上没有收款银行信息，客户无法付款', mod: 'quote', path: 'seller.bank' });
 
   // 8. 客户要求清单：确认之后不符合算错误（之前只提醒）；自定义提醒在生产之后还没勾选的提醒一下
   if (o.status !== '完结') {
@@ -179,5 +176,11 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
     }
   }
 
-  return out.sort((a, b) => (a.level === b.level ? 0 : a.level === 'error' ? -1 : 1));
+  // 跳转一律去真正填写它的模块
+  return out
+    .map((x) => {
+      const own = x.step ? STEP_MOD[x.step] : x.path ? ownerOf(x.path)?.mod : undefined;
+      return own && own !== x.mod ? { ...x, mod: own } : x;
+    })
+    .sort((a, b) => (a.level === b.level ? 0 : a.level === 'error' ? -1 : 1));
 }

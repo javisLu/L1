@@ -24,13 +24,14 @@ npm run typecheck
 - 单据检查（订单菜单、单据导出页）：缺项、尾箱、净重大于毛重、HS 位数、重复型号、唛头箱号 / PO 号、贸易术语与运费保费、柜型装载、日期等；点一条跳到对应输入框，唛头问题可一键修正。规则在 `src/modules/check.ts`。
 - 混装（几样货物同一箱）：箱单 → 包装装箱，勾选几行 →「设为混装」。箱数、每箱毛重、箱规合并填写，每行填自己的每箱净重；整箱毛重按净重比例分摊到每一行（2 位小数，尾差给份额最大的一行，合计与整箱一致），箱单、报关资料每行都有净重和毛重。导入工厂箱单时 Excel 合并单元格自动识别为混装，备注里的「10@63*43*22cm」箱规按顺序填入。数据：`Order.packs`（混装箱）+ `Item.mix`，计算在 `calc()`，操作在 `src/domain/packs.ts`。
 - 总件数 / 外包装（箱单 → 包装装箱下方）：散箱按箱数自动；托盘、木箱或其他单位填件数、每件尺寸（可几种）和每件自重。箱单写 SAY TOTAL … PALLETS ONLY 与「1 PALLET CONTAINS 12 CARTONS」，报关资料件数、包装种类、毛重（含自重）、PI 的 Packing 行和邮件正文同步；导入时备注里的「Pallet 1@120*80*136cm」自动识别。汇总在 `src/domain/package.ts`。
-- 订舱 / 提单（M2-1）：订舱委托书（PDF / Excel）、SI 提单补料（PDF / Excel）、装船通知（PDF）。数据来自订单：发票 / 箱单的「运输信息」里补了收货人（同买方 / TO ORDER / 自定义）、通知人（自动 / 同买方 / 自定义）、运费（按贸易术语自动 PREPAID / COLLECT）、提单类型与正本份数、柜型柜量、货好时间、ETA、投保（CIF / CIP 自动）、订舱特殊要求、多柜明细。规则在 `src/domain/shipping.ts`。
+- 订舱 / 提单（M2-1）：订舱委托书（PDF / Excel）、SI 提单补料（PDF / Excel）、装船通知（PDF）。数据来自订单：订舱 / 提单的「运输信息」里有收货人（同买方 / TO ORDER / 自定义）、通知人（自动 / 同买方 / 自定义）、运费（按贸易术语自动 PREPAID / COLLECT）、提单类型与正本份数、柜型柜量、货好时间、ETA、投保（CIF / CIP 自动）、订舱特殊要求、多柜明细。规则在 `src/domain/shipping.ts`。
 - 导出记录：每次导出 / 打包记下时间、收件人和单据指纹（`src/domain/exports.ts`，只取该单据用到的数据）。订单菜单卡片、单据页、导出页显示「未导出 / 已导出 / 导出后又改过」。
 - 发出记录与改版对比：`src/domain/history.ts`。导出时 `takeSnap` 留底，`recordSend` 记到 `Order.sent` / `Order.snaps`（按内容去重，最多 60 条）；`docVersions` 算每份单据的版本；`diffDoc` + `totalChanges` 逐项对比；`changeNote` 生成中英文改版说明。界面在 `src/components/history.tsx`。
 - 单据模板库：`src/pages/DocLibrary.tsx`。空白单据由 `blankForm()`（`src/domain/factory.ts`，id 为 `__blank__`）生成：只有我方信息、没有货物；渲染时 `CleanProvider` 隐藏预览专用占位，`isBlank()` 让运费条款、提单类型、通知人等自动默认值留空；没有货物时 PDF / Excel / Word 的合计、大写留空，货物表留 8 行空行。
 - 今天要做（首页）与关键日期（订单页）：规则在 `src/domain/reminders.ts`（报价到期、货好未订舱、截关、开船未改状态 / 未发装船通知、尾款、到港、信用证），尾款到期日没填时按付款方式和 ETD / ETA 推算；「知道了」存在 `Order.dismissed`，键里带日期。
 - 客户要求清单：客户库 →「单据要求清单」，规则在 `src/domain/requirements.ts`（每条有 describe / check / apply）。新建订单或更换客户时 `applyCustomer` 自动套用 apply；`checkOrder(o, reqs)` 第 8 节逐条核对（确认之后不符合算错误，带一键修正）；自定义提醒的确认记在 `Order.reqDone`。订单页面板在 `src/components/requirements.tsx`。
 - 智能粘贴：买方信息、客户库里的「智能粘贴」，或在买方公司名 / 地址里直接粘贴整块签名。离线规则识别，见 `src/domain/contact.ts`。
+- 模块不重复：每个步骤只属于一个模块（`MODS[m].steps`），本模块单据还用到的别处步骤列在 `MODS[m].uses`，侧栏显示为「共用信息」。`STEP_MOD` / `ownerOf(path)`（`src/modules/defs.ts`）找到字段真正填写的模块；`jumpToField` 和单据检查都按它跳转；从预览跳到别的模块时 `ui.back` 记住原位置。`defs.test.ts` 保证同一输入框不会出现在两个步骤里。
 - 表格步骤默认收起预览（表格加宽），表单 / 预览分隔线可拖动；这两项个人习惯存在浏览器本地（`tw-ui-*`）。
 - 唛头箱贴 → 箱贴批量打印：每箱一张，箱号自动编为 n/总箱数，尾箱数量按余数；A4 每页 2/4/6/8 张或标签机 100×100、100×150 mm；可只打印部分箱号。
 

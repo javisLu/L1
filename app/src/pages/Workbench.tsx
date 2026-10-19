@@ -6,9 +6,9 @@ import { useData } from '../store/data';
 import { savePref, toast, useUI } from '../store/ui';
 import { fillMarks, calcOrder } from '../domain/calc';
 import { LABEL_LAYOUTS, cartonLabels, labelPages } from '../domain/labels';
-import { DOCNAMES, DOC_FMT, MODS, STEPS, missing, stepPaths, type DocKey, type ModKey, type StepKey } from '../modules/defs';
+import { DOCNAMES, DOC_FMT, MODS, STEPS, STEP_MOD, missing, ownerOf, stepPaths, type DocKey, type ModKey, type StepKey } from '../modules/defs';
 import { exportDoc } from '../export/actions';
-import { flash } from '../components/jump';
+import { flash, jumpToField } from '../components/jump';
 import { docState, shortStamp } from '../domain/exports';
 import { docVersions } from '../domain/history';
 import { openDiff } from '../components/history';
@@ -31,13 +31,26 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
 
   const goStep = (st: StepKey) => ui.set({ step: st, ...(st === 'contractClauses' && docs.includes('contract') ? { doc: 'contract' as DocKey } : {}) });
 
+  /** 去别的模块填写（共用信息只在一个模块里填），记住现在的位置，填完可以一键回来 */
+  const goOther = (st: StepKey, path?: string) => {
+    jumpToField(STEP_MOD[st], st, path);
+    useUI.getState().set({ back: { mod, step, doc } });
+  };
+
   const jumpTo = (path: string) => {
     const norm = path.replace(/^(items|contractClauses|packs)\.\d+\./, '$1.*.');
     const target = steps.find((st) => stepPaths(st).includes(norm));
-    if (!target) return toast('这一项在本订单的其它模块里填写（如「合同 / PI」的货物明细）');
-    ui.set({ step: target, expand: false });
-    setTimeout(() => flash(path), 30);
+    if (target) {
+      ui.set({ step: target, expand: false });
+      setTimeout(() => flash(path), 30);
+      return;
+    }
+    const own = ownerOf(path);
+    if (!own) return toast('这一项是自动生成的，改对应的资料即可');
+    goOther(own.step, path);
+    toast(`这一项在「${MODS[own.mod].name} · ${STEPS[own.step].label}」填写，已带你过去；填完点左上角「← 回到${m.name}」`);
   };
+  const back = ui.back && ui.back.mod !== mod ? ui.back : null;
 
   // 填表格的步骤默认收起预览，表格占满宽度；预览可随时展开
   const collapsed = !!s.table && ui.tableWide && !ui.expand;
@@ -71,6 +84,11 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
       <TopBar><OrderCrumbs order={o} current={m.name} /></TopBar>
       <div className="mod-head">
         <button className="btn ghost sm" onClick={() => ui.openOrder(o.id)}>← 订单菜单</button>
+        {back && (
+          <button className="btn sm back-mod" onClick={() => { ui.openMod(back.mod); ui.set({ step: back.step, doc: back.doc }); }}>
+            ← 回到{MODS[back.mod].name}
+          </button>
+        )}
         <h1><span className="code">{m.code}</span>{m.name}</h1>
         <span className="ord">{o.no} · {o.buyer.name || '未选择客户'}</span>
         <div className="r">
@@ -102,7 +120,21 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
               </button>
             );
           })}
-          <div className="hint">数据属于订单 <b>{o.no}</b>，这里改的内容会同步到本单所有单据。</div>
+          {!!m.uses?.length && (
+            <>
+              <div className="lbl uses-lbl">共用信息 · 在其它模块填</div>
+              {m.uses.map((st) => {
+                const mi = missing(o, st);
+                return (
+                  <button key={st} className="step use" onClick={() => goOther(st)} title={`到「${MODS[STEP_MOD[st]].name}」填写`}>
+                    <b>{STEPS[st].label}<span className="use-mod">{MODS[STEP_MOD[st]].name} ›</span></b>
+                    {mi.length ? <small className="warn" title={mi.join('、')}>缺 {mi.length} 项</small> : <small className="ok">✓ 已填好</small>}
+                  </button>
+                );
+              })}
+            </>
+          )}
+          <div className="hint">数据属于订单 <b>{o.no}</b>，每项资料只在一个模块里填，本单所有单据自动共用。</div>
         </aside>
         <section className="form" id="form">
           <div className="form-head"><h2>{s.label}</h2><p>{s.hint}</p></div>

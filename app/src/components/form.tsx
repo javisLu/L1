@@ -256,7 +256,9 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
               <tr key={it.id}>
                 <td className="ix">{i + 1}</td>
                 {cols.map((c) =>
-                  c.key ? (
+                  c.key && c.ro ? (
+                    <td key={c.key} className="calc ro">{String((it as unknown as Record<string, unknown>)[c.key] ?? '')}</td>
+                  ) : c.key ? (
                     <td key={c.key}>
                       <input
                         className={'cell' + (c.num ? ' num' : '')}

@@ -16,6 +16,8 @@ interface UIState {
   mod: ModKey | null;
   step: StepKey | null;
   doc: DocKey | null;
+  /** 从预览点到了别的模块填写：记住原来的位置，方便填完回去 */
+  back: { mod: ModKey; step: StepKey; doc: DocKey } | null;
   expand: boolean;
   /** 填表格（货物明细、装箱、申报商品）时收起预览，让表格占满宽度 */
   tableWide: boolean;
@@ -66,15 +68,15 @@ export const savePref = (k: string, v: unknown) => {
 };
 
 export const useUI = create<UIState>()((set) => ({
-  page: 'home', prev: 'home', orderId: null, mod: null, step: null, doc: null, expand: false,
+  page: 'home', prev: 'home', orderId: null, mod: null, step: null, doc: null, back: null, expand: false,
   tableWide: pref('tableWide', true), pvRatio: pref('pvRatio', 0.52),
   q: '', status: 'all', custId: null, cq: '', ptype: '货代',
   bundle: '客户', expSel: null, expDoc: null, expFmt: 'both',
   toasts: [], labelRange: null, busy: false, modal: null,
   set: (p) => set(p),
   go: (page) => set((s) => (s.page === page ? {} : { page, prev: s.page })),
-  openOrder: (id) => set((s) => ({ page: 'order', prev: s.page, orderId: id, expSel: null, labelRange: s.orderId === id ? s.labelRange : null })),
-  openMod: (mod) => set((s) => ({ page: 'module', prev: s.page, mod, step: null, doc: null, expSel: null, expDoc: null })),
+  openOrder: (id) => set((s) => ({ page: 'order', prev: s.page, orderId: id, back: null, expSel: null, labelRange: s.orderId === id ? s.labelRange : null })),
+  openMod: (mod) => set((s) => ({ page: 'module', prev: s.page, mod, step: null, doc: null, back: null, expSel: null, expDoc: null })),
   toast: (text, action, ms, key) => {
     const id = ++tid;
     set((s) => ({ toasts: [...s.toasts.filter((t) => !key || t.key !== key), { id, text, action, key }].slice(-3) }));

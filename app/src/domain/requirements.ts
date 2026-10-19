@@ -53,7 +53,7 @@ export const REQS: Record<ReqKey, ReqDef> = {
     describe: () => '发票每行都要有 HS 编码',
     check: (o) => {
       const i = o.items.findIndex((x) => !x.hs.trim());
-      return i < 0 ? null : { text: `客户要求发票每行有 HS 编码，第 ${i + 1} 行没填`, mod: 'pi', step: 'items', path: `items.${i}.hs` };
+      return i < 0 ? null : { text: `客户要求发票每行有 HS 编码，第 ${i + 1} 行没填`, mod: 'customs', step: 'customsItems', path: `items.${i}.hs` };
     },
   },
   spec: {
@@ -61,26 +61,26 @@ export const REQS: Record<ReqKey, ReqDef> = {
     describe: () => '每行货物都要写规格',
     check: (o) => {
       const i = o.items.findIndex((x) => !x.spec.trim());
-      return i < 0 ? null : { text: `客户要求每行写规格，第 ${i + 1} 行没填`, mod: 'pi', step: 'items', path: `items.${i}.spec` };
+      return i < 0 ? null : { text: `客户要求每行写规格，第 ${i + 1} 行没填`, mod: 'quote', step: 'items', path: `items.${i}.spec` };
     },
   },
   tax: {
     label: '单据上要有买方税号 / VAT / EORI', group: '单据内容',
     describe: () => '单据上要有买方税号 / VAT / EORI',
-    check: (o) => (o.buyer.tax.trim() ? null : { text: '客户要求单据上有买方税号 / VAT / EORI，还没填', mod: 'pi', step: 'parties', path: 'buyer.tax' }),
+    check: (o) => (o.buyer.tax.trim() ? null : { text: '客户要求单据上有买方税号 / VAT / EORI，还没填', mod: 'quote', step: 'parties', path: 'buyer.tax' }),
   },
   statement: {
     label: '发票 / 箱单上注明指定文字', group: '单据内容',
     param: { kind: 'text', placeholder: '如：NO WOOD PACKING MATERIAL IS USED', def: 'NO WOOD PACKING MATERIAL IS USED' },
     describe: (v) => `发票 / 箱单上注明：${v || '（未填写）'}`,
-    check: (o, v) => (!v.trim() || has(o.docset.statement ?? '', v) ? null : { text: `客户要求发票 / 箱单注明「${v.trim()}」`, mod: 'ci', step: 'docset', path: 'docset.statement' }),
+    check: (o, v) => (!v.trim() || has(o.docset.statement ?? '', v) ? null : { text: `客户要求发票 / 箱单注明「${v.trim()}」`, mod: 'ci', step: 'invoice', path: 'docset.statement' }),
     apply: (o, v) => { if (v.trim() && !has(o.docset.statement ?? '', v)) o.docset.statement = appendLine(o.docset.statement ?? '', v); },
   },
   origin: {
     label: '原产地的写法', group: '单据内容',
     param: { kind: 'text', placeholder: '如：MADE IN CHINA', def: 'MADE IN CHINA' },
     describe: (v) => `原产地写作：${v || '（未填写）'}`,
-    check: (o, v) => (!v.trim() || o.shipping.origin.trim().toUpperCase() === v.trim().toUpperCase() ? null : { text: `客户要求原产地写作「${v.trim()}」，现在是「${o.shipping.origin || '空'}」`, mod: 'ci', step: 'shipping', path: 'shipping.origin' }),
+    check: (o, v) => (!v.trim() || o.shipping.origin.trim().toUpperCase() === v.trim().toUpperCase() ? null : { text: `客户要求原产地写作「${v.trim()}」，现在是「${o.shipping.origin || '空'}」`, mod: 'ci', step: 'invoice', path: 'shipping.origin' }),
     apply: (o, v) => { if (v.trim()) o.shipping.origin = v.trim(); },
   },
   marksPo: {
@@ -136,14 +136,14 @@ export const REQS: Record<ReqKey, ReqDef> = {
     label: '分批装运', group: '提单',
     param: { kind: 'select', options: ALLOW, def: 'Not Allowed' },
     describe: (v) => `分批装运：${v === 'Allowed' ? '允许' : '不允许'}`,
-    check: (o, v) => (o.terms.partial === v ? null : { text: `客户要求分批装运${v === 'Allowed' ? '允许' : '不允许'}`, mod: 'pi', step: 'terms', path: 'terms.partial' }),
+    check: (o, v) => (o.terms.partial === v ? null : { text: `客户要求分批装运${v === 'Allowed' ? '允许' : '不允许'}`, mod: 'quote', step: 'terms', path: 'terms.partial' }),
     apply: (o, v) => { o.terms.partial = v; },
   },
   transship: {
     label: '转运', group: '提单',
     param: { kind: 'select', options: ALLOW, def: 'Not Allowed' },
     describe: (v) => `转运：${v === 'Allowed' ? '允许' : '不允许'}`,
-    check: (o, v) => (o.terms.transship === v ? null : { text: `客户要求转运${v === 'Allowed' ? '允许' : '不允许'}`, mod: 'pi', step: 'terms', path: 'terms.transship' }),
+    check: (o, v) => (o.terms.transship === v ? null : { text: `客户要求转运${v === 'Allowed' ? '允许' : '不允许'}`, mod: 'quote', step: 'terms', path: 'terms.transship' }),
     apply: (o, v) => { o.terms.transship = v; },
   },
   pkgMode: {
