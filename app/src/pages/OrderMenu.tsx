@@ -8,11 +8,12 @@ import { SendHistory } from '../components/history';
 import { pkgSummary } from '../domain/package';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
-import { fixed, int, calcOrder } from '../domain/calc';
+import { fixed, int, money, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
 import { DOCNAMES, MODS, STEP_MOD, missing, neededMods, type DocKey, type ModKey } from '../modules/defs';
 import { docState, shortStamp } from '../domain/exports';
 import { orderAmount } from './Home';
+import { profitOf } from '../domain/purchase';
 import type { Order, PartnerType } from '../domain/types';
 
 export function OrderMenu({ order: o }: { order: Order }) {
@@ -23,6 +24,7 @@ export function OrderMenu({ order: o }: { order: Order }) {
   const need = neededMods(o);
   const cur = STATUSES.indexOf(o.status);
   const cust = customers.find((c) => c.id === o.customerId);
+  const pf = profitOf(o);
 
   const partnerSelect = (type: PartnerType, key: 'forwarder' | 'broker' | 'factory') => (
     <select id={'in-partners-' + key} value={o.partners[key]} onChange={(e) => setOrderField(o.id, 'partners.' + key, e.target.value)}>
@@ -63,7 +65,7 @@ export function OrderMenu({ order: o }: { order: Order }) {
     }
     return (
       <button key={key} className="mcard" onClick={() => ui.openMod(key)}>
-        {!need.has(key) && <span className="need" title="按本单的运输方式和付款方式，一般用不到">本单可不做</span>}
+        {!need.has(key) && <span className="need" title={key === 'purchase' ? '本单没选工厂、也没填采购价：自己是工厂的不用下采购单' : '按本单的运输方式和付款方式，一般用不到'}>本单可不做</span>}
         <span className="code">{m.code}</span>
         <b>{m.name}</b>
         <small>{m.desc}</small>
@@ -130,6 +132,14 @@ export function OrderMenu({ order: o }: { order: Order }) {
               <span>数量</span><b className="num">{int(k.qty)}</b>
               <span>件数</span><b className="num">{pk.mode === 'ctns' ? `${k.ctns} CTNS` : `${pk.count} ${pk.unitEn} / ${k.ctns} CTNS`}</b>
               <span>毛重 / 体积</span><b className="num">{fixed(pk.gw, 1)} kg / {fixed(pk.cbm, 2)} m³</b>
+              {pf.hasCost && (
+                <>
+                  <span>预计利润</span>
+                  <button className={'pf-mini num' + (pf.profit < 0 ? ' neg' : '')} title="在「工厂采购 → 成本利润」里看明细" onClick={() => { ui.openMod('purchase'); ui.set({ step: 'profit' }); }}>
+                    ¥{money(pf.profit)} · {fixed(pf.margin * 100, 1)}%{pf.noCost.length ? ' · 部分未填采购价' : ''}
+                  </button>
+                </>
+              )}
             </div>
           </div>
           <div className="panel">

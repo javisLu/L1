@@ -11,6 +11,7 @@ import { pkgSummary } from '../domain/package';
 import { docState, shortStamp } from '../domain/exports';
 import { docVersions } from '../domain/history';
 import { openDiff } from '../components/history';
+import { factoriesOf, factoryName } from '../domain/purchase';
 import type { Order } from '../domain/types';
 
 const isDoc = (k: ExpKey): k is DocKey => k in DOC_FMT;
@@ -24,7 +25,8 @@ function mailText(o: Order, bundle: Bundle, sel: ExpKey[], partnerContact?: stri
     return `Dear ${first},\n\nPlease find attached the documents for order ${o.numbers.po || o.no}:\n${names.map((x) => '- ' + x).join('\n')}\n\nTotal amount: ${o.terms.currency} ${money(k.amount)} (${o.terms.incoterm} ${o.terms.place})\nPayment: ${o.terms.paymentText}\nPacking: ${pk.short}, G.W. ${fixed(pk.gw, 2)} kg, ${fixed(pk.cbm, 2)} CBM\n\nPlease check and confirm at your earliest convenience.\n\nBest regards,\n${o.seller.name}`;
   }
   const tail = bundle === '报关行' ? '请安排申报，有问题随时联系，谢谢！' : bundle === '货代' ? '请安排订舱，确认船期后回传提单草稿，谢谢！' : '请按唛头和包装要求安排生产包装，谢谢！';
-  return `${partnerContact ?? '您'}您好：\n\n附件是订单 ${o.no}（${o.buyer.name}）的资料，请查收：\n${names.map((x) => '· ' + x).join('\n')}\n\n共 ${pk.mode === 'ctns' ? `${k.ctns} 箱` : `${pk.count} ${pk.unitCn}（${k.ctns} 箱）`}，毛重 ${fixed(pk.gw, 2)} KG，体积 ${fixed(pk.cbm, 2)} CBM，${o.terms.pol} → ${o.terms.pod || '—'}。\n${tail}\n\n${o.seller.nameCn || o.seller.name}`;
+  // 发给工厂的不写客户名称
+  return `${partnerContact ?? '您'}您好：\n\n附件是订单 ${o.no}${bundle === '工厂' ? '' : `（${o.buyer.name}）`}的资料，请查收：\n${names.map((x) => '· ' + x).join('\n')}\n\n共 ${pk.mode === 'ctns' ? `${k.ctns} 箱` : `${pk.count} ${pk.unitCn}（${k.ctns} 箱）`}，毛重 ${fixed(pk.gw, 2)} KG，体积 ${fixed(pk.cbm, 2)} CBM，${o.terms.pol} → ${o.terms.pod || '—'}。\n${tail}\n\n${o.seller.nameCn || o.seller.name}`;
 }
 
 export function ExportCenter({ order: o }: { order: Order }) {
@@ -42,7 +44,11 @@ export function ExportCenter({ order: o }: { order: Order }) {
     }
     return f;
   };
-  const pid = o.partners[ui.bundle === '报关行' ? 'broker' : ui.bundle === '货代' ? 'forwarder' : 'factory'];
+  // 几个工厂时，工厂资料包按工厂分别打（采购单只放这个工厂的）
+  const fids = factoriesOf(o);
+  const fac = ui.poFactory != null && fids.includes(ui.poFactory) ? ui.poFactory : fids[0];
+  const pickFactory = ui.bundle === '工厂' && fids.length > 1;
+  const pid = ui.bundle === '工厂' ? fac : o.partners[ui.bundle === '报关行' ? 'broker' : 'forwarder'];
   const mail = mailText(o, ui.bundle, sel, partners.find((p) => p.id === pid)?.contact);
 
   return (
@@ -62,6 +68,14 @@ export function ExportCenter({ order: o }: { order: Order }) {
               <button key={b} className={ui.bundle === b ? 'on' : ''} onClick={() => ui.set({ bundle: b, expSel: null, expDoc: null })}>{b}</button>
             ))}
           </div>
+          {pickFactory && (
+            <>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>发给哪个工厂</div>
+              <div className="seg">
+                {fids.map((f) => <button key={f} className={fac === f ? 'on' : ''} onClick={() => ui.set({ poFactory: f })}>{factoryName(partners, f) || '未选工厂'}</button>)}
+              </div>
+            </>
+          )}
           <div className="eyebrow" style={{ marginBottom: 8 }}>包含单据</div>
           <div className="dl">
             {EXPDOCS.filter((d) => !d.ph).map((d) => (
@@ -97,7 +111,7 @@ export function ExportCenter({ order: o }: { order: Order }) {
             onClick={async () => {
               const n = countErrors(o);
               if (n && !(await confirmAction({ title: '单据检查有错误', ok: '仍然导出', body: <p>单据检查发现 {n} 个错误（见上方红色项），建议改好再发出。仍然要导出吗？</p> }))) return;
-              void exportZip(o, sel.filter(isDoc).flatMap((d) => fmts(d).map((fmt) => ({ doc: d, fmt }))), ui.bundle);
+              void exportZip(o, sel.filter(isDoc).flatMap((d) => fmts(d).map((fmt) => ({ doc: d, fmt }))), pickFactory ? `${ui.bundle}-${factoryName(partners, fac) || '未选工厂'}` : ui.bundle, ui.bundle === '工厂' ? fac : undefined);
             }}
           >
             生成并打包（{sel.length} 份单据）

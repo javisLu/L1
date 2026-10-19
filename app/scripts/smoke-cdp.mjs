@@ -225,6 +225,24 @@ await step('23-no-duplicate-steps', async () => {
   await page.click('.back-mod:has-text("商业发票")'); await page.waitForSelector('.mod-head h1:has-text("商业发票")', { timeout: 5000 });
 });
 
+await step('24-factory-purchase', async () => {
+  // M2-2：工厂采购——采购明细填采购价、按工厂各出一张采购单、成本利润、工厂资料包按工厂打
+  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("工厂采购")');
+  await page.waitForSelector('.step.on:has-text("采购明细")', { timeout: 5000 });
+  await page.fill('#in-items-0-cost', '61');
+  await page.waitForSelector('.pv-fac button >> nth=1', { state: 'attached', timeout: 5000 }).catch(() => {});
+  await page.click('.step:not(.use):has-text("成本利润")'); await page.waitForSelector('.pf-total', { timeout: 5000 });
+  await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 CG-.*、CG-.*\\.pdf');
+  await page.click('.mod-head button:has-text("导出 Excel")'); await waitToast('已保存 CG-.*\\.xlsx');
+  await page.click('button:has-text("← 订单菜单")'); await page.waitForSelector('.pf-mini', { timeout: 5000 });
+  await page.click('.mcard:has-text("单据导出")'); await page.click('.seg button:has-text("工厂")');
+  await page.click('.seg button:has-text("义乌恒达")');
+  await page.click('button:has-text("生成并打包")');
+  // 前面的步骤可能留下单据检查错误：确认仍然导出
+  await page.click('.modal button:has-text("仍然导出")', { timeout: 2000 }).catch(() => {});
+  await waitToast('已打包 .*工厂-义乌恒达');
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

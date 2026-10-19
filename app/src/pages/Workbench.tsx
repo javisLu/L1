@@ -6,12 +6,13 @@ import { useData } from '../store/data';
 import { savePref, toast, useUI } from '../store/ui';
 import { fillMarks, calcOrder } from '../domain/calc';
 import { LABEL_LAYOUTS, cartonLabels, labelPages } from '../domain/labels';
-import { DOCNAMES, DOC_FMT, MODS, STEPS, STEP_MOD, missing, ownerOf, stepPaths, type DocKey, type ModKey, type StepKey } from '../modules/defs';
+import { DOCNAMES, DOC_FMT, MODS, STEPS, STEP_MOD, missing, normPath, ownerOf, stepPaths, type DocKey, type ModKey, type StepKey } from '../modules/defs';
 import { exportDoc } from '../export/actions';
 import { flash, jumpToField } from '../components/jump';
 import { docState, shortStamp } from '../domain/exports';
 import { docVersions } from '../domain/history';
 import { openDiff } from '../components/history';
+import { factoriesOf, factoryName } from '../domain/purchase';
 import type { LabelLayout, Order } from '../domain/types';
 
 
@@ -38,7 +39,7 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
   };
 
   const jumpTo = (path: string) => {
-    const norm = path.replace(/^(items|contractClauses|packs)\.\d+\./, '$1.*.');
+    const norm = normPath(path);
     const target = steps.find((st) => stepPaths(st).includes(norm));
     if (target) {
       ui.set({ step: target, expand: false });
@@ -163,6 +164,7 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
             bar={
               <>
                 {docs.map((d) => <button key={d} className={'tab' + (doc === d ? ' on' : '')} onClick={() => ui.set({ doc: d })}>{DOCNAMES[d]}</button>)}
+                {doc === 'po' && <FactoryTabs order={o} />}
                 <div className="r">
                   <span className="tip">点单据上的内容可直接跳到输入框</span>
                   {!!s.table && !ui.expand && <button className="btn ghost sm" onClick={() => setWide(true)}>收起，表格加宽</button>}
@@ -174,6 +176,20 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
         )}
       </div>
     </>
+  );
+}
+
+/** 几个工厂时：预览切换看给哪个工厂的采购单（导出时每个工厂各出一份） */
+function FactoryTabs({ order }: { order: Order }) {
+  const ui = useUI();
+  const partners = useData((s) => s.partners);
+  const fids = factoriesOf(order);
+  if (fids.length < 2) return null;
+  const cur = ui.poFactory != null && fids.includes(ui.poFactory) ? ui.poFactory : fids[0];
+  return (
+    <span className="seg sm pv-fac" role="tablist" aria-label="给哪个工厂">
+      {fids.map((f) => <button key={f} className={cur === f ? 'on' : ''} onClick={() => ui.set({ poFactory: f })}>{factoryName(partners, f) || '未选工厂'}</button>)}
+    </span>
   );
 }
 

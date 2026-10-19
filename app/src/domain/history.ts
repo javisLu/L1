@@ -1,6 +1,7 @@
 import { STEPS, DOCNAMES, docFile, dyn, type DocKey } from '../modules/defs';
 import { calcOrder, fixed, int, money } from './calc';
 import { pkgSummary } from './package';
+import { profitOf } from './purchase';
 import { docSig, hashText, project } from './exports';
 import type { Order, OrderSnap, SendRecord } from './types';
 
@@ -10,7 +11,7 @@ import type { Order, OrderSnap, SendRecord } from './types';
  * 并生成发给客户（英文）或工厂、货代（中文）的改版说明。
  */
 
-const SNAP_KEYS = ['seller', 'buyer', 'terms', 'numbers', 'items', 'packs', 'pkg', 'shipping', 'customs', 'partners', 'docset', 'contractClauses'] as const;
+const SNAP_KEYS = ['seller', 'buyer', 'terms', 'numbers', 'items', 'packs', 'pkg', 'shipping', 'customs', 'partners', 'docset', 'contractClauses', 'purchase'] as const;
 
 export const takeSnap = (o: Order): OrderSnap =>
   JSON.parse(JSON.stringify(Object.fromEntries(SNAP_KEYS.filter((k) => o[k] !== undefined).map((k) => [k, o[k]])))) as OrderSnap;
@@ -80,7 +81,7 @@ export interface Change {
 
 const ITEM_CN: Record<string, string> = {
   model: '型号', nameEn: '品名', nameCn: '中文品名', spec: '规格', hs: 'HS 编码', unit: '单位', qty: '数量', price: '单价',
-  pcsPerCtn: '每箱装', l: '箱长', w: '箱宽', h: '箱高', nw: '每箱净重', gw: '每箱毛重', elements: '申报要素',
+  pcsPerCtn: '每箱装', l: '箱长', w: '箱宽', h: '箱高', nw: '每箱净重', gw: '每箱毛重', elements: '申报要素', cost: '采购单价',
 };
 const ITEM_EN: Record<string, string> = {
   model: 'model', nameEn: 'description', spec: 'specification', unit: 'unit', qty: 'quantity', price: 'unit price', hs: 'HS code',
@@ -106,11 +107,14 @@ const IGNORE = new Set(['terms.paymentManual', 'terms.payment', 'terms.payDeposi
 const EXTRA_CN: Record<string, string> = {
   'shipping.side': '侧唛', 'shipping.boxes': '多柜明细', 'shipping.cutoff': '截关时间', forwarder: '货代', 'pkg.mode': '外包装方式', 'pkg.count': '总件数',
   'pkg.tare': '每件自重', 'pkg.unit': '包装单位', 'pkg.sizes': '每件尺寸', 'docset.statement': '发票 / 箱单注明',
-  po: '客户 PO 号', marks: '唛头', side: '侧唛',
+  po: '客户 PO 号', marks: '唛头', side: '侧唛', date: '单据日期', factory: '默认工厂',
 };
+const PO_CN: Record<string, string> = { no: '采购单号', delivery: '交货日期', payment: '付款方式', note: '备注' };
 
 function labelOf(path: string, o: Order): string {
   if (EXTRA_CN[path]) return EXTRA_CN[path];
+  const po = path.match(/^purchase\.pos\.[^.]*\.(\w+)$/);
+  if (po) return PO_CN[po[1]] ?? path;
   for (const st of Object.values(STEPS)) for (const f of st.fields ?? []) if (f.kind === 'field' && f.path === path) return dyn(f.label, o).replace(/（[^）]*）$/, '');
   return path;
 }
@@ -156,7 +160,7 @@ export function diffDoc(prev: Order, cur: Order, doc: DocKey): Change[] {
     for (const k of Object.keys(ITEM_CN)) {
       if (!(k in it) && !(k in old)) continue;
       if (String(old[k] ?? '') === String(it[k] ?? '')) continue;
-      const fmt = (v: unknown) => (k === 'price' && v !== '' && v != null && !Number.isNaN(Number(v)) ? money(Number(v)) : show(v));
+      const fmt = (v: unknown) => ((k === 'price' || k === 'cost') && v !== '' && v != null && !Number.isNaN(Number(v)) ? money(Number(v)) : show(v));
       out.push({ kind: 'mod', label: `第 ${i + 1} 行 ${name} · ${ITEM_CN[k]}`, en: ITEM_EN[k] && `${ITEM_EN[k][0].toUpperCase() + ITEM_EN[k].slice(1)} of ${name}`, from: fmt(old[k]), to: fmt(it[k]) });
     }
     if (String(old.mix ?? '') !== String(it.mix ?? '')) out.push({ kind: 'mod', label: `第 ${i + 1} 行 ${name} · 混装`, from: old.mix ? '混装' : '单独装箱', to: it.mix ? '混装' : '单独装箱' });
@@ -192,6 +196,7 @@ export function diffDoc(prev: Order, cur: Order, doc: DocKey): Change[] {
       continue;
     }
     if (String(x ?? '') === String(y ?? '')) continue;
+    if (p === 'factory') { out.push({ kind: 'mod', label: '默认工厂', from: x ? '原工厂' : '（未选）', to: y ? '已更换' : '（未选）' }); continue; }
     if (p === 'forwarder') { out.push({ kind: 'mod', label: '货代', from: x ? '原货代' : '（未选）', to: y ? '已更换' : '（未选）' }); continue; }
     const opt = OPTION_TEXT[p];
     out.push({ kind: 'mod', label: labelOf(p, cur), en: FIELD_EN[p], from: show(opt?.[String(x)] ?? x), to: show(opt?.[String(y)] ?? y) });
@@ -208,6 +213,11 @@ export function totalChanges(prev: Order, cur: Order, doc: DocKey): Change[] {
   const ka = calcOrder(prev), kb = calcOrder(cur);
   if (COMMERCIAL.includes(doc) && (ka.amount !== kb.amount || prev.terms.currency !== cur.terms.currency))
     out.push({ kind: 'mod', label: '总金额', en: 'Total amount', from: `${prev.terms.currency} ${money(ka.amount)}`, to: `${cur.terms.currency} ${money(kb.amount)}` });
+  if (doc === 'po') {
+    const ca = profitOf(prev).cost, cb = profitOf(cur).cost;
+    if (money(ca) !== money(cb)) out.push({ kind: 'mod', label: '采购总金额', from: `¥${money(ca)}`, to: `¥${money(cb)}` });
+    if (ka.qty !== kb.qty) out.push({ kind: 'mod', label: '总数量', from: int(ka.qty), to: int(kb.qty) });
+  }
   if (COMMERCIAL.includes(doc) && ka.qty !== kb.qty) out.push({ kind: 'mod', label: '总数量', en: 'Total quantity', from: int(ka.qty), to: int(kb.qty) });
   if (PACKING.includes(doc)) {
     const pa = pkgSummary(prev, ka), pb = pkgSummary(cur, kb);
@@ -221,7 +231,7 @@ export function totalChanges(prev: Order, cur: Order, doc: DocKey): Change[] {
 /* ---------------- 改版说明 ---------------- */
 
 const DOC_EN: Record<DocKey, string> = {
-  quote: 'Quotation', pi: 'Proforma Invoice', contract: 'Sales Contract', ci: 'Commercial Invoice', pl: 'Packing List', customs: 'customs documents',
+  quote: 'Quotation', pi: 'Proforma Invoice', contract: 'Sales Contract', po: 'Purchase Order', ci: 'Commercial Invoice', pl: 'Packing List', customs: 'customs documents',
   marks: 'Shipping Marks', labels: 'carton labels', booking: 'Booking Note', si: 'Shipping Instruction', advice: 'Shipping Advice',
 };
 /** 发给客户的单据默认写英文说明，其它（工厂、货代、报关行）写中文 */

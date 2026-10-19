@@ -2,6 +2,7 @@ import { applyReqs } from './requirements';
 import { CONTRACT_LIB, DEFAULT_CLAUSES, ORIGIN_TERMS } from './constants';
 import { fillMarks, payText, today, uid } from './calc';
 import { defaultSettings, docNumbers, formatOrderNo } from './settings';
+import { defaultPurchase } from './purchase';
 import type { Buyer, Customer, Item, Numbering, Order, Product, Seller, Settings } from './types';
 
 export function clausesFromLib(keys: string[]) {
@@ -39,6 +40,7 @@ export function blankOrder(seller: Seller, no: string, name: string, created = t
       clauses: 'All prices are subject to change without prior notice.\nClaims must be raised within 7 days after receipt of goods.\nForce majeure events excuse any delay in performance.',
     },
     contractClauses: clausesFromLib(DEFAULT_CLAUSES),
+    purchase: defaultPurchase(),
   };
   syncPay(order);
   return order;
@@ -57,6 +59,7 @@ export function blankForm(seller: Seller, settings: Settings = defaultSettings()
   };
   o.numbers = { quote: '', pi: '', contract: '', ci: '', po: '', date: '', validUntil: '', signedAt: '' };
   o.shipping = { ...o.shipping, origin: '' };
+  o.purchase = { ...defaultPurchase(), invoice: '', vat: '', fees: [] };
   o.customs = { exportPort: '', supervision: '', exemption: '', license: '', tradeCountry: '', destCountry: '', sourceArea: '', packageType: '', freight: '', insFee: '', docs: '' };
   return o;
 }
@@ -139,6 +142,8 @@ export function copyOrder(src: Order, no: string, numbering: Numbering = default
   delete o.reqDone;
   delete o.sent;
   delete o.snaps;
+  // 采购价、费用沿用；各工厂的采购单号、交货日期重新填
+  if (o.purchase) o.purchase.pos = {};
   o.items.forEach((i) => (i.id = uid()));
   o.contractClauses.forEach((c) => (c.id = uid()));
   return o;

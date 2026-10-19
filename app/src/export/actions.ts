@@ -35,10 +35,11 @@ export function exportDoc(o: Order, doc: DocKey, fmt: Fmt) {
     (r) => useData.getState().markExported(o.id, { docs: [doc], snap, file: r.name }));
 }
 
-export function exportZip(o: Order, items: { doc: DocKey; fmt: Fmt }[], bundle: string) {
+/** factory：工厂资料包里的采购单只放这个工厂的 */
+export function exportZip(o: Order, items: { doc: DocKey; fmt: Fmt }[], bundle: string, factory?: string) {
   if (!items.length) return toast('请先勾选要导出的单据');
   const docs = [...new Set(items.map((x) => x.doc))];
   const snap = takeSnap(o);
-  return run(`${bundle}资料包`, async () => (await import('./index')).exportBundle(o, items, bundle), (r) => `已打包 ${r.count} 个文件：${r.name}`,
+  return run(`${bundle}资料包`, async () => (await import('./index')).exportBundle(o, items, bundle, factory), (r) => `已打包 ${r.count} 个文件：${r.name}`,
     (r) => useData.getState().markExported(o.id, { docs, snap, to: bundle, file: r.name }));
 }

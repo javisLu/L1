@@ -71,6 +71,13 @@ export interface Item {
   elements: string;
   /** 混装箱编号（与 Order.packs 对应）；空 = 单独装箱，按每箱装量算箱数 */
   mix?: string;
+  /* —— M2-2 工厂采购（只出现在采购单和成本利润里，不上给客户的单据） —— */
+  /** 供应工厂（合作方 id）；空 = 订单菜单里选的工厂 */
+  factory?: string;
+  /** 采购单价（人民币，含税） */
+  cost?: Num;
+  /** 出口退税率 % */
+  rebate?: Num;
 }
 
 /**
@@ -184,6 +191,40 @@ export interface DocSettings {
   statement?: string;
 }
 
+/** 给某个工厂的采购单：编号、交货日期、付款方式、备注（每个工厂一份） */
+export interface FactoryPO {
+  no?: string;
+  delivery?: string;
+  payment?: string;
+  note?: string;
+}
+
+/** 成本利润里的一项费用（人民币） */
+export interface CostFee {
+  id: string;
+  name: string;
+  amount: Num;
+}
+
+/** 工厂采购与成本利润（老订单没有，见 domain/purchase.ts 的默认值） */
+export interface Purchase {
+  /** 按工厂 id（未指定工厂为空字符串） */
+  pos: Record<string, FactoryPO>;
+  /** 交货地点（如：送到我司仓库 / 货代指定仓库 / 工厂装柜） */
+  deliverTo: string;
+  /** 质量要求 */
+  quality: string;
+  /** 包装要求（中文，给工厂看） */
+  packing: string;
+  /** 价格与发票说明（如：以上价格含 13% 增值税专用发票） */
+  invoice: string;
+  /** 汇率（1 外币 = ? 人民币）；空 = 用参考汇率 */
+  rate: Num;
+  /** 增值税率 %（算退税用） */
+  vat: Num;
+  fees: CostFee[];
+}
+
 export interface Order {
   id: string;
   no: string;
@@ -206,6 +247,8 @@ export interface Order {
   partners: { forwarder: string; broker: string; factory: string };
   docset: DocSettings;
   contractClauses: ContractClause[];
+  /** 工厂采购与成本利润（M2-2；老订单没有） */
+  purchase?: Purchase;
   /** 关键日期（首页「今天要做」用；货好、ETD、ETA、截关在 shipping 里，报价有效期在 numbers 里） */
   dates?: KeyDates;
   /** 每份单据最近一次导出：时间、发给谁、单据指纹（用来判断导出后有没有改过） */
@@ -221,7 +264,7 @@ export interface Order {
 }
 
 /** 单据用到的订单数据（不含导出记录、提醒等） */
-export type OrderSnap = Pick<Order, 'seller' | 'buyer' | 'terms' | 'numbers' | 'items' | 'packs' | 'pkg' | 'shipping' | 'customs' | 'partners' | 'docset' | 'contractClauses'>;
+export type OrderSnap = Pick<Order, 'seller' | 'buyer' | 'terms' | 'numbers' | 'items' | 'packs' | 'pkg' | 'shipping' | 'customs' | 'partners' | 'docset' | 'contractClauses' | 'purchase'>;
 
 export interface SendRecord {
   id: string;

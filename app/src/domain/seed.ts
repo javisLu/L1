@@ -58,6 +58,7 @@ export function seed(): DataState {
     { id: 'p2', type: '货代', name: '捷通物流（上海）有限公司', contact: '陈小姐', phone: '139 0000 2222', note: '美线、欧线' },
     { id: 'p3', type: '报关行', name: '青岛海通报关有限公司', contact: '李小姐', phone: '137 0000 3333', note: '青岛大港' },
     { id: 'p4', type: '工厂', name: '临沂金盛铝业有限公司', contact: '张厂长', phone: '136 0000 4444', note: '铝合金展架' },
+    { id: 'p6', type: '工厂', name: '义乌恒达五金配件厂', contact: '刘经理', phone: '135 0000 6666', note: '挂钩、螺丝等配件' },
     { id: 'p5', type: '船公司', name: 'COSCO SHIPPING', contact: '订舱部', phone: '—', note: '' },
   ];
   const P = (m: string) => products.find((p) => p.model === m)!;
@@ -75,6 +76,16 @@ export function seed(): DataState {
       o.numbers.validUntil = '2026-10-15';
       o.partners = { forwarder: 'p1', broker: 'p3', factory: 'p4' };
       applyCustomer(o, customers[0]);
+      // 工厂采购示例：配件另找一家工厂
+      const cost: Record<string, [number, number]> = { 'AL-S200': [58, 13], 'AL-H500': [420, 13], 'AC-01': [14.5, 9] };
+      o.items.forEach((it) => Object.assign(it, { cost: cost[it.model][0], rebate: cost[it.model][1] }));
+      o.items.find((it) => it.model === 'AC-01')!.factory = 'p6';
+      o.purchase!.rate = 7.12;
+      o.purchase!.deliverTo = '送至青岛远航货代指定仓库（黄岛）';
+      o.purchase!.quality = '按确认样品生产，表面无划痕、色差；出货前我司验货，不合格返工';
+      o.purchase!.pos = { p4: { delivery: '2026-10-28', payment: '30% 定金，70% 提货前付清' }, p6: { delivery: '2026-10-25', payment: '月结 30 天' } };
+      const fee: Record<string, number> = { '国内运费（工厂到港口）': 1200, '报关 / 港杂费': 650, '货代杂费': 400, '银行手续费': 150 };
+      o.purchase!.fees.forEach((f) => (f.amount = fee[f.name] ?? ''));
     }),
     make(customers[1], '2026-002', '外贸订单2', '出货', '2026-09-05', [['AL-H500', 60], ['AL-S200', 300]], (o) => {
       o.numbers.po = 'ABC-2026-118';

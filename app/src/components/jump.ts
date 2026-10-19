@@ -1,5 +1,5 @@
 import { useUI } from '../store/ui';
-import { MODS, STEP_MOD, inputId, ownerOf, stepPaths, type ModKey, type StepKey } from '../modules/defs';
+import { MODS, STEP_MOD, inputId, normPath, ownerOf, stepPaths, type ModKey, type StepKey } from '../modules/defs';
 
 /** 滚动到输入框、聚焦并闪一下 */
 export function flash(path: string) {
@@ -15,7 +15,7 @@ export function flash(path: string) {
 
 /** 某个字段在模块的哪一步填写（货物行、条款按列匹配） */
 export function stepOf(mod: ModKey, path: string): StepKey | undefined {
-  const norm = path.replace(/^(items|contractClauses|packs)\.\d+\./, '$1.*.');
+  const norm = normPath(path);
   return MODS[mod].steps?.find((st) => stepPaths(st).includes(norm));
 }
 

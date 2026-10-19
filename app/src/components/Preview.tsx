@@ -16,6 +16,7 @@ export function Preview({ order, doc, bar, onJump, split }: { order: Order; doc:
   const assets = useData((s) => s.settings.assets);
   const labels = useData((s) => s.settings.labels);
   const range = useUI((s) => s.labelRange);
+  const factory = useUI((s) => s.poFactory);
 
   useEffect(() => {
     const el = wrap.current;
@@ -46,7 +47,7 @@ export function Preview({ order, doc, bar, onJump, split }: { order: Order; doc:
               if (f && onJump) onJump(f.dataset.f!);
             }}
           >
-            <DocView doc={doc} order={order} assets={assets} labels={{ ...labels, ...range, maxPages: 1 }} />
+            <DocView doc={doc} order={order} assets={assets} labels={{ ...labels, ...range, maxPages: 1 }} factory={factory ?? undefined} />
           </div>
         </div>
       </div>

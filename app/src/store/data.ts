@@ -10,6 +10,7 @@ import { docSig, nowStamp } from '../domain/exports';
 import { asOrder, recordSend } from '../domain/history';
 import type { DocKey } from '../modules/defs';
 import { defaultSettings } from '../domain/settings';
+import { defaultPurchase } from '../domain/purchase';
 import { mergeCustomer, mergeProduct } from '../io/library';
 import type { Customer, DataState, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings } from '../domain/types';
 
@@ -18,6 +19,12 @@ export interface ImportResult { added: number; updated: number; skipped: number 
 
 /** 数据只保存在本机（桌面版为应用数据目录下的文件），不上传任何服务器 */
 export let hydrationError: unknown = null;
+
+/** 老订单补上工厂采购的默认值（升级、从备份恢复时） */
+function withPurchase(d: DataState): DataState {
+  for (const o of d.orders ?? []) o.purchase ??= defaultPurchase();
+  return d;
+}
 
 export function setPath(obj: unknown, path: string, value: unknown) {
   const ks = path.split('.');
@@ -270,7 +277,7 @@ export const useData = create<DataStore>()(
         }),
       deletePartner: (id) => setState((s) => void (s.partners = s.partners.filter((p) => p.id !== id))),
 
-      replaceAll: (d) => setState(() => ({ ...d, settings: { ...defaultSettings(), ...d.settings } })),
+      replaceAll: (d) => setState(() => ({ ...withPurchase(d), settings: { ...defaultSettings(), ...d.settings } })),
 
       clearAll: () =>
         setState((s) => {
@@ -286,7 +293,7 @@ export const useData = create<DataStore>()(
     })),
     {
       name: 'trade-workbench-data',
-      version: 4,
+      version: 5,
       // v1 → v2：新增「设置」
       migrate: (persisted, from) => {
         const d = persisted as DataState;
@@ -295,6 +302,8 @@ export const useData = create<DataStore>()(
         d.settings = { ...defaultSettings(), ...d.settings };
         // v4：去掉「上传自己的 Excel 模板」的数据（改为软件自带的单据模板库）
         delete (d as { templates?: unknown }).templates;
+        // v5：订单新增工厂采购与成本利润
+        withPurchase(d);
         return d as never;
       },
       storage: createJSONStorage(() => appStorage),

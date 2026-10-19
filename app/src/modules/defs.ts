@@ -5,15 +5,16 @@ import {
 import { addrLabel, needAddr, toNum } from '../domain/calc';
 import type { Order } from '../domain/types';
 import { autoFreight, blTypeText, consigneeText, insureNeeded, notifyText } from '../domain/shipping';
+import { REF_RATE } from '../domain/purchase';
 
 /** 运输信息里的提示：当前运费条款、提单类型、是否投保 */
 const shippingNote = (o: Order) =>
   `提单上会写：收货人 ${firstLine(consigneeText(o)) || '（未填）'} · 通知人 ${firstLine(notifyText(o)) || '（未填）'} · FREIGHT ${o.shipping.freight || autoFreight(o)}${o.shipping.freight ? '' : `（${o.terms.incoterm} 自动）`} · ${blTypeText(o)} · ${insureNeeded(o) ? '订舱委托书注明请货代代为投保' : '不投保'}`;
 const firstLine = (s: string) => s.split('\n')[0];
 
-export type DocKey = 'quote' | 'pi' | 'contract' | 'ci' | 'pl' | 'customs' | 'marks' | 'labels' | 'booking' | 'si' | 'advice';
-export type StepKey = 'parties' | 'items' | 'packing' | 'customsItems' | 'terms' | 'contractClauses' | 'contractNo' | 'invoice' | 'shipping' | 'customs' | 'docset' | 'marks';
-export type ModKey = 'quote' | 'pi' | 'ci' | 'pl' | 'customs' | 'booking' | 'marks' | 'export' | 'bl' | 'lc' | 'payment';
+export type DocKey = 'quote' | 'pi' | 'contract' | 'po' | 'ci' | 'pl' | 'customs' | 'marks' | 'labels' | 'booking' | 'si' | 'advice';
+export type StepKey = 'parties' | 'items' | 'packing' | 'customsItems' | 'terms' | 'contractClauses' | 'contractNo' | 'purchaseItems' | 'purchase' | 'profit' | 'invoice' | 'shipping' | 'customs' | 'docset' | 'marks';
+export type ModKey = 'quote' | 'pi' | 'purchase' | 'ci' | 'pl' | 'customs' | 'booking' | 'marks' | 'export' | 'bl' | 'lc' | 'payment';
 export type Src = 'S' | 'B' | 'FF' | 'CB' | 'F';
 
 export const SRC_NAME: Record<Src, string> = { S: '卖方', B: '买方', FF: '货代', CB: '报关行', F: '工厂' };
@@ -37,6 +38,7 @@ export interface ModDef {
 export const MODS: Record<ModKey, ModDef> = {
   quote: { code: 'QT', name: '报价单', desc: '客户、货物、价格条款在这里填，后面的单据都从这里取', grp: 'doc', docs: ['quote'], steps: ['parties', 'items', 'terms', 'docset'] },
   pi: { code: 'PI', name: '合同 / PI', desc: '形式发票 + 中英文销售合同：合同编号、条款', grp: 'doc', docs: ['pi', 'contract'], steps: ['contractNo', 'contractClauses'], uses: ['parties', 'items', 'terms', 'docset'] },
+  purchase: { code: 'PO', name: '工厂采购', desc: '给工厂的采购单（按工厂各出一张）；采购价、退税、费用算出每单利润', grp: 'doc', docs: ['po'], steps: ['purchaseItems', 'purchase', 'profit'], uses: ['parties', 'items', 'packing', 'marks'] },
   ci: { code: 'CI', name: '商业发票', desc: 'Commercial Invoice：发票号、原产地、注明文字', grp: 'doc', docs: ['ci'], steps: ['invoice'], uses: ['parties', 'items', 'terms', 'contractNo', 'shipping', 'docset'] },
   pl: { code: 'PL', name: '箱单', desc: 'Packing List：箱号、净毛重、体积自动计算', grp: 'doc', docs: ['pl'], steps: ['packing'], uses: ['parties', 'items', 'invoice', 'shipping', 'docset'] },
   customs: { code: 'CD', name: '报关资料', desc: '报关预录入表 + 发票 + 箱单，发报关行', grp: 'doc', docs: ['customs', 'ci', 'pl'], steps: ['customs', 'customsItems'], uses: ['parties', 'items', 'terms', 'contractNo', 'packing', 'shipping'] },
@@ -49,19 +51,19 @@ export const MODS: Record<ModKey, ModDef> = {
 };
 
 export const DOCNAMES: Record<DocKey, string> = {
-  quote: '报价单', pi: 'PI 形式发票', contract: '销售合同', ci: '商业发票', pl: '装箱单', customs: '报关预录入表', marks: '唛头', labels: '箱贴',
+  quote: '报价单', pi: 'PI 形式发票', contract: '销售合同', po: '采购单', ci: '商业发票', pl: '装箱单', customs: '报关预录入表', marks: '唛头', labels: '箱贴',
   booking: '订舱委托书', si: 'SI 提单补料', advice: '装船通知',
 };
 
 export type Fmt = 'PDF' | 'Excel' | 'Word';
 export const DOC_FMT: Record<DocKey, Fmt[]> = {
-  quote: ['PDF', 'Excel'], pi: ['PDF', 'Excel'], contract: ['PDF', 'Word'], ci: ['PDF', 'Excel'], pl: ['PDF', 'Excel'], customs: ['PDF', 'Excel'], marks: ['PDF'], labels: ['PDF'],
+  quote: ['PDF', 'Excel'], pi: ['PDF', 'Excel'], contract: ['PDF', 'Word'], po: ['PDF', 'Excel'], ci: ['PDF', 'Excel'], pl: ['PDF', 'Excel'], customs: ['PDF', 'Excel'], marks: ['PDF'], labels: ['PDF'],
   booking: ['PDF', 'Excel'], si: ['PDF', 'Excel'], advice: ['PDF'],
 };
 export const EXT: Record<Fmt, string> = { PDF: 'pdf', Excel: 'xlsx', Word: 'docx' };
 
 export function docFile(o: Order, d: DocKey): string {
-  return { quote: o.numbers.quote, pi: o.numbers.pi, contract: o.numbers.contract, ci: o.numbers.ci, pl: 'PL-' + o.no, customs: 'CD-' + o.no, marks: 'Marks-' + o.no, labels: 'Labels-' + o.no, booking: 'BK-' + o.no, si: 'SI-' + o.no, advice: 'SA-' + o.no }[d];
+  return { quote: o.numbers.quote, pi: o.numbers.pi, contract: o.numbers.contract, po: 'CG-' + o.no, ci: o.numbers.ci, pl: 'PL-' + o.no, customs: 'CD-' + o.no, marks: 'Marks-' + o.no, labels: 'Labels-' + o.no, booking: 'BK-' + o.no, si: 'SI-' + o.no, advice: 'SA-' + o.no }[d];
 }
 
 /* ---------- 表单字段 ---------- */
@@ -73,6 +75,12 @@ export type FieldDef =
   | { kind: 'head'; label: string; tools?: 'buyer' }
   | { kind: 'note'; text: (o: Order) => string }
   | { kind: 'containers' }
+  /** 工厂采购：每个工厂的采购单号、交货日期、付款方式、备注 */
+  | { kind: 'factories' }
+  /** 成本利润：费用清单 */
+  | { kind: 'fees' }
+  /** 成本利润：利润汇总 */
+  | { kind: 'profit' }
   | {
       kind: 'field';
       path: string;
@@ -93,9 +101,11 @@ export type FieldDef =
 const f = (path: string, label: Dyn<string>, opts: Partial<Extract<FieldDef, { kind: 'field' }>> = {}): FieldDef => ({ kind: 'field', path, label, ...opts });
 const head = (label: string, tools?: 'buyer'): FieldDef => ({ kind: 'head', label, tools });
 
-export type TableKey = 'items' | 'packing' | 'customsItems';
+export type TableKey = 'items' | 'packing' | 'customsItems' | 'purchase';
 export interface ColDef {
-  key?: string; calc?: 'a' | 'q' | 'n' | 'cno' | 'cbmT'; label: string; width: number; num?: boolean;
+  key?: string; calc?: 'a' | 'q' | 'n' | 'cno' | 'cbmT' | 'nm' | 'ca'; label: string; width: number; num?: boolean;
+  /** 下拉选择（供应工厂） */
+  sel?: 'factory';
   /** 只显示、不在这里填（在别的步骤填写，方便对照是哪一行） */
   ro?: boolean;
 }
@@ -153,6 +163,33 @@ export const STEPS: Record<StepKey, StepDef> = {
       f('terms.transship', '转运', { type: 'select', options: ['Allowed', 'Not Allowed'] }),
       f('terms.insurance', '保险', { wide: true }),
       f('terms.packing', '包装要求', { wide: true, src: 'F' }),
+    ],
+  },
+  purchaseItems: {
+    label: '采购明细', hint: '每行选供应工厂、填采购单价（人民币含税）和退税率；没单独选工厂的，按订单菜单里选的工厂。',
+    table: 'purchase',
+  },
+  purchase: {
+    label: '采购条款', hint: '交货地点、质量和包装要求各工厂通用；交货日期、付款方式每个工厂分别填。每箱装量、箱规、唛头自动带到采购单上。',
+    fields: [
+      f('purchase.deliverTo', '交货地点', { placeholder: '如：送至我司仓库 / 货代指定仓库 / 工厂装柜' }),
+      f('purchase.invoice', '价格与发票', { placeholder: '如：以上价格含 13% 增值税专用发票。' }),
+      f('purchase.quality', '质量要求', { type: 'textarea', wide: true, placeholder: '如：按确认样品生产，表面无划痕、色差；出货前我司验货，不合格返工' }),
+      f('purchase.packing', '包装要求', { type: 'textarea', wide: true, placeholder: '如：每件独立 PE 袋，五层瓦楞纸箱，箱外印唛头、贴箱贴' }),
+      head('各工厂的交货日期与付款方式'),
+      { kind: 'factories' },
+    ],
+  },
+  profit: {
+    label: '成本利润', hint: '只在软件里看，不会印在任何单据上。退税 = 采购金额 ÷（1 + 增值税率）× 退税率。',
+    fields: [
+      f('purchase.rate', (o) => `汇率（1 ${o.terms.currency} = ? 元）`, { show: (o) => o.terms.currency !== 'CNY', placeholder: '按实际结汇汇率填' }),
+      f('purchase.vat', '增值税率 %'),
+      { kind: 'note', text: (o) => (o.terms.currency !== 'CNY' && !toNum(o.purchase?.rate) ? `没填汇率时按参考汇率 ${REF_RATE[o.terms.currency]} 估算，请按实际结汇汇率填写。` : '') },
+      head('费用（人民币，整票）'),
+      { kind: 'fees' },
+      head('本单利润'),
+      { kind: 'profit' },
     ],
   },
   contractClauses: { label: '合同条款', hint: '下列条款可以开关、修改、排序，也可以添加自定义条款或从条款库插入。', list: 'contractClauses' },
@@ -250,6 +287,12 @@ export const TABLES: Record<TableKey, ColDef[]> = {
     { key: 'nw', label: '净重/箱', width: 70, num: true }, { key: 'gw', label: '毛重/箱', width: 70, num: true },
     { calc: 'n', label: '箱数', width: 54 }, { calc: 'cno', label: '箱号', width: 74 }, { calc: 'cbmT', label: '体积 m³', width: 70 },
   ],
+  purchase: [
+    { key: 'model', label: '型号', width: 90, ro: true }, { calc: 'nm', label: '品名', width: 190 },
+    { key: 'factory', sel: 'factory', label: '供应工厂', width: 190 }, { calc: 'q', label: '数量', width: 70 },
+    { key: 'cost', label: '采购单价（元）', width: 100, num: true }, { calc: 'ca', label: '采购金额（元）', width: 110 },
+    { key: 'rebate', label: '退税率 %', width: 80, num: true },
+  ],
   customsItems: [
     { key: 'nameCn', label: '中文品名', width: 170 }, { key: 'hs', label: '商品编号', width: 110 },
     { key: 'elements', label: '申报要素', width: 250 }, { key: 'model', label: '型号', width: 90, ro: true }, { calc: 'q', label: '数量', width: 64 },
@@ -259,7 +302,11 @@ export const TABLES: Record<TableKey, ColDef[]> = {
 export function stepPaths(step: StepKey): string[] {
   const s = STEPS[step];
   const out: string[] = [];
-  for (const fd of s.fields ?? []) if (fd.kind === 'field') out.push(fd.path);
+  for (const fd of s.fields ?? []) {
+    if (fd.kind === 'field') out.push(fd.path);
+    if (fd.kind === 'factories') out.push('purchase.pos.*.no', 'purchase.pos.*.delivery', 'purchase.pos.*.payment', 'purchase.pos.*.note');
+    if (fd.kind === 'fees') out.push('purchase.fees.*.name', 'purchase.fees.*.amount');
+  }
   if (s.table) for (const c of TABLES[s.table]) if (c.key && !c.ro) out.push('items.*.' + c.key);
   if (s.table === 'packing') out.push('packs.*.ctns', 'packs.*.gw', 'packs.*.l', 'packs.*.w', 'packs.*.h', 'pkg.count', 'pkg.tare');
   if (s.list) out.push('contractClauses.*.title', 'contractClauses.*.body');
@@ -308,6 +355,10 @@ export function missing(o: Order, step: StepKey): string[] {
       if (!(toNum(p.l) && toNum(p.w) && toNum(p.h))) out.push(`${name}箱规`);
     }
   }
+  if (s.table === 'purchase')
+    o.items.forEach((it, i) => {
+      if (!toNum(it.cost)) out.push(`第${i + 1}行采购单价`);
+    });
   if (s.table === 'customsItems')
     o.items.forEach((it, i) => {
       if (!it.nameCn) out.push(`第${i + 1}行中文品名`);
@@ -327,7 +378,8 @@ export const STEP_MOD = Object.fromEntries(
   (Object.keys(MODS) as ModKey[]).flatMap((m) => (MODS[m].steps ?? []).map((st) => [st, m])),
 ) as Record<StepKey, ModKey>;
 
-const normPath = (p: string) => p.replace(/^(items|contractClauses|packs)\.\d+\./, '$1.*.');
+/** 货物行、条款、混装箱按列匹配，各工厂的采购单字段按字段名匹配 */
+export const normPath = (p: string) => p.replace(/^(items|contractClauses|packs|purchase\.fees)\.\d+\./, '$1.*.').replace(/^purchase\.pos\.[^.]*\./, 'purchase.pos.*.');
 
 /** 某个字段在哪个模块的哪一步填写（货物行、条款按列匹配） */
 export function ownerOf(path: string): { mod: ModKey; step: StepKey } | undefined {
@@ -339,6 +391,8 @@ export function ownerOf(path: string): { mod: ModKey; step: StepKey } | undefine
 /** 按运输方式、付款方式标出本单需要的单据 */
 export function neededMods(o: Order): Set<ModKey> {
   const n = new Set<ModKey>(['quote', 'pi', 'ci', 'pl', 'marks', 'export', 'payment']);
+  // 自己是工厂、不用下采购单的，「工厂采购」标为可不做
+  if (o.partners.factory || o.items.some((it) => it.factory || toNum(it.cost))) n.add('purchase');
   if (o.terms.transport !== '快递') n.add('customs');
   if (o.terms.transport === '海运') {
     n.add('booking');
@@ -351,15 +405,14 @@ export function neededMods(o: Order): Set<ModKey> {
 export const inputId = (p: string) => 'in-' + p.replace(/[.*]/g, '-');
 
 /* ---------- 导出中心 ---------- */
-export type ExpKey = DocKey | 'po';
+export type ExpKey = DocKey;
 export const EXPDOCS: { key: ExpKey; name: string; ph?: string }[] = [
-  { key: 'quote', name: '报价单' }, { key: 'pi', name: 'PI 形式发票' }, { key: 'contract', name: '销售合同' },
+  { key: 'quote', name: '报价单' }, { key: 'pi', name: 'PI 形式发票' }, { key: 'contract', name: '销售合同' }, { key: 'po', name: '采购单（给工厂）' },
   { key: 'ci', name: '商业发票' }, { key: 'pl', name: '装箱单' }, { key: 'customs', name: '报关预录入表' }, { key: 'marks', name: '唛头' },
   { key: 'labels', name: '箱贴（每箱一张）' },
   { key: 'booking', name: '订舱委托书' }, { key: 'si', name: 'SI 提单补料' }, { key: 'advice', name: '装船通知' },
-  { key: 'po', name: '采购单（给工厂）', ph: 'M2' },
 ];
 export type Bundle = '客户' | '工厂' | '报关行' | '货代';
 export const BUNDLES: Record<Bundle, ExpKey[]> = {
-  客户: ['pi', 'contract', 'ci', 'pl'], 工厂: ['po', 'marks', 'labels', 'pl'], 报关行: ['customs', 'ci', 'pl', 'contract'], 货代: ['pl', 'booking', 'si'],
+  客户: ['pi', 'contract', 'ci', 'pl'], 工厂: ['po', 'marks', 'labels'], 报关行: ['customs', 'ci', 'pl', 'contract'], 货代: ['pl', 'booking', 'si'],
 };

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useData, getPath } from '../store/data';
 import { toast, useUI } from '../store/ui';
-import { fixed, int, money, sym, calcOrder } from '../domain/calc';
+import { fixed, int, money, sym, calcOrder, toNum } from '../domain/calc';
 import { CONTRACT_LIB } from '../domain/constants';
 import { emptyItem, productToItem, syncPay } from '../domain/factory';
 import { SRC_NAME, TABLES, dyn, inputId, type FieldDef, type TableKey } from '../modules/defs';
@@ -10,6 +10,7 @@ import { uid } from '../domain/calc';
 import { openItemImport } from './itemImport';
 import { PackingTable } from './packing';
 import { ContainerList } from './containers';
+import { FactoryPOs, FeeList, ProfitSummary } from './purchase';
 import { openSmartPaste } from './smartPaste';
 import { looksLikeContact } from '../domain/contact';
 
@@ -31,6 +32,9 @@ export function FieldView({ order, def }: { order: Order; def: FieldDef }) {
     return t ? <div className="note w2" style={{ marginTop: -4 }}>{t}</div> : null;
   }
   if (def.kind === 'containers') return <ContainerList order={order} />;
+  if (def.kind === 'factories') return <FactoryPOs order={order} />;
+  if (def.kind === 'fees') return <FeeList order={order} />;
+  if (def.kind === 'profit') return <ProfitSummary order={order} />;
   const d: FieldSpec = def;
   if (d.show && !d.show(order)) return null;
   const id = inputId(d.path);
@@ -196,8 +200,11 @@ export function ItemTable({ order, table }: { order: Order; table: TableKey }) {
 function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
   const setField = useData((s) => s.setOrderField);
   const updateOrder = useData((s) => s.updateOrder);
+  const partners = useData((s) => s.partners);
   const openModal = useUI((s) => s.openModal);
   const k = calcOrder(order);
+  const factories = partners.filter((p) => p.type === '工厂');
+  const defFactory = factories.find((p) => p.id === order.partners.factory)?.name;
   const cols = TABLES[table];
   const cur = order.terms.currency;
   const purpose = table === 'items' ? 'items' : table === 'packing' ? 'packing' : 'customs';
@@ -238,6 +245,8 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
     if (c === 'n') return String(r.n);
     if (c === 'cno') return r.n ? `${r.from}–${r.to}` : '—';
     if (c === 'cbmT') return fixed(r.cbmT, 3);
+    if (c === 'nm') return order.items[i].nameCn || order.items[i].nameEn;
+    if (c === 'ca') return toNum(order.items[i].cost) ? money(toNum(r.q) * toNum(order.items[i].cost)) : '—';
     return '';
   };
   return (
@@ -256,7 +265,14 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
               <tr key={it.id}>
                 <td className="ix">{i + 1}</td>
                 {cols.map((c) =>
-                  c.key && c.ro ? (
+                  c.key && c.sel === 'factory' ? (
+                    <td key={c.key}>
+                      <select className="cell" id={inputId(`items.${i}.${c.key}`)} aria-label={c.label} value={it.factory ?? ''} onChange={(e) => setField(order.id, `items.${i}.factory`, e.target.value)}>
+                        <option value="">{defFactory ? `${defFactory}（默认）` : '（未选工厂）'}</option>
+                        {factories.filter((p) => p.id !== order.partners.factory).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </td>
+                  ) : c.key && c.ro ? (
                     <td key={c.key} className="calc ro">{String((it as unknown as Record<string, unknown>)[c.key] ?? '')}</td>
                   ) : c.key ? (
                     <td key={c.key}>
@@ -312,7 +328,15 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
           <span className="tbl-tip">提示：在表格里直接 Ctrl+V 粘贴从 Excel 复制的多行；回车 / ↑↓ 换行</span>
         </div>
       )}
-      {table !== 'items' && (
+      {table === 'purchase' && (
+        <div className="tbl-tools">
+          <span className="tbl-tip">
+            采购合计 <b>¥{money(order.items.reduce((a, it, i) => a + toNum(k.rows[i].q) * toNum(it.cost), 0))}</b>
+            {factories.length ? '' : ' · 合作方库里还没有工厂，先去「合作方库」添加'}
+          </span>
+        </div>
+      )}
+      {table !== 'items' && table !== 'purchase' && (
         <div className="tbl-tools">
           <button className="btn sm" onClick={() => openItemImport(order, undefined, purpose)}>粘贴 Excel 导入</button>
           <span className="tbl-tip">按型号 / 品名对上现有货物，只更新文件里有的列；也可以在表格里直接 Ctrl+V</span>

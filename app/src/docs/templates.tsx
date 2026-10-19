@@ -9,6 +9,7 @@ import { Labels, type LabelOptions } from './labels';
 import { pkgNote, pkgSummary } from '../domain/package';
 import { isBlank, blTypeCn, blTypeText, consigneeText, containerRows, freightText, goodsLines, insureNeeded, notifyText, shipperText } from '../domain/shipping';
 import { useData } from '../store/data';
+import { factoriesOf, poNo, poRows, purchaseOf, rmbWords } from '../domain/purchase';
 
 const MONO = 'var(--f-doc-num)';
 const accent = (o: Order) => THEMES[o.docset.theme] ?? '#1d3f72';
@@ -550,20 +551,140 @@ function Advice({ o }: { o: Order }) {
   );
 }
 
+/* ---------- 采购单（给工厂，M2-2） ---------- */
+/** 按工厂出：只列这个工厂供的货；不写客户信息和销售价 */
+function PurchaseOrder({ o, factory }: { o: Order; factory?: string }) {
+  const k = calcOrder(o), a = accent(o);
+  const { logo } = useAssets();
+  const all = factoriesOf(o);
+  const fid = factory != null && all.includes(factory) ? factory : all[0];
+  const fp = useData.getState().partners.find((x) => x.id === fid);
+  const pur = purchaseOf(o);
+  const po = pur.pos[fid] ?? {};
+  const pp = (key: string) => `purchase.pos.${fid}.${key}`;
+  const idx = poRows(o, fid);
+  let qty = 0, total = 0;
+  const rows = idx.map((i, n) => {
+    const r = k.rows[i], it = o.items[i];
+    const c = toNum(it.cost), amt = toNum(r.q) * c;
+    qty += toNum(r.q);
+    total += amt;
+    return [
+      String(n + 1),
+      <Fld p={`items.${i}.model`} v={r.model} />,
+      <><Fld p={`items.${i}.nameCn`} v={r.nameCn || r.nameEn} ph="[品名]" />{r.spec ? <>{'\n'}<Txt style={{ color: '#777', fontSize: 7 }}><Fld p={`items.${i}.spec`} v={r.spec} /></Txt></> : null}</>,
+      <Fld p={`items.${i}.unit`} v={r.unit} />,
+      <Fld p={`items.${i}.qty`} v={r.q ? int(r.q) : ''} ph="0" />,
+      <Fld p={`items.${i}.cost`} v={c ? money(c) : ''} ph="[采购价]" />,
+      <Txt style={{ fontWeight: 600 }}>{c ? money(amt) : ''}</Txt>,
+    ];
+  });
+  const packRows = idx.map((i) => {
+    const r = k.rows[i];
+    const cno = r.from ? (r.from === r.to ? String(r.from) : `${r.from}-${r.to}`) : '—';
+    return r.pack
+      ? [r.model || r.nameCn || r.nameEn, '混装', `${toNum(r.pack.l)}×${toNum(r.pack.w)}×${toNum(r.pack.h)}`, '', cno, `${fixed(toNum(r.nw), 2)} / 整箱 ${fixed(toNum(r.pack.gw), 2)}`]
+      : [r.model || r.nameCn || r.nameEn, <Fld p={`items.${i}.pcsPerCtn`} v={r.pcsPerCtn ? `${r.pcsPerCtn} ${r.unit}` : ''} ph="[每箱装]" />, <Fld p={`items.${i}.l`} v={toNum(r.l) ? `${r.l}×${r.w}×${r.h}` : ''} ph="[箱规]" />, String(r.n || ''), cno, <Fld p={`items.${i}.gw`} v={toNum(r.gw) ? `${fixed(toNum(r.nw), 2)} / ${fixed(toNum(r.gw), 2)}` : ''} ph="[净 / 毛重]" />];
+  });
+  const line = (l: string, v: ReactNode) => (
+    <Row style={{ marginBottom: 2.5 }}><Txt style={{ width: '16%', color: '#5b6470' }}>{l}</Txt><Txt style={{ width: '84%', whiteSpace: 'pre-line' }}>{v}</Txt></Row>
+  );
+  const meta: [string, ReactNode][] = [['采购单号', <Fld p={pp('no')} v={poNo(o, fid)} ph="—" />], ['日期', F(o, 'numbers.date')], ['交货日期', <Fld p={pp('delivery')} v={po.delivery ?? ''} ph="[交货日期]" />]];
+  return (
+    <Page accent={a}>
+      <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Row style={{ width: '58%', alignItems: 'flex-start' }}>
+          {!!logo && <Img src={logo} style={{ height: 40, maxWidth: 110, marginRight: 10 }} />}
+          <Box style={{ flexGrow: 1, flexShrink: 1, color: '#444' }}>
+            <Txt style={{ fontSize: 11, fontWeight: 700, color: a, marginBottom: 3 }}><Fld p="seller.nameCn" v={o.seller.nameCn || o.seller.name} ph="[我司中文名称]" /></Txt>
+            <Txt>{F(o, 'seller.address')}</Txt>
+            <Txt>电话：{F(o, 'seller.phone')}   邮箱：{F(o, 'seller.email')}</Txt>
+          </Box>
+        </Row>
+        <Box style={{ alignItems: 'flex-end' }}>
+          <Txt style={{ fontSize: 16, fontWeight: 700, letterSpacing: 4, color: a }}>采购单</Txt>
+          <Txt style={{ fontSize: 7, letterSpacing: 1.5, color: '#777', marginBottom: 6 }}>PURCHASE ORDER</Txt>
+          {meta.map(([l, v]) => (
+            <Row key={l} style={{ justifyContent: 'flex-end' }}>
+              <Txt style={{ color: '#777', marginRight: 6 }}>{l}</Txt>
+              <Txt style={{ fontFamily: MONO, fontSize: 7.5, minWidth: 80 }}>{v}</Txt>
+            </Row>
+          ))}
+        </Box>
+      </Row>
+      <Box style={{ height: 2.2, background: a, margin: '12px 0 13px' }} />
+      <Two>
+        <Box style={boxSt}>
+          <Lab o={o}>需方（采购方）</Lab>
+          <Txt style={{ fontWeight: 700 }}>{o.seller.nameCn || o.seller.name}</Txt>
+          <Txt>{o.seller.address}</Txt>
+          <Txt>电话：{o.seller.phone || '—'}</Txt>
+        </Box>
+        <Box style={boxSt}>
+          <Lab o={o}>供方（工厂）</Lab>
+          <Txt style={{ fontWeight: 700 }}>{fp?.name || (isBlank(o) ? '' : <Hint text="[在订单菜单或采购明细里选择工厂]" />)}</Txt>
+          <Txt>联系人：{fp?.contact || ''}   电话：{fp?.phone || ''}</Txt>
+        </Box>
+      </Two>
+      <Table
+        accent={a}
+        cols={[{ label: '序号', w: '6%', align: 'center' }, { label: '型号', w: '13%' }, { label: '品名 / 规格', w: '35%' }, { label: '单位', w: '7%', align: 'center' }, { label: '数量', w: '11%', align: 'right' }, { label: '单价（元）', w: '12%', align: 'right' }, { label: '金额（元）', w: '16%', align: 'right' }]}
+        rows={rows.length ? rows : EmptyRow(7)}
+        foot={[{ w: '61%', c: '合计（含税）' }, { w: '11%', align: 'right', c: rows.length ? int(qty) : '' }, { w: '12%', c: '' }, { w: '16%', align: 'right', c: total ? '¥' + money(total) : '' }]}
+      />
+      {total > 0 && <Words o={o}>合计金额大写：{rmbWords(total)}</Words>}
+      <Section o={o} title="包装与唛头">
+        {rows.length > 0 && (
+          <Table
+            accent={a}
+            cols={[{ label: '型号', w: '20%' }, { label: '每箱装', w: '13%', align: 'center' }, { label: '箱规 cm', w: '19%', align: 'center' }, { label: '箱数', w: '10%', align: 'right' }, { label: '箱号', w: '13%', align: 'center' }, { label: '每箱净 / 毛重 kg', w: '25%', align: 'right' }]}
+            rows={packRows}
+          />
+        )}
+        {!!pur.packing && <Txt style={{ marginTop: 4 }}>包装要求：<Fld p="purchase.packing" v={pur.packing} /></Txt>}
+        {/* 没写侧唛就只印正唛 */}
+        <Row style={{ marginTop: 6, justifyContent: 'space-between' }}>
+          <Box style={{ width: o.shipping.side ? '48.5%' : '100%', border: '0.75px solid #d9dde3', padding: '5px 8px' }}>
+            <Txt style={{ fontSize: 6.5, color: '#5b6470', marginBottom: 2 }}>正唛</Txt>
+            <Txt style={{ fontFamily: MONO, fontSize: 8 }}>{F(o, 'shipping.marks', 'N/M')}</Txt>
+          </Box>
+          {!!o.shipping.side && (
+            <Box style={{ width: '48.5%', border: '0.75px solid #d9dde3', padding: '5px 8px' }}>
+              <Txt style={{ fontSize: 6.5, color: '#5b6470', marginBottom: 2 }}>侧唛</Txt>
+              <Txt style={{ fontFamily: MONO, fontSize: 8 }}>{F(o, 'shipping.side')}</Txt>
+            </Box>
+          )}
+        </Row>
+      </Section>
+      <Section o={o} title="交货与付款">
+        {line('交货日期', <Fld p={pp('delivery')} v={po.delivery ?? ''} ph="[交货日期]" />)}
+        {line('交货地点', <Fld p="purchase.deliverTo" v={pur.deliverTo} ph="[交货地点]" />)}
+        {line('付款方式', <Fld p={pp('payment')} v={po.payment ?? ''} ph="[付款方式]" />)}
+        {!!pur.invoice && line('价格与发票', <Fld p="purchase.invoice" v={pur.invoice} />)}
+      </Section>
+      {!!pur.quality && <Section o={o} title="质量要求"><Txt>{F(o, 'purchase.quality')}</Txt></Section>}
+      {!!po.note && <Section o={o} title="备注"><Txt><Fld p={pp('note')} v={po.note} /></Txt></Section>}
+      <Sign o={o} left={<>需方（盖章）<B>{o.seller.nameCn || o.seller.name}</B></>} right={<>供方（盖章）<B>{fp?.name ?? ''}</B></>} />
+    </Page>
+  );
+}
+
 const NO_ASSETS: DocAssets = { logo: '', stamp: '', signature: '' };
 
 const DEFAULT_LABELS: LabelOptions = { layout: 'a4-4', info: true };
 
-export function DocView({ doc, order, assets = NO_ASSETS, labels = DEFAULT_LABELS }: { doc: DocKey; order: Order; assets?: DocAssets; labels?: LabelOptions }) {
+/** factory：采购单给哪个工厂（不传 = 第一个） */
+export function DocView({ doc, order, assets = NO_ASSETS, labels = DEFAULT_LABELS, factory }: { doc: DocKey; order: Order; assets?: DocAssets; labels?: LabelOptions; factory?: string }) {
   return (
     <AssetsProvider value={assets}>
-      <CleanProvider value={isBlank(order)}><DocBody doc={doc} order={order} labels={labels} /></CleanProvider>
+      <CleanProvider value={isBlank(order)}><DocBody doc={doc} order={order} labels={labels} factory={factory} /></CleanProvider>
     </AssetsProvider>
   );
 }
 
-function DocBody({ doc, order, labels }: { doc: DocKey; order: Order; labels: LabelOptions }) {
+function DocBody({ doc, order, labels, factory }: { doc: DocKey; order: Order; labels: LabelOptions; factory?: string }) {
   switch (doc) {
+    case 'po': return <PurchaseOrder o={order} factory={factory} />;
     case 'quote': return <QuotePI o={order} kind="quote" />;
     case 'pi': return <QuotePI o={order} kind="pi" />;
     case 'contract': return <Contract o={order} />;

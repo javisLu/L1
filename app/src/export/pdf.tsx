@@ -60,11 +60,11 @@ export const pdfImpl: PdfImpl = {
   style: toPdfStyle,
 };
 
-export function buildPdf(order: Order, doc: DocKey, assets?: DocAssets, labels?: LabelOptions): ReactElement {
+export function buildPdf(order: Order, doc: DocKey, assets?: DocAssets, labels?: LabelOptions, factory?: string): ReactElement {
   return (
     <Document title={`${DOCNAMES[doc]} ${docFile(order, doc)}`} author={order.seller.name} creator="外贸超级工作台" producer="外贸超级工作台">
       <PdfProvider value={pdfImpl}>
-        <DocView doc={doc} order={order} assets={assets} labels={labels} />
+        <DocView doc={doc} order={order} assets={assets} labels={labels} factory={factory} />
       </PdfProvider>
     </Document>
   );
@@ -73,14 +73,14 @@ export function buildPdf(order: Order, doc: DocKey, assets?: DocAssets, labels?:
 /** 生成超过这个时间视为失败，避免界面一直停在“正在生成” */
 const PDF_TIMEOUT = 90_000;
 
-export async function renderPdf(order: Order, doc: DocKey, assets?: DocAssets, labels?: LabelOptions): Promise<Uint8Array> {
+export async function renderPdf(order: Order, doc: DocKey, assets?: DocAssets, labels?: LabelOptions, factory?: string): Promise<Uint8Array> {
   registerFonts();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, fail) => {
     timer = setTimeout(() => fail(new Error('生成超时，请重试；若仍失败，请在「设置」里删除 Logo / 公章图片后再试')), PDF_TIMEOUT);
   });
   try {
-    const blob = await Promise.race([pdf(buildPdf(order, doc, assets, labels)).toBlob(), timeout]);
+    const blob = await Promise.race([pdf(buildPdf(order, doc, assets, labels, factory)).toBlob(), timeout]);
     return new Uint8Array(await blob.arrayBuffer());
   } finally {
     clearTimeout(timer);

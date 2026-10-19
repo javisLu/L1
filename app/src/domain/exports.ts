@@ -8,6 +8,8 @@ import type { Order } from './types';
 
 /** 单价只出现在商务单据上；箱单、唛头、订舱等不看单价 */
 const PRICE = ['price'];
+/** 采购价、供应工厂、退税率只在采购单 / 成本利润里用，给客户、货代、报关行的单据都不看 */
+const COST = ['cost', 'factory', 'rebate'];
 const strip = (o: Order, drop: string[]) => o.items.map((it) => Object.fromEntries(Object.entries(it).filter(([k]) => !drop.includes(k))));
 
 /** 这份单据用到的数据（指纹和改版对比都按这个算） */
@@ -17,22 +19,30 @@ export function project(o: Order, doc: DocKey): unknown {
   switch (doc) {
     case 'quote':
     case 'pi':
-      return { ...base, terms: o.terms, items: o.items, ...pack };
+      return { ...base, terms: o.terms, items: strip(o, COST), ...pack };
     case 'contract':
-      return { ...base, terms: o.terms, items: o.items, ...pack, clauses: o.contractClauses };
+      return { ...base, terms: o.terms, items: strip(o, COST), ...pack, clauses: o.contractClauses };
+    case 'po': {
+      const p = o.purchase;
+      return {
+        seller: o.seller, date: o.numbers.date, docset: o.docset, items: strip(o, ['price', 'rebate', 'hs', 'elements']), ...pack,
+        marks: o.shipping.marks, side: o.shipping.side, factory: o.partners.factory,
+        purchase: p ? { pos: p.pos, deliverTo: p.deliverTo, quality: p.quality, packing: p.packing, invoice: p.invoice } : null,
+      };
+    }
     case 'ci':
-      return { ...base, terms: o.terms, items: o.items, ...pack, shipping: o.shipping };
+      return { ...base, terms: o.terms, items: strip(o, COST), ...pack, shipping: o.shipping };
     case 'pl':
-      return { ...base, terms: o.terms, items: strip(o, PRICE), ...pack, shipping: o.shipping };
+      return { ...base, terms: o.terms, items: strip(o, [...PRICE, ...COST]), ...pack, shipping: o.shipping };
     case 'customs':
-      return { ...base, terms: o.terms, items: o.items, ...pack, shipping: o.shipping, customs: o.customs };
+      return { ...base, terms: o.terms, items: strip(o, COST), ...pack, shipping: o.shipping, customs: o.customs };
     case 'marks':
     case 'labels':
-      return { po: o.numbers.po, marks: o.shipping.marks, side: o.shipping.side, items: strip(o, PRICE), ...pack };
+      return { po: o.numbers.po, marks: o.shipping.marks, side: o.shipping.side, items: strip(o, [...PRICE, ...COST]), ...pack };
     case 'booking':
     case 'si':
     case 'advice':
-      return { ...base, terms: o.terms, items: strip(o, PRICE), ...pack, shipping: o.shipping, forwarder: o.partners.forwarder };
+      return { ...base, terms: o.terms, items: strip(o, [...PRICE, ...COST]), ...pack, shipping: o.shipping, forwarder: o.partners.forwarder };
   }
 }
 

@@ -1,10 +1,11 @@
-import { fillMarks, fixed, int, needAddr, toNum, calcOrder } from '../domain/calc';
+import { fillMarks, fixed, int, money, needAddr, toNum, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
 import { CNO_LINE } from '../domain/labels';
 import { pkgSummary } from '../domain/package';
 import { autoFreight } from '../domain/shipping';
 import { MODS, STEPS, STEP_MOD, missing, neededMods, ownerOf, type ModKey, type StepKey } from './defs';
 import { REQS, reqState, reqStrict } from '../domain/requirements';
+import { factoriesOf, profitOf, purchaseOf } from '../domain/purchase';
 import type { CustReq, Order } from '../domain/types';
 
 export type Level = 'error' | 'warn';
@@ -46,6 +47,8 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
   // 1. 必填项：每个步骤只属于一个模块，归到填写它的模块
   (Object.keys(MODS) as ModKey[]).filter((m) => need.has(m)).forEach((m) => {
     for (const st of MODS[m].steps ?? []) {
+      // 采购价没填只在第 8 节提醒（填了一部分才提醒，没开始用采购单的不打扰）
+      if (st === 'purchaseItems') continue;
       const mi = missing(o, st);
       if (!mi.length) continue;
       const later = LATER.includes(st) && !shipped;
@@ -161,7 +164,23 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
   if (shipped && (!o.shipping.vessel || !o.shipping.blNo)) out.push({ level: 'warn', text: '订单已出货，船名航次 / 提单号还没填', mod: 'booking', path: !o.shipping.vessel ? 'shipping.vessel' : 'shipping.blNo' });
   if (need.has('pi') && !o.seller.bank.trim()) out.push({ level: 'warn', text: 'PI 上没有收款银行信息，客户无法付款', mod: 'quote', path: 'seller.bank' });
 
-  // 8. 客户要求清单：确认之后不符合算错误（之前只提醒）；自定义提醒在生产之后还没勾选的提醒一下
+  // 8. 工厂采购：采购单发给工厂前要有采购价、交货日期；按现在的价格会不会亏
+  if (need.has('purchase')) {
+    const pf = profitOf(o);
+    const pur = purchaseOf(o);
+    for (const fid of factoriesOf(o)) {
+      const d = pur.pos[fid]?.delivery;
+      const ready = o.shipping.cargoReady || o.shipping.etd;
+      if (d && ready && d > ready)
+        out.push({ level: 'warn', text: `${fid ? '有工厂' : '采购单'}交货日期 ${d} 晚于${o.shipping.cargoReady ? '货好时间' : '开船日期'} ${ready}`, mod: 'purchase', path: `purchase.pos.${fid}.delivery` });
+    }
+    if (pf.hasCost && pf.noCost.length)
+      out.push({ level: 'warn', text: `第 ${pf.noCost.slice(0, 4).map((i) => i + 1).join('、')} 行没填采购单价，采购单和利润不完整`, mod: 'purchase', path: `items.${pf.noCost[0]}.cost` });
+    if (pf.hasCost && !pf.noCost.length && pf.profit < 0)
+      out.push({ level: 'warn', text: `按现在的采购价和费用，本单预计亏损 ¥${money(-pf.profit)}`, mod: 'purchase', step: 'profit' });
+  }
+
+  // 9. 客户要求清单：确认之后不符合算错误（之前只提醒）；自定义提醒在生产之后还没勾选的提醒一下
   if (o.status !== '完结') {
     const strict = reqStrict(o);
     const late = STATUSES.indexOf(o.status) >= STATUSES.indexOf('生产');

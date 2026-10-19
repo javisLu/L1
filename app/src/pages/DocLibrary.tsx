@@ -14,6 +14,7 @@ const LIB: { doc: DocKey; to: string; desc: string }[] = [
   { doc: 'quote', to: '客户', desc: '报价、有效期、条款' },
   { doc: 'pi', to: '客户', desc: '形式发票，客户据此付款 / 开证' },
   { doc: 'contract', to: '客户', desc: '中英文销售合同，条款齐全，可导 Word 修改' },
+  { doc: 'po', to: '工厂', desc: '采购单：型号、数量、采购价、交货日期、包装唛头和质量要求，不写客户信息' },
   { doc: 'ci', to: '客户 / 报关行', desc: '商业发票，清关、结汇用' },
   { doc: 'pl', to: '客户 / 货代 / 报关行', desc: '装箱单：箱号、件数、净毛重、体积' },
   { doc: 'booking', to: '货代', desc: '订舱委托书（托书）：收发通、柜型、货好时间、运费条款' },
