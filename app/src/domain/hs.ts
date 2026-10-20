@@ -1,10 +1,10 @@
 import { toNum, today, uid } from './calc';
-import type { HsEntry, Item, Num, Order, Product, TariffRow } from './types';
+import type { HsEntry, Item, Num, Order, Product } from './types';
 
 /**
- * HS 记忆库与税则表（M2-3）。
- * 记忆库：导出过的订单里每个「中文品名 + 商品编号」自动记住，下次同品名自动带出编号、申报要素、退税率。
- * 税则表：用户导入（报关行、货代通常有），按编码查申报要素格式、退税率、监管条件。
+ * HS 记忆库（M2-3）。
+ * 填过、导出过的「中文品名 + 商品编号 + 申报要素 + 退税率」自动记住，下次同品名自动带出。
+ * 编码本身的申报要素、监管条件不内置税则，界面上「网上查」打开公开的 HS 编码网查询。
  */
 
 /** 品名比较：去掉首尾和多余空格，全角括号、空格按半角算 */
@@ -27,25 +27,6 @@ export function suggestNames(lib: HsEntry[], q: string, limit = 12): HsEntry[] {
   const mid = byUsed.filter((e) => !head.includes(e) && (normName(e.nameCn).includes(k) || e.hs.startsWith(hsDigits(q) || '-')));
   return [...head, ...mid].slice(0, limit);
 }
-
-/** 按商品编号查税则：先查 10 位，查不到按前 8 位 */
-export function tariffOf(tariff: TariffRow[], hs: string): TariffRow | undefined {
-  const d = hsDigits(hs);
-  if (d.length < 8) return undefined;
-  return tariff.find((t) => t.hs === d) ?? tariff.find((t) => t.hs.slice(0, 8) === d.slice(0, 8));
-}
-
-/** 税则里的申报要素格式 → 填写提示：「品牌类型|出口享惠情况|用途|材质|品牌|型号」 */
-export function elementsHint(t?: TariffRow): string {
-  if (!t?.elements) return '';
-  const parts = t.elements.split(/[;；\n]/).map((x) => x.replace(/^\s*\d+\s*[:：.、]\s*/, '').trim()).filter(Boolean);
-  return parts.join('|');
-}
-
-/** 常见监管条件代码（只列有把握的，其余原样显示） */
-const CONTROL: Record<string, string> = { A: '入境检验检疫', B: '出境检验检疫', '4': '出口许可证' };
-export const controlText = (c: string) =>
-  String(c ?? '').replace(/\s/g, '').split('').filter(Boolean).map((x) => (CONTROL[x] ? `${x}（${CONTROL[x]}）` : x)).join('、');
 
 const validHs = (hs: string) => hsDigits(hs).length >= 8;
 
@@ -108,11 +89,10 @@ export function matchFor(o: Order, i: number, lib: HsEntry[]): Match | undefined
 }
 
 /**
- * 按记忆库、本单其它同品名的行和税则表补全（只补空着的，不改已填的）：
- * 同品名 → 商品编号、申报要素、退税率；有编号没退税率 → 按税则表的退税率。
+ * 按本单其它同品名的行和记忆库补全（只补空着的，不改已填的）：商品编号、申报要素、退税率。
  * rebateOnly：只补退税率（离开商品编号格子时用，不回填刚清空的编号）。
  */
-export function fillItems(o: Order, lib: HsEntry[], tariff: TariffRow[], only?: number[], rebateOnly = false): FillResult {
+export function fillItems(o: Order, lib: HsEntry[], only?: number[], rebateOnly = false): FillResult {
   const res: FillResult = { cells: 0, rows: [] };
   o.items.forEach((it, i) => {
     if (only && !only.includes(i)) return;
@@ -124,10 +104,6 @@ export function fillItems(o: Order, lib: HsEntry[], tariff: TariffRow[], only?: 
       if (!rebateOnly && !it.elements.trim() && m.elements && same) { it.elements = m.elements; n++; }
       if (!has(it.rebate) && has(m.rebate) && same) { it.rebate = m.rebate; n++; }
     }
-    if (!has(it.rebate)) {
-      const t = tariffOf(tariff, it.hs);
-      if (t && has(t.rebate)) { it.rebate = t.rebate; n++; }
-    }
     if (n) { res.cells += n; res.rows.push(i); }
   });
   return res;
@@ -137,20 +113,27 @@ export function fillItems(o: Order, lib: HsEntry[], tariff: TariffRow[], only?: 
  * 改了中文品名：原来的编号、申报要素、退税率属于原来的货物，按新品名整行换掉。
  * 找不到新品名的资料时不动，返回 'none'（界面提醒确认编号）。
  */
-export function renameRow(o: Order, i: number, lib: HsEntry[], tariff: TariffRow[]): 'replaced' | 'none' {
+export function renameRow(o: Order, i: number, lib: HsEntry[]): 'replaced' | 'none' {
   const it = o.items[i];
   const m = matchFor(o, i, lib);
   if (!m) return 'none';
   it.hs = m.hs;
   it.elements = m.elements;
-  it.rebate = has(m.rebate) ? m.rebate : tariffOf(tariff, m.hs)?.rebate ?? '';
+  it.rebate = m.rebate;
   return 'replaced';
 }
 
 /** 还能补全多少格（按钮上显示） */
-export function fillable(o: Order, lib: HsEntry[], tariff: TariffRow[]): number {
+export function fillable(o: Order, lib: HsEntry[]): number {
   const copy = JSON.parse(JSON.stringify(o)) as Order;
-  return fillItems(copy, lib, tariff).cells;
+  return fillItems(copy, lib).cells;
+}
+
+/** 公开的 HS 编码网：有 10 位编码按编码打开（申报要素、监管条件、退税率），没有按品名搜 */
+export function hsLookupUrl(hs: string, name = ''): string {
+  const d = hsDigits(hs);
+  if (d.length === 10) return `https://www.hsbianma.com/Code/${d}.html`;
+  return `https://www.hsbianma.com/search?keywords=${encodeURIComponent(d.length >= 4 ? d : name.trim())}`;
 }
 
 export const rebateOf = (e?: { rebate: Num }) => (e && String(e.rebate).trim() !== '' ? toNum(e.rebate) : null);

@@ -73,3 +73,13 @@ export async function reveal(path: string) {
   const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
   await revealItemInDir(path);
 }
+
+/** 用系统浏览器打开网页（桌面版走 opener 插件，只允许权限里列出的网站） */
+export async function openWeb(url: string) {
+  if (!isDesktop) {
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+  const { openUrl } = await import('@tauri-apps/plugin-opener');
+  await openUrl(url);
+}

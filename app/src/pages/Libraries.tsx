@@ -9,7 +9,7 @@ import { useData, getPath, setPath } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { money, payText, sym, today, calcOrder } from '../domain/calc';
 import { CONTRACT_LIB, CURRENCIES, INCOTERMS, OTHER_CLAUSES, PARTNER_TYPES, PAYMENTS } from '../domain/constants';
-import { controlText, elementsHint } from '../domain/hs';
+import { lookupHs } from '../components/hsLookup';
 import { orderAmount } from './Home';
 import type { Customer, Product } from '../domain/types';
 
@@ -322,75 +322,50 @@ export function Products() {
 const SRC_TEXT = { order: '订单导出时记住', import: '导入', manual: '手工修改' } as const;
 
 export function HsMemory() {
-  const { hsLib, tariff, addHs, updateHs, deleteHs, clearTariff } = useData();
-  const [tab, setTab] = useState<'lib' | 'tariff'>('lib');
+  const { hsLib, addHs, updateHs, deleteHs } = useData();
   const [q, setQ] = useState('');
   const kw = q.trim().toLowerCase();
   const digits = kw.replace(/\D/g, '');
   const list = hsLib.filter((e) => !kw || e.nameCn.toLowerCase().includes(kw) || (digits.length >= 2 && e.hs.startsWith(digits)) || e.elements.toLowerCase().includes(kw));
-  const tlist = !kw ? tariff.slice(0, 100) : tariff.filter((t) => (digits.length >= 2 && t.hs.startsWith(digits)) || t.name.toLowerCase().includes(kw)).slice(0, 200);
   const cell = (id: string, k: 'nameCn' | 'hs' | 'elements' | 'rebate', v: string, opt: { num?: boolean; ph?: string } = {}) => (
     <input className={'cell' + (opt.num ? ' num' : '')} aria-label={k} value={v} placeholder={opt.ph} inputMode={opt.num ? 'decimal' : undefined}
       onChange={(e) => updateHs(id, (x) => void (x[k] = k === 'hs' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value))} />
   );
   return (
-    <LibPage title="HS 记忆库" right={tab === 'lib' ? <>
+    <LibPage title="HS 记忆库" right={<>
       <button className="btn" onClick={() => void startImport('hs')}>导入 Excel / CSV</button>
       <button className="btn" onClick={() => void exportLibrary('hs')}>导出</button>
       <button className="btn ghost" onClick={() => void exportLibrary('hs', true)}>下载模板</button>
       <button className="btn pri" onClick={() => { addHs(); setQ(''); }}>＋ 新增</button>
-    </> : <>
-      <button className="btn" onClick={() => void startImport('tariff')}>导入税则表</button>
-      <button className="btn ghost" onClick={() => void exportLibrary('tariff', true)}>下载导入模板</button>
-      {tariff.length > 0 && <button className="btn ghost danger-t" onClick={async () => {
-        if (await confirmAction({ title: '清空税则表', danger: true, ok: '清空', body: <p>清空导入的 {tariff.length} 条税则？HS 记忆库不受影响，之后可以重新导入。</p> })) { clearTariff(); toast('已清空税则表'); }
-      }}>清空</button>}
     </>}>
-      <div className="seg" style={{ marginBottom: 12 }}>
-        <button className={tab === 'lib' ? 'on' : ''} onClick={() => setTab('lib')}>记忆库 · {hsLib.length}</button>
-        <button className={tab === 'tariff' ? 'on' : ''} onClick={() => setTab('tariff')}>税则表 · {tariff.length}</button>
-      </div>
       <div className="panel">
         <div className="toolbar">
-          <label className="search"><span className="muted">搜索</span><input placeholder={tab === 'lib' ? '品名 / 商品编号 / 申报要素' : '商品编号（前几位即可）/ 商品名称'} value={q} onChange={(e) => setQ(e.target.value)} /></label>
-          {tab === 'tariff' && tariff.length > 0 && <span className="muted" style={{ fontSize: 12.5 }}>{kw ? `找到 ${tlist.length}${tlist.length === 200 ? '+' : ''} 条` : `共 ${tariff.length} 条，显示前 100 条，输入编号或名称查找`}</span>}
+          <label className="search"><span className="muted">搜索</span><input placeholder="品名 / 商品编号 / 申报要素" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+          {!!kw && !list.length && <button className="btn sm" onClick={() => lookupHs(digits.length >= 4 ? digits : '', q)}>记忆库里没有，去网上查「{q.trim()}」</button>}
         </div>
-        {tab === 'lib' ? (
-          <div className="tbl-wrap" style={{ border: 0, borderRadius: 0 }}><table className="tbl hs-tbl" style={{ minWidth: 900 }}>
-            <thead><tr><th style={{ width: '22%' }}>中文品名</th><th style={{ width: 130 }}>商品编号</th><th>申报要素</th><th style={{ width: 84 }}>退税率 %</th><th style={{ width: 120 }}>来源</th><th style={{ width: 36 }} /></tr></thead>
-            <tbody>
-              {list.map((e) => (
-                <tr key={e.id}>
-                  <td>{cell(e.id, 'nameCn', e.nameCn, { ph: '中文品名' })}</td>
-                  <td>{cell(e.id, 'hs', e.hs, { ph: '10 位编码' })}</td>
-                  <td>{cell(e.id, 'elements', e.elements, { ph: '如 0|0|展示用|铝合金|无品牌|AL-S200' })}</td>
-                  <td>{cell(e.id, 'rebate', String(e.rebate ?? ''), { num: true })}</td>
-                  <td className="muted" style={{ fontSize: 12 }}>{SRC_TEXT[e.source]}{e.used ? <div>{e.used}</div> : null}</td>
-                  <td><button className="del" aria-label={'删除 ' + e.nameCn} onClick={() => { deleteHs(e.id); toast(`已删除「${e.nameCn || '空白行'}」`, { label: '撤销', run: () => useData.setState((s) => ({ hsLib: [e, ...s.hsLib] })) }); }}>✕</button></td>
-                </tr>
-              ))}
-              {!list.length && <tr><td colSpan={6} className="empty">{hsLib.length ? '没有符合条件的品名' : '记忆库是空的：订单导出后会自动记住填过的品名和编码，也可以导入 Excel'}</td></tr>}
-            </tbody>
-          </table></div>
-        ) : (
-          <div className="tbl-wrap" style={{ border: 0, borderRadius: 0 }}><table className="tbl" style={{ minWidth: 900 }}>
-            <thead><tr><th style={{ width: 120 }}>商品编号</th><th style={{ width: '24%' }}>商品名称</th><th>申报要素</th><th style={{ width: 80 }}>退税率</th><th style={{ width: 80 }}>法定单位</th><th style={{ width: 120 }}>监管条件</th></tr></thead>
-            <tbody>
-              {tlist.map((t) => (
-                <tr key={t.hs}>
-                  <td className="num">{t.hs}</td><td>{t.name}</td><td style={{ fontSize: 12.5 }}>{elementsHint(t)}</td>
-                  <td className="num">{String(t.rebate) !== '' ? `${t.rebate}%` : ''}</td><td>{t.unit}</td><td style={{ fontSize: 12.5 }}>{controlText(t.control)}</td>
-                </tr>
-              ))}
-              {!tlist.length && <tr><td colSpan={6} className="empty">{tariff.length ? '没有找到' : '还没有导入税则表：问报关行或货代要一份税则 Excel（商品编号、名称、申报要素、退税率、监管条件），点「导入税则表」即可；也可以先下载导入模板看格式'}</td></tr>}
-            </tbody>
-          </table></div>
-        )}
+        <div className="tbl-wrap" style={{ border: 0, borderRadius: 0 }}><table className="tbl hs-tbl" style={{ minWidth: 960 }}>
+          <thead><tr><th style={{ width: '22%' }}>中文品名</th><th style={{ width: 130 }}>商品编号</th><th>申报要素</th><th style={{ width: 84 }}>退税率 %</th><th style={{ width: 120 }}>来源</th><th style={{ width: 120 }} /></tr></thead>
+          <tbody>
+            {list.map((e) => (
+              <tr key={e.id}>
+                <td>{cell(e.id, 'nameCn', e.nameCn, { ph: '中文品名' })}</td>
+                <td>{cell(e.id, 'hs', e.hs, { ph: '10 位编码' })}</td>
+                <td>{cell(e.id, 'elements', e.elements, { ph: '如 0|0|展示用|铝合金|无品牌|AL-S200' })}</td>
+                <td>{cell(e.id, 'rebate', String(e.rebate ?? ''), { num: true })}</td>
+                <td className="muted" style={{ fontSize: 12 }}>{SRC_TEXT[e.source]}{e.used ? <div>{e.used}</div> : null}</td>
+                <td className="row-act">
+                  <button className="btn ghost sm" title="在 HS 编码网查申报要素、监管条件、退税率" onClick={() => lookupHs(e.hs, e.nameCn)}>网上查</button>
+                  <button className="del" aria-label={'删除 ' + e.nameCn} onClick={() => { deleteHs(e.id); toast(`已删除「${e.nameCn || '空白行'}」`, { label: '撤销', run: () => useData.setState((s) => ({ hsLib: [e, ...s.hsLib] })) }); }}>✕</button>
+                </td>
+              </tr>
+            ))}
+            {!list.length && <tr><td colSpan={6} className="empty">{hsLib.length ? '没有符合条件的品名' : '记忆库是空的：报关资料里填过的品名和编码会自动记进来，也可以导入 Excel'}</td></tr>}
+          </tbody>
+        </table></div>
       </div>
       <div className="note">
-        {tab === 'lib'
-          ? '订单每次导出，申报商品里填好的「中文品名 + 商品编号 + 申报要素」和采购明细里的退税率会自动记进来；下次在报关资料里输入同样的中文品名，编号、申报要素、退税率自动带出（只补空着的格子）。退税率以当期政策为准。'
-          : '税则表用来按商品编号带出申报要素格式（报关资料里提示每项该填什么）、退税率（成本利润用），并检查编号是否存在、有没有监管条件。软件不内置官方税则，导入报关行给的即可。'}
+        在报关资料里填好「中文品名 + 商品编号 + 申报要素」，采购明细里填好退税率，都会自动记进来；下次输入同样的中文品名，编号、申报要素、退税率自动带出。
+        编码和申报要素拿不准时点「网上查」，在公开的 HS 编码网（hsbianma.com）上核对；退税率以当期政策为准。
       </div>
     </LibPage>
   );

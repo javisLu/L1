@@ -244,10 +244,10 @@ await step('24-factory-purchase', async () => {
 });
 
 await step('25-hs-memory', async () => {
-  // M2-3：HS 记忆库（记忆库 / 税则表）、报关资料里按品名自动带出、打包发报关行
+  // M2-3：HS 记忆库、报关资料里按品名自动带出、改品名整行换、网上查、打包发报关行
   await page.click('.brand'); await page.click('.lib button:has-text("HS 记忆库")'); await page.waitForSelector('.hs-tbl tbody tr', { timeout: 5000 });
-  await page.click('.seg button:has-text("税则表")');
-  await page.click('button:has-text("下载导入模板")'); await waitToast('(已保存|已下载) 税则表导入模板\\.xlsx');
+  await page.click('button:has-text("下载模板")'); await waitToast('(已保存|已下载) HS记忆导入模板\\.xlsx');
+  await page.waitForSelector('.hs-tbl button:has-text("网上查")', { timeout: 5000 });
   await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("报关资料")');
   await page.click('.step:not(.use):has-text("申报商品")');
   await page.fill('#in-items-0-hs', ''); await page.fill('#in-items-0-elements', '');
@@ -256,6 +256,7 @@ await step('25-hs-memory', async () => {
   // 改中文品名成另一样货：整行换成它的申报要素
   await page.fill('#in-items-0-nameCn', '铝合金展示架（加重款）'); await page.click('.form-head h2');
   await page.waitForFunction(() => document.querySelector('#in-items-0-elements')?.value.includes('AL-H500'), null, { timeout: 5000 });
+  await page.waitForSelector('.tbl button:has-text("网上查")', { timeout: 5000 });
   await page.click('.mod-head button:has-text("打包发报关行")');
   await page.click('.modal button:has-text("仍然打包")', { timeout: 10000 }).catch(() => {});
   await waitToast('已打包 7 个文件');

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "主窗口权限：读写本应用数据目录；导出文件写入「文档/外贸超级工作台」；在文件夹中显示导出的文件",
+  "description": "主窗口权限：读写本应用数据目录；导出文件写入「文档/外贸超级工作台」；在文件夹中显示导出的文件；用系统浏览器打开 HS 编码网查询",
   "windows": [
     "main"
   ],
@@ -17,6 +17,14 @@
     "fs:allow-document-meta-recursive",
     "opener:allow-reveal-item-in-dir",
     "fs:allow-download-write-recursive",
-    "fs:allow-download-meta-recursive"
+    "fs:allow-download-meta-recursive",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://www.hsbianma.com/*"
+        }
+      ]
+    }
   ]
 }

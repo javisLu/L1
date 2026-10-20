@@ -6,8 +6,7 @@ import { autoFreight } from '../domain/shipping';
 import { MODS, STEPS, STEP_MOD, missing, neededMods, ownerOf, type ModKey, type StepKey } from './defs';
 import { REQS, reqState, reqStrict } from '../domain/requirements';
 import { factoriesOf, profitOf, purchaseOf } from '../domain/purchase';
-import { controlText, hsDigits, tariffOf } from '../domain/hs';
-import type { CustReq, Order, TariffRow } from '../domain/types';
+import type { CustReq, Order } from '../domain/types';
 
 export type Level = 'error' | 'warn';
 export interface Issue {
@@ -39,7 +38,7 @@ const LATER: StepKey[] = ['shipping', 'customs', 'customsItems', 'packing'];
  * 单据一致性检查：本单需要的单据缺了什么、各单据之间有没有对不上的地方。
  * 所有单据共用订单数据，金额、数量这类不会不一致；这里查的是容易出错、需要人确认的地方。
  */
-export function checkOrder(o: Order, reqs: CustReq[] = [], tariff: TariffRow[] = []): Issue[] {
+export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
   const out: Issue[] = [];
   const k = calcOrder(o);
   const shipped = STATUSES.indexOf(o.status) >= STATUSES.indexOf('出货');
@@ -75,12 +74,6 @@ export function checkOrder(o: Order, reqs: CustReq[] = [], tariff: TariffRow[] =
     const hs = String(r.hs ?? '').replace(/\D/g, '');
     if (hs && hs.length !== 10 && need.has('customs')) {
       out.push({ level: 'warn', text: `${name}：HS 编码 ${r.hs} 是 ${hs.length} 位，中国海关申报需要 10 位`, mod: 'customs', path: `items.${i}.hs` });
-    }
-    // 导入了税则表：编号查不到、有监管条件的提醒
-    if (hs.length === 10 && tariff.length && need.has('customs')) {
-      const t = tariffOf(tariff, hs);
-      if (!t || t.hs !== hsDigits(hs)) out.push({ level: 'warn', text: `${name}：商品编号 ${hs} 不在导入的税则表里，可能填错或已调整，请和报关行确认`, mod: 'customs', path: `items.${i}.hs` });
-      else if (t.control.trim()) out.push({ level: 'warn', text: `${name}：商品编号 ${hs} 有监管条件 ${controlText(t.control)}，提前准备相关证件`, mod: 'customs', path: `items.${i}.hs` });
     }
     if (r.model) models.set(r.model.trim().toUpperCase(), (models.get(r.model.trim().toUpperCase()) ?? 0) + 1);
   });

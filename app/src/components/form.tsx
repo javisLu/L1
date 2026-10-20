@@ -11,7 +11,8 @@ import { openItemImport } from './itemImport';
 import { PackingTable } from './packing';
 import { ContainerList } from './containers';
 import { FactoryPOs, FeeList, ProfitSummary } from './purchase';
-import { elementsHint, fillable, normName, tariffOf } from '../domain/hs';
+import { fillable, hsLookupUrl, normName } from '../domain/hs';
+import { lookupHs } from './hsLookup';
 import { openSmartPaste } from './smartPaste';
 import { looksLikeContact } from '../domain/contact';
 
@@ -203,14 +204,13 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
   const updateOrder = useData((s) => s.updateOrder);
   const partners = useData((s) => s.partners);
   const hsLib = useData((s) => s.hsLib);
-  const tariff = useData((s) => s.tariff);
   const autoFillRow = useData((s) => s.autoFillRow);
   const fillFromLib = useData((s) => s.fillFromLib);
   const openModal = useUI((s) => s.openModal);
   const renameFill = useData((s) => s.renameFill);
   const learnRow = useData((s) => s.learnRow);
   const hsTools = table === 'customsItems' || table === 'purchase';
-  const canFill = hsTools ? fillable(order, hsLib, tariff) : 0;
+  const canFill = hsTools ? fillable(order, hsLib) : 0;
   /** 进入中文品名格子时的原值：离开时判断是不是改成了另一样货 */
   const before = useRef<{ i: number; name: string } | null>(null);
   const onEnter = (i: number, key: string) => {
@@ -244,7 +244,7 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
     }
     if (key === 'hs') {
       const n = autoFillRow(order.id, i, true);
-      if (n) toast(`已按${tariff.length ? '税则表 / ' : ''}记忆库带出第 ${i + 1} 行的退税率`);
+      if (n) toast(`已按记忆库带出第 ${i + 1} 行的退税率`);
     }
     if (key === 'hs' || key === 'elements') learnRow(order.id, i);
   };
@@ -304,6 +304,7 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
               <th className="ix">#</th>
               {cols.map((c) => <th key={c.label} style={{ minWidth: c.width }}>{c.label.replace('{CUR}', cur)}</th>)}
               {table === 'items' && <th className="row-act" aria-label="操作">操作</th>}
+              {table === 'customsItems' && <th className="row-act">查编码</th>}
             </tr>
           </thead>
           <tbody>
@@ -329,7 +330,6 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
                         inputMode={c.num ? 'decimal' : undefined}
                         aria-label={c.label}
                         list={table === 'customsItems' && c.key === 'nameCn' ? 'hs-names' : undefined}
-                        placeholder={table === 'customsItems' && c.key === 'elements' ? elementsHint(tariffOf(tariff, it.hs)) || undefined : undefined}
                         onFocus={() => onEnter(i, c.key!)}
                         onBlur={() => onLeave(i, c.key!)}
                         onChange={(e) => setField(order.id, `items.${i}.${c.key}`, e.target.value)}
@@ -347,6 +347,11 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
                   ) : (
                     <td key={c.label} className="calc">{calcCell(i, c.calc!)}</td>
                   ),
+                )}
+                {table === 'customsItems' && (
+                  <td className="row-act">
+                    <button className="btn ghost sm" title={`在 HS 编码网查${it.hs.replace(/\D/g, '').length === 10 ? '这个编码的申报要素、监管条件、退税率' : '这个品名的编码'}：${hsLookupUrl(it.hs, it.nameCn)}`} onClick={() => lookupHs(it.hs, it.nameCn)}>网上查</button>
+                  </td>
                 )}
                 {table === 'items' && (
                   <td className="row-act">
@@ -387,12 +392,12 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
             className="btn sm"
             onClick={() => {
               const n = fillFromLib(order.id);
-              toast(n ? `已补全 ${n} 格（只补空着的）` : `没有能补的：空着的格子在记忆库${tariff.length ? '和税则表' : ''}里都找不到同品名的资料`);
+              toast(n ? `已补全 ${n} 格（只补空着的）` : '没有能补的：空着的格子在本单其它行和记忆库里都找不到同品名的资料');
             }}
           >
             按记忆库补全{canFill ? `（${canFill} 格）` : ''}
           </button>
-          <span className="tbl-tip">按同品名（本单其它行或 HS 记忆库）补空着的商品编号、申报要素、退税率{tariff.length ? '；有编号的按税则表补退税率' : ''}</span>
+          <span className="tbl-tip">按同品名（本单其它行或 HS 记忆库）补空着的商品编号、申报要素、退税率</span>
         </div>
       )}
       {table === 'purchase' && (
@@ -411,8 +416,8 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
       )}
       {table === 'customsItems' && (
         <div className="note">
-          中文品名可以从 HS 记忆库里选，离开格子自动带出商品编号、申报要素和退税率（只补空着的）。订单导出后，填好的品名和编码会自动记进记忆库。
-          {tariff.length ? '申报要素格子里的灰字是税则表要求的申报项，按顺序用 | 隔开填写。' : '在「HS 记忆库 → 税则表」导入报关行给的税则后，申报要素格子会提示每项该填什么。'}
+          中文品名可以从 HS 记忆库里选，离开格子自动带出商品编号、申报要素和退税率；改成另一样货时整行换成它的资料。填好的编号和申报要素会自动记进记忆库，下次同品名直接带出。
+          不知道编码或申报要素怎么填：点每行的「网上查」，在 HS 编码网（hsbianma.com）上看——有 10 位编码按编码打开，没有就按品名搜。
         </div>
       )}
     </>

@@ -13,7 +13,7 @@ import { defaultSettings } from '../domain/settings';
 import { defaultPurchase } from '../domain/purchase';
 import { buildLib, fillItems, learn, normName, renameRow } from '../domain/hs';
 import { mergeCustomer, mergeProduct } from '../io/library';
-import type { Customer, DataState, HsEntry, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings, TariffRow } from '../domain/types';
+import type { Customer, DataState, HsEntry, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings } from '../domain/types';
 
 export type ImportMode = 'overwrite' | 'skip';
 export interface ImportResult { added: number; updated: number; skipped: number }
@@ -24,9 +24,9 @@ export let hydrationError: unknown = null;
 /** 老订单补上工厂采购的默认值（升级、从备份恢复时） */
 function withPurchase(d: DataState): DataState {
   for (const o of d.orders ?? []) o.purchase ??= defaultPurchase();
-  // v6：HS 记忆库（老数据从产品库和订单生成）、税则表
+  // v6：HS 记忆库（老数据从产品库和订单生成）；v7：去掉导入税则表
   d.hsLib ??= buildLib(d.products ?? [], d.orders ?? []);
-  d.tariff ??= [];
+  delete (d as { tariff?: unknown }).tariff;
   return d;
 }
 
@@ -89,9 +89,6 @@ interface Actions {
   deleteHs: (id: string) => void;
   /** 按中文品名合并 */
   importHs: (rows: HsEntry[], mode: ImportMode, fields: string[]) => ImportResult;
-  /** 按商品编号合并 */
-  importTariff: (rows: TariffRow[], mode: ImportMode, fields: string[]) => ImportResult;
-  clearTariff: () => void;
   /** 清空订单与资料库（保留公司信息与设置），开始正式使用 */
   clearAll: () => void;
   resetDemo: () => void;
@@ -306,7 +303,7 @@ export const useData = create<DataStore>()(
         setState((s) => {
           const o = s.orders.find((x) => x.id === orderId);
           if (!o) return;
-          n = fillItems(o, s.hsLib, s.tariff, [row], rebateOnly).cells;
+          n = fillItems(o, s.hsLib, [row], rebateOnly).cells;
           if (n) o.updated = today();
         });
         return n;
@@ -316,7 +313,7 @@ export const useData = create<DataStore>()(
         setState((s) => {
           const o = s.orders.find((x) => x.id === orderId);
           if (!o) return;
-          n = fillItems(o, s.hsLib, s.tariff).cells;
+          n = fillItems(o, s.hsLib).cells;
           if (n) o.updated = today();
         });
         return n;
@@ -326,7 +323,7 @@ export const useData = create<DataStore>()(
         setState((s) => {
           const o = s.orders.find((x) => x.id === orderId);
           if (!o?.items[row]) return;
-          r = renameRow(o, row, s.hsLib, s.tariff);
+          r = renameRow(o, row, s.hsLib);
           if (r === 'replaced') o.updated = today();
         });
         return r;
@@ -360,20 +357,6 @@ export const useData = create<DataStore>()(
         });
         return r;
       },
-      importTariff: (rows, mode, fields) => {
-        const r: ImportResult = { added: 0, updated: 0, skipped: 0 };
-        setState((s) => {
-          const at = new Map(s.tariff.map((t, i) => [t.hs, i]));
-          for (const row of rows) {
-            const i = at.get(row.hs);
-            if (i == null) { at.set(row.hs, s.tariff.length); s.tariff.push(row); r.added++; }
-            else if (mode === 'overwrite') { for (const k of fields) (s.tariff[i] as unknown as Record<string, unknown>)[k] = (row as unknown as Record<string, unknown>)[k]; r.updated++; }
-            else r.skipped++;
-          }
-        });
-        return r;
-      },
-      clearTariff: () => setState((s) => void (s.tariff = [])),
 
       clearAll: () =>
         setState((s) => {
@@ -386,11 +369,11 @@ export const useData = create<DataStore>()(
         }),
 
       // 重置示例数据时保留用户在「设置」里的公司信息与设置
-      resetDemo: () => setState((s) => ({ ...seed(), settings: s.settings, tariff: s.tariff })),
+      resetDemo: () => setState((s) => ({ ...seed(), settings: s.settings })),
     })),
     {
       name: 'trade-workbench-data',
-      version: 6,
+      version: 7,
       // v1 → v2：新增「设置」
       migrate: (persisted, from) => {
         const d = persisted as DataState;
@@ -399,7 +382,7 @@ export const useData = create<DataStore>()(
         d.settings = { ...defaultSettings(), ...d.settings };
         // v4：去掉「上传自己的 Excel 模板」的数据（改为软件自带的单据模板库）
         delete (d as { templates?: unknown }).templates;
-        // v5：订单新增工厂采购与成本利润；v6：HS 记忆库、税则表
+        // v5：订单新增工厂采购与成本利润；v6：HS 记忆库；v7：去掉税则表
         withPurchase(d);
         return d as never;
       },
@@ -407,7 +390,7 @@ export const useData = create<DataStore>()(
       onRehydrateStorage: () => (_state, error) => {
         if (error) hydrationError = error;
       },
-      partialize: (s) => ({ settings: s.settings, seller: s.seller, products: s.products, customers: s.customers, partners: s.partners, orders: s.orders, seq: s.seq, hsLib: s.hsLib, tariff: s.tariff }),
+      partialize: (s) => ({ settings: s.settings, seller: s.seller, products: s.products, customers: s.customers, partners: s.partners, orders: s.orders, seq: s.seq, hsLib: s.hsLib }),
     },
   ),
 );

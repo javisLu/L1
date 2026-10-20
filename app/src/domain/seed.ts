@@ -103,5 +103,5 @@ export function seed(): DataState {
       o.partners = { forwarder: 'p2', broker: 'p3', factory: '' };
     }),
   ];
-  return { settings: defaultSettings(), seller, products, customers, partners, orders, seq: 4, hsLib: buildLib(products, orders), tariff: [] };
+  return { settings: defaultSettings(), seller, products, customers, partners, orders, seq: 4, hsLib: buildLib(products, orders) };
 }

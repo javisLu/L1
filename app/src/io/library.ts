@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import { detectHeader, parseDims, toNumber, type FieldSpec } from './table';
 import { CURRENCIES } from '../domain/constants';
 import { uid } from '../domain/calc';
-import type { Currency, Customer, HsEntry, Product, TariffRow } from '../domain/types';
+import type { Currency, Customer, HsEntry, Product } from '../domain/types';
 
 /* ---------- 产品 ---------- */
 type PK = 'model' | 'nameCn' | 'nameEn' | 'spec' | 'hs' | 'unit' | 'price' | 'pcsPerCtn' | 'dims' | 'l' | 'w' | 'h' | 'nw' | 'gw' | 'elements' | 'cat';
@@ -202,40 +202,3 @@ const H_HEAD = ['中文品名', '商品编号', '申报要素', '退税率%'];
 const H_W = [28, 14, 50, 10];
 export const hsToXlsx = (list: HsEntry[]) => sheet('HS记忆库', H_HEAD, list.map((e) => [e.nameCn, e.hs, e.elements, e.rebate]), H_W);
 export const hsTemplate = () => sheet('HS记忆库', H_HEAD, [['铝合金展示架', '9403200000', '0|0|展示用|铝合金|无品牌|AL-S200', 13]], H_W);
-
-/* ---------- 税则表 ---------- */
-type TK = 'hs' | 'name' | 'elements' | 'rebate' | 'unit' | 'control';
-export const TARIFF_FIELDS: FieldSpec<TK>[] = [
-  { key: 'hs', label: '商品编号', aliases: ['商品编号', '商品编码', 'hs', 'hs编码', 'hscode', '海关编码', '税号', '税则号列', '编码'], required: true },
-  { key: 'name', label: '商品名称', aliases: ['商品名称', '货品名称', '品名', '名称', '中文名称'] },
-  { key: 'elements', label: '申报要素', aliases: ['申报要素', '规范申报要素', '申报要素格式', '报关要素'] },
-  { key: 'rebate', label: '退税率', aliases: ['退税率', '出口退税率', '退税率%', '退税'] },
-  { key: 'unit', label: '法定单位', aliases: ['法定单位', '第一法定单位', '法定第一单位', '计量单位', '单位'] },
-  { key: 'control', label: '监管条件', aliases: ['监管条件', '监管证件', '海关监管条件'] },
-];
-
-export function mapTariff(table: string[][]): MapResult<TariffRow> {
-  const { row, map } = detectHeader(table, TARIFF_FIELDS);
-  const columns = [...map.values()].map((k) => TARIFF_FIELDS.find((f) => f.key === k)!.label);
-  if (row < 0 || ![...map.values()].includes('hs')) {
-    return { rows: [], columns, errors: ['没有找到「商品编号」列。请确认第一行是表头，且有一列叫「商品编号」或「HS编码」'], headerRow: row, fields: [] };
-  }
-  const rows: TariffRow[] = [];
-  const errors: string[] = [];
-  let short = 0;
-  table.slice(row + 1).forEach((cells) => {
-    const v: Partial<Record<TK, string>> = {};
-    map.forEach((k, ci) => (v[k] = (cells[ci] ?? '').trim()));
-    const hs = (v.hs ?? '').replace(/\D/g, '');
-    // 章、节标题行（不足 8 位）跳过
-    if (hs.length < 8) { if (Object.values(v).some(Boolean)) short++; return; }
-    rows.push({ hs, name: v.name ?? '', elements: v.elements ?? '', rebate: pct(v.rebate ?? ''), unit: v.unit ?? '', control: v.control ?? '' });
-  });
-  if (short) errors.push(`${short} 行编号不足 8 位（章节标题等），已跳过`);
-  return { rows, columns, errors, headerRow: row, fields: [...map.values()] };
-}
-
-const T_HEAD = ['商品编号', '商品名称', '申报要素', '退税率%', '法定单位', '监管条件'];
-const T_W = [14, 30, 60, 10, 10, 10];
-export const tariffTemplate = () =>
-  sheet('税则表', T_HEAD, [['9403200000', '其他金属家具', '0:品牌类型;1:出口享惠情况;2:用途;3:材质;4:品牌;5:型号', 13, '千克', '']], T_W);

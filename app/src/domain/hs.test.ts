@@ -1,14 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { seed } from './seed';
-import { buildLib, controlText, elementsHint, fillItems, findByName, learn, normName, renameRow, suggestNames, tariffOf } from './hs';
-import { mapHs, mapTariff } from '../io/library';
-import { checkOrder } from '../modules/check';
-import type { HsEntry, TariffRow } from './types';
-
-const T: TariffRow[] = [
-  { hs: '9403200000', name: '其他金属家具', elements: '0:品牌类型;1:出口享惠情况;2:用途;3:材质;4:品牌;5:型号', rebate: 13, unit: '千克', control: '' },
-  { hs: '7318159001', name: '螺栓', elements: '0:品牌类型;1:出口享惠情况;2:用途;3:材质', rebate: 9, unit: '千克', control: 'AB' },
-];
+import { buildLib, fillItems, findByName, hsLookupUrl, learn, normName, renameRow, suggestNames } from './hs';
+import { mapHs } from '../io/library';
+import type { HsEntry } from './types';
 
 describe('HS 记忆库', () => {
   it('品名比较忽略空格、全半角括号、大小写', () => {
@@ -42,7 +36,7 @@ describe('HS 记忆库', () => {
     expect(suggestNames(lib, '7318').map((e) => e.hs)).toEqual(['7318159001']);
   });
 
-  it('按记忆库补全：只补空着的；有编号没退税率的按税则表', () => {
+  it('按记忆库补全：只补空着的', () => {
     const s = seed();
     const lib = buildLib(s.products, s.orders);
     const o = s.orders[1];
@@ -51,7 +45,7 @@ describe('HS 记忆库', () => {
     o.items[1].hs = '9999999999';
     o.items[1].elements = '自己填的';
     o.items.forEach((it) => (it.rebate = ''));
-    const r = fillItems(o, lib, T);
+    const r = fillItems(o, lib);
     expect(o.items[0].hs).toBe('9403200000');
     expect(o.items[0].elements).toBe('0|0|展示用|铝合金|无品牌|AL-H500');
     expect(o.items[0].rebate).toBe(13);
@@ -70,7 +64,7 @@ describe('改中文品名', () => {
     const o = s.orders[0];
     o.items.push({ ...o.items[2], id: 'n1', nameCn: '产品说明书', hs: '4901100000', elements: '0|0|说明用', rebate: '' });
     o.items[2].nameCn = '产品说明书';
-    expect(renameRow(o, 2, lib, [])).toBe('replaced');
+    expect(renameRow(o, 2, lib)).toBe('replaced');
     expect(o.items[2]).toMatchObject({ hs: '4901100000', elements: '0|0|说明用', rebate: '' });
   });
 
@@ -79,10 +73,11 @@ describe('改中文品名', () => {
     const lib = buildLib(s.products, s.orders);
     const o = s.orders[0];
     o.items[2].nameCn = '钢制货架 80cm';
-    expect(renameRow(o, 2, lib, T)).toBe('replaced');
-    expect(o.items[2]).toMatchObject({ hs: '9403200000', elements: '0|0|仓储用|钢制|无品牌|SH-80', rebate: 13 });
+    expect(renameRow(o, 2, lib)).toBe('replaced');
+    // 原来配件包的退税率 9 不能留着
+    expect(o.items[2]).toMatchObject({ hs: '9403200000', elements: '0|0|仓储用|钢制|无品牌|SH-80', rebate: '' });
     o.items[1].nameCn = '没见过的东西';
-    expect(renameRow(o, 1, lib, T)).toBe('none');
+    expect(renameRow(o, 1, lib)).toBe('none');
     expect(o.items[1].hs).toBe('9403200000');
   });
 
@@ -90,46 +85,23 @@ describe('改中文品名', () => {
     const s = seed();
     const o = s.orders[0];
     o.items.push({ ...o.items[0], id: 'n2', hs: '', elements: '', rebate: '' });
-    const r = fillItems(o, [], []);
+    const r = fillItems(o, []);
     expect(r.rows).toEqual([3]);
     expect(o.items[3]).toMatchObject({ hs: o.items[0].hs, elements: o.items[0].elements, rebate: 13 });
   });
 });
 
-describe('税则表', () => {
-  it('按 10 位查，查不到按前 8 位；申报要素格式变成填写提示；监管条件说明', () => {
-    expect(tariffOf(T, '9403.20.0000')?.name).toBe('其他金属家具');
-    expect(tariffOf(T, '9403200090')?.hs).toBe('9403200000');
-    expect(tariffOf(T, '9403')).toBeUndefined();
-    expect(elementsHint(T[0])).toBe('品牌类型|出口享惠情况|用途|材质|品牌|型号');
-    expect(controlText('AB')).toBe('A（入境检验检疫）、B（出境检验检疫）');
-  });
-
-  it('导入：识别表头，退税率 13%、0.13 都算 13，章节标题行跳过', () => {
-    const r = mapTariff([
-      ['税则号列', '货品名称', '规范申报要素', '出口退税率', '第一法定单位', '监管条件'],
-      ['94', '家具', '', '', '', ''],
-      ['9403200000', '其他金属家具', '0:品牌类型;1:用途', '13%', '千克', ''],
-      ['9617001100', '保温杯', '0:品牌类型', '0.13', '个', 'B'],
-    ]);
+describe('导入与网上查', () => {
+  it('记忆库导入：没有品名的行跳过，编号不是 10 位的提示，退税率 13% / 0.13 都算 13', () => {
+    const r = mapHs([['品名', 'HS编码', '申报要素', '退税率'], ['水杯', '96170011', '0|0', '13%'], ['杯盖', '3924100000', '', '0.13'], ['', '', '', '']]);
     expect(r.rows).toHaveLength(2);
     expect(r.rows.map((x) => x.rebate)).toEqual([13, 13]);
-    expect(r.rows[1].control).toBe('B');
-    expect(r.errors[0]).toContain('1 行编号不足 8 位');
-  });
-
-  it('记忆库导入：没有品名的行跳过，编号不是 10 位的提示', () => {
-    const r = mapHs([['品名', 'HS编码', '申报要素', '退税率'], ['水杯', '96170011', '0|0', '13'], ['', '', '', '']]);
-    expect(r.rows).toHaveLength(1);
     expect(r.errors[0]).toContain('不是 10 位');
   });
 
-  it('单据检查：编号不在税则表、有监管条件的提醒（没导入税则表不查）', () => {
-    const o = seed().orders[0];
-    o.items[0].hs = '9403209999';
-    const iss = checkOrder(o, [], T);
-    expect(iss.some((x) => x.text.includes('不在导入的税则表里'))).toBe(true);
-    expect(iss.some((x) => x.text.includes('监管条件 A（入境检验检疫）'))).toBe(true);
-    expect(checkOrder(o).some((x) => x.text.includes('税则表'))).toBe(false);
+  it('网上查：有 10 位编码按编码打开，没有按品名搜', () => {
+    expect(hsLookupUrl('9403.20.0000')).toBe('https://www.hsbianma.com/Code/9403200000.html');
+    expect(hsLookupUrl('', '帆布袋')).toBe('https://www.hsbianma.com/search?keywords=%E5%B8%86%E5%B8%83%E8%A2%8B');
+    expect(hsLookupUrl('4202', '帆布袋')).toBe('https://www.hsbianma.com/search?keywords=4202');
   });
 });
