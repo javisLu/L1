@@ -423,6 +423,32 @@ export interface Settings {
   lastAutoBackup: string;
 }
 
+/** HS 记忆库的一条：中文品名 ↔ 商品编号 ↔ 申报要素 ↔ 退税率（导出过的订单自动记住，也可导入 / 手工改） */
+export interface HsEntry {
+  id: string;
+  nameCn: string;
+  hs: string;
+  elements: string;
+  /** 出口退税率 % */
+  rebate: Num;
+  source: 'order' | 'import' | 'manual';
+  /** 最近一次用到（YYYY-MM-DD） */
+  used: string;
+}
+
+/** 用户导入的税则表（报关行、货代手里通常有）：按商品编号查申报要素格式、退税率、监管条件 */
+export interface TariffRow {
+  hs: string;
+  name: string;
+  /** 申报要素格式，如「0:品牌类型;1:出口享惠情况;2:用途;3:材质;4:品牌;5:型号」 */
+  elements: string;
+  rebate: Num;
+  /** 法定第一单位 */
+  unit: string;
+  /** 监管条件（如 A、B、4） */
+  control: string;
+}
+
 export interface DataState {
   settings: Settings;
   seller: Seller;
@@ -431,4 +457,8 @@ export interface DataState {
   partners: Partner[];
   orders: Order[];
   seq: number;
+  /** HS 记忆库（M2-3；老数据没有时由产品库和订单生成） */
+  hsLib: HsEntry[];
+  /** 导入的税则表 */
+  tariff: TariffRow[];
 }

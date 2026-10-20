@@ -11,8 +11,9 @@ import { asOrder, recordSend } from '../domain/history';
 import type { DocKey } from '../modules/defs';
 import { defaultSettings } from '../domain/settings';
 import { defaultPurchase } from '../domain/purchase';
+import { buildLib, fillItems, learn, normName } from '../domain/hs';
 import { mergeCustomer, mergeProduct } from '../io/library';
-import type { Customer, DataState, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings } from '../domain/types';
+import type { Customer, DataState, HsEntry, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings, TariffRow } from '../domain/types';
 
 export type ImportMode = 'overwrite' | 'skip';
 export interface ImportResult { added: number; updated: number; skipped: number }
@@ -23,6 +24,9 @@ export let hydrationError: unknown = null;
 /** 老订单补上工厂采购的默认值（升级、从备份恢复时） */
 function withPurchase(d: DataState): DataState {
   for (const o of d.orders ?? []) o.purchase ??= defaultPurchase();
+  // v6：HS 记忆库（老数据从产品库和订单生成）、税则表
+  d.hsLib ??= buildLib(d.products ?? [], d.orders ?? []);
+  d.tariff ??= [];
   return d;
 }
 
@@ -72,6 +76,18 @@ interface Actions {
   deletePartner: (id: string) => void;
   /** 从备份恢复：整体替换 */
   replaceAll: (d: DataState) => void;
+  /** 离开中文品名 / 商品编号格子时：按记忆库和税则表补全这一行空着的编号、申报要素、退税率；返回补了几格 */
+  autoFillRow: (orderId: string, row: number, rebateOnly?: boolean) => number;
+  /** 整单按记忆库补全 */
+  fillFromLib: (orderId: string) => number;
+  addHs: () => string;
+  updateHs: (id: string, recipe: (e: HsEntry) => void) => void;
+  deleteHs: (id: string) => void;
+  /** 按中文品名合并 */
+  importHs: (rows: HsEntry[], mode: ImportMode, fields: string[]) => ImportResult;
+  /** 按商品编号合并 */
+  importTariff: (rows: TariffRow[], mode: ImportMode, fields: string[]) => ImportResult;
+  clearTariff: () => void;
   /** 清空订单与资料库（保留公司信息与设置），开始正式使用 */
   clearAll: () => void;
   resetDemo: () => void;
@@ -111,6 +127,8 @@ export const useData = create<DataStore>()(
           const key = recordSend(o, { id: uid(), at, docs, to, file, snap });
           o.exports ??= {};
           for (const d of docs) o.exports[d] = { at, sig: docSig(asOrder(snap, o), d as DocKey), snap: key, ...(to ? { to } : {}) };
+          // 导出过的品名、编号、申报要素、退税率记进 HS 记忆库
+          learn((s.hsLib ??= []), snap.items);
         }),
 
       dismissReminder: (id, key) =>
@@ -279,21 +297,81 @@ export const useData = create<DataStore>()(
 
       replaceAll: (d) => setState(() => ({ ...withPurchase(d), settings: { ...defaultSettings(), ...d.settings } })),
 
+      autoFillRow: (orderId, row, rebateOnly) => {
+        let n = 0;
+        setState((s) => {
+          const o = s.orders.find((x) => x.id === orderId);
+          if (!o) return;
+          n = fillItems(o, s.hsLib, s.tariff, [row], rebateOnly).cells;
+          if (n) o.updated = today();
+        });
+        return n;
+      },
+      fillFromLib: (orderId) => {
+        let n = 0;
+        setState((s) => {
+          const o = s.orders.find((x) => x.id === orderId);
+          if (!o) return;
+          n = fillItems(o, s.hsLib, s.tariff).cells;
+          if (n) o.updated = today();
+        });
+        return n;
+      },
+      addHs: () => {
+        const id = uid();
+        setState((s) => void s.hsLib.unshift({ id, nameCn: '', hs: '', elements: '', rebate: '', source: 'manual', used: today() }));
+        return id;
+      },
+      updateHs: (id, recipe) =>
+        setState((s) => {
+          const e = s.hsLib.find((x) => x.id === id);
+          if (e) { recipe(e); e.source = 'manual'; }
+        }),
+      deleteHs: (id) => setState((s) => void (s.hsLib = s.hsLib.filter((e) => e.id !== id))),
+      importHs: (rows, mode, fields) => {
+        const r: ImportResult = { added: 0, updated: 0, skipped: 0 };
+        setState((s) => {
+          for (const row of rows) {
+            const key = normName(row.nameCn);
+            const ex = s.hsLib.find((e) => normName(e.nameCn) === key);
+            if (!ex) { s.hsLib.push(row); r.added++; }
+            else if (mode === 'overwrite') { for (const k of fields) (ex as unknown as Record<string, unknown>)[k] = (row as unknown as Record<string, unknown>)[k]; ex.source = 'import'; r.updated++; }
+            else r.skipped++;
+          }
+        });
+        return r;
+      },
+      importTariff: (rows, mode, fields) => {
+        const r: ImportResult = { added: 0, updated: 0, skipped: 0 };
+        setState((s) => {
+          const at = new Map(s.tariff.map((t, i) => [t.hs, i]));
+          for (const row of rows) {
+            const i = at.get(row.hs);
+            if (i == null) { at.set(row.hs, s.tariff.length); s.tariff.push(row); r.added++; }
+            else if (mode === 'overwrite') { for (const k of fields) (s.tariff[i] as unknown as Record<string, unknown>)[k] = (row as unknown as Record<string, unknown>)[k]; r.updated++; }
+            else r.skipped++;
+          }
+        });
+        return r;
+      },
+      clearTariff: () => setState((s) => void (s.tariff = [])),
+
       clearAll: () =>
         setState((s) => {
           s.orders = [];
           s.customers = [];
           s.partners = [];
           s.products = [];
+          s.hsLib = [];
           s.seq = 1;
         }),
 
       // 重置示例数据时保留用户在「设置」里的公司信息与设置
-      resetDemo: () => setState((s) => ({ ...seed(), settings: s.settings })),
+      resetDemo: () => setState((s) => ({ ...seed(), settings: s.settings, tariff: s.tariff })),
     })),
     {
       name: 'trade-workbench-data',
-      version: 5,
+      version: 6,
       // v1 → v2：新增「设置」
       migrate: (persisted, from) => {
         const d = persisted as DataState;
@@ -302,7 +380,7 @@ export const useData = create<DataStore>()(
         d.settings = { ...defaultSettings(), ...d.settings };
         // v4：去掉「上传自己的 Excel 模板」的数据（改为软件自带的单据模板库）
         delete (d as { templates?: unknown }).templates;
-        // v5：订单新增工厂采购与成本利润
+        // v5：订单新增工厂采购与成本利润；v6：HS 记忆库、税则表
         withPurchase(d);
         return d as never;
       },
@@ -310,7 +388,7 @@ export const useData = create<DataStore>()(
       onRehydrateStorage: () => (_state, error) => {
         if (error) hydrationError = error;
       },
-      partialize: (s) => ({ settings: s.settings, seller: s.seller, products: s.products, customers: s.customers, partners: s.partners, orders: s.orders, seq: s.seq }),
+      partialize: (s) => ({ settings: s.settings, seller: s.seller, products: s.products, customers: s.customers, partners: s.partners, orders: s.orders, seq: s.seq, hsLib: s.hsLib, tariff: s.tariff }),
     },
   ),
 );

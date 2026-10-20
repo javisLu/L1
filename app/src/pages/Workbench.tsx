@@ -7,7 +7,9 @@ import { savePref, toast, useUI } from '../store/ui';
 import { fillMarks, calcOrder } from '../domain/calc';
 import { LABEL_LAYOUTS, cartonLabels, labelPages } from '../domain/labels';
 import { DOCNAMES, DOC_FMT, MODS, STEPS, STEP_MOD, missing, normPath, ownerOf, stepPaths, type DocKey, type ModKey, type StepKey } from '../modules/defs';
-import { exportDoc } from '../export/actions';
+import { exportDoc, exportZip } from '../export/actions';
+import { countErrors } from '../components/CheckPanel';
+import { confirmAction } from '../components/confirm';
 import { flash, jumpToField } from '../components/jump';
 import { docState, shortStamp } from '../domain/exports';
 import { docVersions } from '../domain/history';
@@ -101,6 +103,7 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
               ? <button className={'last-exp' + (last.kind === 'changed' ? ' warn' : '')} title="看发出后改了什么" onClick={() => openDiff(o, doc)}>{txt}{last.to ? ` · 发给${last.to}` : ''}{last.kind === 'changed' ? ' · 看改了什么' : ''}</button>
               : <span className={'last-exp' + (last.kind === 'changed' ? ' warn' : '')} title={last.at}>{txt}{last.to ? ` · 发给${last.to}` : ''}</span>;
           })()}
+          {mod === 'customs' && <button className="btn" disabled={ui.busy} title="预录入表、商业发票、装箱单（PDF + Excel）和销售合同打成一个 zip" onClick={() => void packBroker(o)}>打包发报关行</button>}
           {fmts.filter((f) => f !== 'PDF').map((f) => <button key={f} className="btn" disabled={ui.busy} onClick={() => exportDoc(o, doc, f)}>导出 {f}</button>)}
           <button className="btn pri" disabled={ui.busy} onClick={() => exportDoc(o, doc, 'PDF')}>导出 PDF</button>
         </div>
@@ -177,6 +180,16 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
       </div>
     </>
   );
+}
+
+/** 报关资料一键打包：预录入表、发票、箱单（PDF + Excel）+ 合同 PDF */
+async function packBroker(o: Order) {
+  const n = countErrors(o);
+  if (n && !(await confirmAction({ title: '单据检查有错误', ok: '仍然打包', body: <p>单据检查发现 {n} 个错误，建议改好再发给报关行。仍然要打包吗？</p> }))) return;
+  void exportZip(o, [
+    { doc: 'customs', fmt: 'PDF' }, { doc: 'customs', fmt: 'Excel' }, { doc: 'ci', fmt: 'PDF' }, { doc: 'ci', fmt: 'Excel' },
+    { doc: 'pl', fmt: 'PDF' }, { doc: 'pl', fmt: 'Excel' }, { doc: 'contract', fmt: 'PDF' },
+  ], '报关行');
 }
 
 /** 几个工厂时：预览切换看给哪个工厂的采购单（导出时每个工厂各出一份） */

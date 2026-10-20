@@ -3,15 +3,18 @@ import { useData, type ImportMode } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { pickFile, readBytes } from '../io/image';
 import type { MapResult } from '../io/library';
-import type { Customer, Product } from '../domain/types';
+import type { Customer, HsEntry, Product, TariffRow } from '../domain/types';
 
-type Kind = 'products' | 'customers';
-const NAMES: Record<Kind, { what: string; key: string }> = {
-  products: { what: '产品', key: '型号' },
-  customers: { what: '客户', key: '公司名称' },
+type Kind = 'products' | 'customers' | 'hs' | 'tariff';
+type Row = Product | Customer | HsEntry | TariffRow;
+const NAMES: Record<Kind, { what: string; key: string; file: string }> = {
+  products: { what: '产品', key: '型号', file: '产品' },
+  customers: { what: '客户', key: '公司名称', file: '客户' },
+  hs: { what: '品名', key: '中文品名', file: 'HS记忆' },
+  tariff: { what: '编码', key: '商品编号', file: '税则表' },
 };
 
-function Preview({ kind, result, file }: { kind: Kind; result: MapResult<Product | Customer>; file: string }) {
+function Preview({ kind, result, file }: { kind: Kind; result: MapResult<Row>; file: string }) {
   const close = useUI((s) => s.closeModal);
   const [mode, setMode] = useState<ImportMode>('overwrite');
   const n = NAMES[kind];
@@ -41,7 +44,10 @@ function Preview({ kind, result, file }: { kind: Kind; result: MapResult<Product
           disabled={!ok}
           onClick={() => {
             const st = useData.getState();
-            const r = kind === 'products' ? st.importProducts(result.rows as Product[], mode, result.fields) : st.importCustomers(result.rows as Customer[], mode, result.fields);
+            const r = kind === 'products' ? st.importProducts(result.rows as Product[], mode, result.fields)
+              : kind === 'customers' ? st.importCustomers(result.rows as Customer[], mode, result.fields)
+              : kind === 'hs' ? st.importHs(result.rows as HsEntry[], mode, result.fields)
+              : st.importTariff(result.rows as TariffRow[], mode, result.fields);
             close();
             toast(`导入完成：新增 ${r.added} 个，更新 ${r.updated} 个，跳过 ${r.skipped} 个`);
           }}
@@ -60,7 +66,7 @@ export async function startImport(kind: Kind) {
   try {
     const [{ readTable }, lib] = await Promise.all([import('../io/table'), import('../io/library')]);
     const table = await readTable(f.name, await readBytes(f));
-    const result = kind === 'products' ? lib.mapProducts(table) : lib.mapCustomers(table);
+    const result: MapResult<Row> = kind === 'products' ? lib.mapProducts(table) : kind === 'customers' ? lib.mapCustomers(table) : kind === 'hs' ? lib.mapHs(table) : lib.mapTariff(table);
     useUI.getState().openModal({ title: `导入${NAMES[kind].what}`, body: <Preview kind={kind} result={result} file={f.name} /> });
   } catch (e) {
     toast('读取文件失败：' + (e instanceof Error ? e.message : String(e)), undefined, 8000);
@@ -73,12 +79,13 @@ export async function exportLibrary(kind: Kind, template = false) {
     const lib = await import('../io/library');
     const { saveFiles, reveal } = await import('../export/save');
     const st = useData.getState();
-    const data = kind === 'products'
-      ? await (template ? lib.productTemplate() : lib.productsToXlsx(st.products))
-      : await (template ? lib.customerTemplate() : lib.customersToXlsx(st.customers));
+    const data = kind === 'products' ? await (template ? lib.productTemplate() : lib.productsToXlsx(st.products))
+      : kind === 'customers' ? await (template ? lib.customerTemplate() : lib.customersToXlsx(st.customers))
+      : kind === 'hs' ? await (template ? lib.hsTemplate() : lib.hsToXlsx(st.hsLib))
+      : await lib.tariffTemplate();
     const d = new Date();
     const date = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    const name = template ? `${NAMES[kind].what}导入模板.xlsx` : `${NAMES[kind].what}库-${date}.xlsx`;
+    const name = template ? `${NAMES[kind].file}导入模板.xlsx` : `${NAMES[kind].file}库-${date}.xlsx`;
     const r = await saveFiles('资料库', [{ name, data }]);
     const p = r.paths[0];
     if (p) toast('已保存 ' + name, { label: '打开文件夹', run: () => void reveal(p) });

@@ -1,4 +1,5 @@
 import { applyCustomer, blankOrder, productToItem } from './factory';
+import { buildLib } from './hs';
 import { uid } from './calc';
 import { defaultSettings } from './settings';
 import type { Customer, DataState, Order, Partner, Product, Seller } from './types';
@@ -102,5 +103,5 @@ export function seed(): DataState {
       o.partners = { forwarder: 'p2', broker: 'p3', factory: '' };
     }),
   ];
-  return { settings: defaultSettings(), seller, products, customers, partners, orders, seq: 4 };
+  return { settings: defaultSettings(), seller, products, customers, partners, orders, seq: 4, hsLib: buildLib(products, orders), tariff: [] };
 }

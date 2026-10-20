@@ -11,6 +11,7 @@ import { openItemImport } from './itemImport';
 import { PackingTable } from './packing';
 import { ContainerList } from './containers';
 import { FactoryPOs, FeeList, ProfitSummary } from './purchase';
+import { elementsHint, fillable, tariffOf } from '../domain/hs';
 import { openSmartPaste } from './smartPaste';
 import { looksLikeContact } from '../domain/contact';
 
@@ -201,7 +202,18 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
   const setField = useData((s) => s.setOrderField);
   const updateOrder = useData((s) => s.updateOrder);
   const partners = useData((s) => s.partners);
+  const hsLib = useData((s) => s.hsLib);
+  const tariff = useData((s) => s.tariff);
+  const autoFillRow = useData((s) => s.autoFillRow);
+  const fillFromLib = useData((s) => s.fillFromLib);
   const openModal = useUI((s) => s.openModal);
+  const canFill = table === 'customsItems' || table === 'purchase' ? fillable(order, hsLib, tariff) : 0;
+  /** 离开中文品名 / 商品编号格子：按记忆库补全这一行空着的格子 */
+  const onLeave = (i: number, key: string) => {
+    if (table !== 'customsItems' || (key !== 'nameCn' && key !== 'hs')) return;
+    const n = autoFillRow(order.id, i, key === 'hs');
+    if (n) toast(key === 'hs' ? `已按${tariff.length ? '税则表 / ' : ''}记忆库带出第 ${i + 1} 行的退税率` : `已按 HS 记忆库补全第 ${i + 1} 行（商品编号、申报要素、退税率里空着的）`);
+  };
   const k = calcOrder(order);
   const factories = partners.filter((p) => p.type === '工厂');
   const defFactory = factories.find((p) => p.id === order.partners.factory)?.name;
@@ -282,6 +294,9 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
                         value={String((it as unknown as Record<string, unknown>)[c.key] ?? '')}
                         inputMode={c.num ? 'decimal' : undefined}
                         aria-label={c.label}
+                        list={table === 'customsItems' && c.key === 'nameCn' ? 'hs-names' : undefined}
+                        placeholder={table === 'customsItems' && c.key === 'elements' ? elementsHint(tariffOf(tariff, it.hs)) || undefined : undefined}
+                        onBlur={() => onLeave(i, c.key!)}
                         onChange={(e) => setField(order.id, `items.${i}.${c.key}`, e.target.value)}
                         onKeyDown={(e) => onCellKey(e, i, c.key!)}
                         onPaste={(e) => {
@@ -328,6 +343,17 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
           <span className="tbl-tip">提示：在表格里直接 Ctrl+V 粘贴从 Excel 复制的多行；回车 / ↑↓ 换行</span>
         </div>
       )}
+      {table === 'customsItems' && (
+        <datalist id="hs-names">{hsLib.slice(0, 300).map((e) => <option key={e.id} value={e.nameCn}>{e.hs}</option>)}</datalist>
+      )}
+      {canFill > 0 && (
+        <div className="tbl-tools">
+          <button className="btn sm" onClick={() => { const n = fillFromLib(order.id); toast(`已按 HS 记忆库${tariff.length ? ' / 税则表' : ''}补全 ${n} 格（只补空着的）`); }}>
+            按记忆库补全（{canFill} 格）
+          </button>
+          <span className="tbl-tip">同品名带出商品编号、申报要素、退税率{tariff.length ? '；有编号的按税则表带出退税率' : ''}</span>
+        </div>
+      )}
       {table === 'purchase' && (
         <div className="tbl-tools">
           <span className="tbl-tip">
@@ -343,7 +369,10 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
         </div>
       )}
       {table === 'customsItems' && (
-        <div className="note">申报要素格式示例：品牌类型|出口享惠情况|用途|材质|品牌|型号。录入后自动存入 HS 记忆库，下次同品名自动带出。</div>
+        <div className="note">
+          中文品名可以从 HS 记忆库里选，离开格子自动带出商品编号、申报要素和退税率（只补空着的）。订单导出后，填好的品名和编码会自动记进记忆库。
+          {tariff.length ? '申报要素格子里的灰字是税则表要求的申报项，按顺序用 | 隔开填写。' : '在「HS 记忆库 → 税则表」导入报关行给的税则后，申报要素格子会提示每项该填什么。'}
+        </div>
       )}
     </>
   );
