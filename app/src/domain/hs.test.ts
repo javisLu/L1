@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { seed } from './seed';
-import { buildLib, controlText, elementsHint, fillItems, findByName, learn, normName, suggestNames, tariffOf } from './hs';
+import { buildLib, controlText, elementsHint, fillItems, findByName, learn, normName, renameRow, suggestNames, tariffOf } from './hs';
 import { mapHs, mapTariff } from '../io/library';
 import { checkOrder } from '../modules/check';
 import type { HsEntry, TariffRow } from './types';
@@ -60,6 +60,39 @@ describe('HS 记忆库', () => {
     expect(o.items[1].elements).toBe('自己填的');
     expect(o.items[1].rebate).toBe('');
     expect(r.rows).toEqual([0]);
+  });
+});
+
+describe('改中文品名', () => {
+  it('改成本单其它行已有的品名：整行换成那一行的编号、申报要素', () => {
+    const s = seed();
+    const lib = buildLib(s.products, s.orders);
+    const o = s.orders[0];
+    o.items.push({ ...o.items[2], id: 'n1', nameCn: '产品说明书', hs: '4901100000', elements: '0|0|说明用', rebate: '' });
+    o.items[2].nameCn = '产品说明书';
+    expect(renameRow(o, 2, lib, [])).toBe('replaced');
+    expect(o.items[2]).toMatchObject({ hs: '4901100000', elements: '0|0|说明用', rebate: '' });
+  });
+
+  it('改成记忆库里有的品名：按记忆库换；都找不到：不动', () => {
+    const s = seed();
+    const lib = buildLib(s.products, s.orders);
+    const o = s.orders[0];
+    o.items[2].nameCn = '钢制货架 80cm';
+    expect(renameRow(o, 2, lib, T)).toBe('replaced');
+    expect(o.items[2]).toMatchObject({ hs: '9403200000', elements: '0|0|仓储用|钢制|无品牌|SH-80', rebate: 13 });
+    o.items[1].nameCn = '没见过的东西';
+    expect(renameRow(o, 1, lib, T)).toBe('none');
+    expect(o.items[1].hs).toBe('9403200000');
+  });
+
+  it('补全时也按本单其它同品名的行', () => {
+    const s = seed();
+    const o = s.orders[0];
+    o.items.push({ ...o.items[0], id: 'n2', hs: '', elements: '', rebate: '' });
+    const r = fillItems(o, [], []);
+    expect(r.rows).toEqual([3]);
+    expect(o.items[3]).toMatchObject({ hs: o.items[0].hs, elements: o.items[0].elements, rebate: 13 });
   });
 });
 

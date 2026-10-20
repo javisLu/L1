@@ -253,6 +253,9 @@ await step('25-hs-memory', async () => {
   await page.fill('#in-items-0-hs', ''); await page.fill('#in-items-0-elements', '');
   await page.focus('#in-items-0-nameCn'); await page.click('.form-head h2');
   await page.waitForFunction(() => document.querySelector('#in-items-0-hs')?.value.length === 10, null, { timeout: 5000 });
+  // 改中文品名成另一样货：整行换成它的申报要素
+  await page.fill('#in-items-0-nameCn', '铝合金展示架（加重款）'); await page.click('.form-head h2');
+  await page.waitForFunction(() => document.querySelector('#in-items-0-elements')?.value.includes('AL-H500'), null, { timeout: 5000 });
   await page.click('.mod-head button:has-text("打包发报关行")');
   await page.click('.modal button:has-text("仍然打包")', { timeout: 10000 }).catch(() => {});
   await waitToast('已打包 7 个文件');

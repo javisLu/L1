@@ -11,7 +11,7 @@ import { asOrder, recordSend } from '../domain/history';
 import type { DocKey } from '../modules/defs';
 import { defaultSettings } from '../domain/settings';
 import { defaultPurchase } from '../domain/purchase';
-import { buildLib, fillItems, learn, normName } from '../domain/hs';
+import { buildLib, fillItems, learn, normName, renameRow } from '../domain/hs';
 import { mergeCustomer, mergeProduct } from '../io/library';
 import type { Customer, DataState, HsEntry, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings, TariffRow } from '../domain/types';
 
@@ -80,6 +80,10 @@ interface Actions {
   autoFillRow: (orderId: string, row: number, rebateOnly?: boolean) => number;
   /** 整单按记忆库补全 */
   fillFromLib: (orderId: string) => number;
+  /** 改了中文品名：按新品名换掉这一行的编号、申报要素、退税率；找不到返回 'none' */
+  renameFill: (orderId: string, row: number) => 'replaced' | 'none';
+  /** 填好一行的编号 / 申报要素时记进 HS 记忆库 */
+  learnRow: (orderId: string, row: number) => void;
   addHs: () => string;
   updateHs: (id: string, recipe: (e: HsEntry) => void) => void;
   deleteHs: (id: string) => void;
@@ -317,6 +321,21 @@ export const useData = create<DataStore>()(
         });
         return n;
       },
+      renameFill: (orderId, row) => {
+        let r: 'replaced' | 'none' = 'none';
+        setState((s) => {
+          const o = s.orders.find((x) => x.id === orderId);
+          if (!o?.items[row]) return;
+          r = renameRow(o, row, s.hsLib, s.tariff);
+          if (r === 'replaced') o.updated = today();
+        });
+        return r;
+      },
+      learnRow: (orderId, row) =>
+        setState((s) => {
+          const it = s.orders.find((x) => x.id === orderId)?.items[row];
+          if (it) learn(s.hsLib, [it]);
+        }),
       addHs: () => {
         const id = uid();
         setState((s) => void s.hsLib.unshift({ id, nameCn: '', hs: '', elements: '', rebate: '', source: 'manual', used: today() }));

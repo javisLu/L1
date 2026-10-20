@@ -86,29 +86,65 @@ export function buildLib(products: Product[], orders: Order[]): HsEntry[] {
 
 export interface FillResult { cells: number; rows: number[] }
 
+interface Match { hs: string; elements: string; rebate: Num; from: 'order' | 'lib' }
+const has = (v: unknown) => String(v ?? '').trim() !== '';
+
 /**
- * 按记忆库和税则表补全订单货物（只补空着的，不改已填的）：
- * 同品名 → 商品编号、申报要素、退税率；有编号没退税率 → 按税则表的退税率。
+ * 某一行品名对应的编号、申报要素、退税率：先找本单其它行里同品名、编号已填好的（最新），再找记忆库。
  */
-/** rebateOnly：只补退税率（填完商品编号时用，不回填刚清空的编号） */
+export function matchFor(o: Order, i: number, lib: HsEntry[]): Match | undefined {
+  const it = o.items[i];
+  const k = normName(it?.nameCn ?? '');
+  if (!k) return undefined;
+  const j = o.items.findIndex((x, n) => n !== i && normName(x.nameCn) === k && validHs(x.hs));
+  if (j >= 0) {
+    const x = o.items[j];
+    const m = findByName(lib, it.nameCn);
+    const same = m && m.hs === hsDigits(x.hs);
+    return { hs: hsDigits(x.hs), elements: x.elements || (same ? m.elements : ''), rebate: has(x.rebate) ? x.rebate! : same ? m.rebate : '', from: 'order' };
+  }
+  const m = findByName(lib, it.nameCn);
+  return m && m.hs ? { hs: m.hs, elements: m.elements, rebate: m.rebate, from: 'lib' } : undefined;
+}
+
+/**
+ * 按记忆库、本单其它同品名的行和税则表补全（只补空着的，不改已填的）：
+ * 同品名 → 商品编号、申报要素、退税率；有编号没退税率 → 按税则表的退税率。
+ * rebateOnly：只补退税率（离开商品编号格子时用，不回填刚清空的编号）。
+ */
 export function fillItems(o: Order, lib: HsEntry[], tariff: TariffRow[], only?: number[], rebateOnly = false): FillResult {
   const res: FillResult = { cells: 0, rows: [] };
   o.items.forEach((it, i) => {
     if (only && !only.includes(i)) return;
     let n = 0;
-    const m = findByName(lib, it.nameCn);
+    const m = matchFor(o, i, lib);
     if (m) {
-      if (!rebateOnly && !it.hs.trim() && m.hs) { it.hs = m.hs; n++; }
-      if (!rebateOnly && !it.elements.trim() && m.elements && hsDigits(it.hs) === m.hs) { it.elements = m.elements; n++; }
-      if (String(it.rebate ?? '').trim() === '' && String(m.rebate).trim() !== '' && hsDigits(it.hs) === m.hs) { it.rebate = m.rebate; n++; }
+      if (!rebateOnly && !it.hs.trim()) { it.hs = m.hs; n++; }
+      const same = hsDigits(it.hs) === m.hs;
+      if (!rebateOnly && !it.elements.trim() && m.elements && same) { it.elements = m.elements; n++; }
+      if (!has(it.rebate) && has(m.rebate) && same) { it.rebate = m.rebate; n++; }
     }
-    if (String(it.rebate ?? '').trim() === '') {
+    if (!has(it.rebate)) {
       const t = tariffOf(tariff, it.hs);
-      if (t && String(t.rebate).trim() !== '') { it.rebate = t.rebate; n++; }
+      if (t && has(t.rebate)) { it.rebate = t.rebate; n++; }
     }
     if (n) { res.cells += n; res.rows.push(i); }
   });
   return res;
+}
+
+/**
+ * 改了中文品名：原来的编号、申报要素、退税率属于原来的货物，按新品名整行换掉。
+ * 找不到新品名的资料时不动，返回 'none'（界面提醒确认编号）。
+ */
+export function renameRow(o: Order, i: number, lib: HsEntry[], tariff: TariffRow[]): 'replaced' | 'none' {
+  const it = o.items[i];
+  const m = matchFor(o, i, lib);
+  if (!m) return 'none';
+  it.hs = m.hs;
+  it.elements = m.elements;
+  it.rebate = has(m.rebate) ? m.rebate : tariffOf(tariff, m.hs)?.rebate ?? '';
+  return 'replaced';
 }
 
 /** 还能补全多少格（按钮上显示） */
