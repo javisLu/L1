@@ -21,6 +21,18 @@ export interface ImportResult { added: number; updated: number; skipped: number 
 /** 数据只保存在本机（桌面版为应用数据目录下的文件），不上传任何服务器 */
 export let hydrationError: unknown = null;
 
+/** 设置里缺的项用默认值补上（含汇率表里缺的币种），读取旧数据、恢复备份时用 */
+export function withSettings(s?: Partial<Settings>): Settings {
+  const d = defaultSettings();
+  const out = { ...d, ...(s ?? {}) } as Settings;
+  out.defaults = { ...d.defaults, ...(s?.defaults ?? {}) };
+  out.numbering = { ...d.numbering, ...(s?.numbering ?? {}) };
+  out.labels = { ...d.labels, ...(s?.labels ?? {}) };
+  out.assets = { ...d.assets, ...(s?.assets ?? {}) };
+  out.rates = { ...d.rates, ...(s?.rates ?? {}), cny: { ...d.rates.cny, ...(s?.rates?.cny ?? {}) } };
+  return out;
+}
+
 /** 老订单补上工厂采购的默认值（升级、从备份恢复时） */
 function withPurchase(d: DataState): DataState {
   for (const o of d.orders ?? []) o.purchase ??= defaultPurchase();
@@ -296,7 +308,7 @@ export const useData = create<DataStore>()(
         }),
       deletePartner: (id) => setState((s) => void (s.partners = s.partners.filter((p) => p.id !== id))),
 
-      replaceAll: (d) => setState(() => ({ ...withPurchase(d), settings: { ...defaultSettings(), ...d.settings } })),
+      replaceAll: (d) => setState(() => ({ ...withPurchase(d), settings: withSettings(d.settings) })),
 
       autoFillRow: (orderId, row, rebateOnly) => {
         let n = 0;
@@ -379,7 +391,7 @@ export const useData = create<DataStore>()(
         const d = persisted as DataState;
         if (from < 2 || !d.settings) d.settings = defaultSettings();
         // v3：新增箱贴设置等，缺的设置项用默认值补上
-        d.settings = { ...defaultSettings(), ...d.settings };
+        d.settings = withSettings(d.settings);
         // v4：去掉「上传自己的 Excel 模板」的数据（改为软件自带的单据模板库）
         delete (d as { templates?: unknown }).templates;
         // v5：订单新增工厂采购与成本利润；v6：HS 记忆库；v7：去掉税则表
@@ -387,6 +399,11 @@ export const useData = create<DataStore>()(
         return d as never;
       },
       storage: createJSONStorage(() => appStorage),
+      // 每次读取都把新增的设置项补上默认值（版本号没变也补），避免新功能读到旧数据里没有的设置
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<DataState>;
+        return { ...current, ...p, settings: withSettings(p.settings) } as typeof current;
+      },
       onRehydrateStorage: () => (_state, error) => {
         if (error) hydrationError = error;
       },
