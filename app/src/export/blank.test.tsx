@@ -33,7 +33,7 @@ describe('单据模板库：空白模板', () => {
     expect(o.contractClauses.length).toBeGreaterThan(0);
   });
 
-  for (const doc of ['quote', 'pi', 'contract', 'po', 'ci', 'pl', 'booking', 'si', 'advice', 'customs'] as DocKey[]) {
+  for (const doc of ['quote', 'pi', 'contract', 'po', 'ci', 'pl', 'booking', 'si', 'advice', 'customs', 'co'] as DocKey[]) {
     it(`空白 PDF：${doc}`, async () => {
       const buf = await renderToBuffer(buildPdf(blank(), doc));
       expect(buf.subarray(0, 5).toString()).toBe('%PDF-');

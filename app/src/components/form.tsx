@@ -11,6 +11,7 @@ import { openItemImport } from './itemImport';
 import { PackingTable } from './packing';
 import { ContainerList } from './containers';
 import { FactoryPOs, FeeList, ProfitSummary } from './purchase';
+import { OriginAdvice } from './origin';
 import { fillable, hsLookupUrl, normName } from '../domain/hs';
 import { lookupHs } from './hsLookup';
 import { openSmartPaste } from './smartPaste';
@@ -37,6 +38,7 @@ export function FieldView({ order, def }: { order: Order; def: FieldDef }) {
   if (def.kind === 'factories') return <FactoryPOs order={order} />;
   if (def.kind === 'fees') return <FeeList order={order} />;
   if (def.kind === 'profit') return <ProfitSummary order={order} />;
+  if (def.kind === 'coAdvice') return <OriginAdvice order={order} />;
   const d: FieldSpec = def;
   if (d.show && !d.show(order)) return null;
   const id = inputId(d.path);

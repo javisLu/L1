@@ -32,6 +32,8 @@ export function project(o: Order, doc: DocKey): unknown {
     }
     case 'ci':
       return { ...base, terms: o.terms, items: strip(o, COST), ...pack, shipping: o.shipping };
+    case 'co':
+      return { ...base, terms: o.terms, items: strip(o, [...PRICE, ...COST]), ...pack, shipping: o.shipping, dest: o.customs.destCountry, co: o.co ?? null };
     case 'pl':
       return { ...base, terms: o.terms, items: strip(o, [...PRICE, ...COST]), ...pack, shipping: o.shipping };
     case 'customs':

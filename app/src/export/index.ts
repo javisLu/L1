@@ -24,6 +24,10 @@ export async function buildFile(o: Order, doc: DocKey, fmt: Fmt, factory?: strin
     const range = doc === 'labels' ? useUI.getState().labelRange : null;
     return { name, data: await renderPdf(o, doc, assets, { ...labels, ...range }, fid) };
   }
+  if (fmt === 'Excel' && doc === 'co') {
+    const { renderCoExcel } = await import('./coexcel');
+    return { name, data: await renderCoExcel(o) };
+  }
   if (fmt === 'Excel' && doc === 'po') {
     const { renderPoExcel } = await import('./poexcel');
     return { name, data: await renderPoExcel(o, fid!, useData.getState().partners, assets) };
@@ -34,7 +38,7 @@ export async function buildFile(o: Order, doc: DocKey, fmt: Fmt, factory?: strin
     return { name, data: await renderShipExcel(o, doc, ff ? [ff.name, ff.contact, ff.phone].filter(Boolean).join('  ') : '') };
   }
   if (fmt === 'Excel') {
-    if (doc === 'contract' || doc === 'marks' || doc === 'labels' || doc === 'advice' || doc === 'po') throw new Error(`${DOCNAMES[doc]}不支持导出 Excel`);
+    if (doc === 'contract' || doc === 'marks' || doc === 'labels' || doc === 'advice' || doc === 'po' || doc === 'co') throw new Error(`${DOCNAMES[doc]}不支持导出 Excel`);
     const { renderExcel } = await import('./excel');
     return { name, data: await renderExcel(o, doc as Parameters<typeof renderExcel>[1], assets) };
   }

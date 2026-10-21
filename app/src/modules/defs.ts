@@ -6,15 +6,16 @@ import { addrLabel, needAddr, toNum } from '../domain/calc';
 import type { Order } from '../domain/types';
 import { autoFreight, blTypeText, consigneeText, insureNeeded, notifyText } from '../domain/shipping';
 import { REF_RATE } from '../domain/purchase';
+import { CERTS, certsFor, destOf } from '../domain/origin';
 
 /** 运输信息里的提示：当前运费条款、提单类型、是否投保 */
 const shippingNote = (o: Order) =>
   `提单上会写：收货人 ${firstLine(consigneeText(o)) || '（未填）'} · 通知人 ${firstLine(notifyText(o)) || '（未填）'} · FREIGHT ${o.shipping.freight || autoFreight(o)}${o.shipping.freight ? '' : `（${o.terms.incoterm} 自动）`} · ${blTypeText(o)} · ${insureNeeded(o) ? '订舱委托书注明请货代代为投保' : '不投保'}`;
 const firstLine = (s: string) => s.split('\n')[0];
 
-export type DocKey = 'quote' | 'pi' | 'contract' | 'po' | 'ci' | 'pl' | 'customs' | 'marks' | 'labels' | 'booking' | 'si' | 'advice';
-export type StepKey = 'parties' | 'items' | 'packing' | 'customsItems' | 'terms' | 'contractClauses' | 'contractNo' | 'purchaseItems' | 'purchase' | 'profit' | 'invoice' | 'shipping' | 'customs' | 'docset' | 'marks';
-export type ModKey = 'quote' | 'pi' | 'purchase' | 'ci' | 'pl' | 'customs' | 'booking' | 'marks' | 'export' | 'bl' | 'lc' | 'payment';
+export type DocKey = 'quote' | 'pi' | 'contract' | 'po' | 'ci' | 'pl' | 'customs' | 'co' | 'marks' | 'labels' | 'booking' | 'si' | 'advice';
+export type StepKey = 'parties' | 'items' | 'packing' | 'customsItems' | 'terms' | 'contractClauses' | 'contractNo' | 'purchaseItems' | 'purchase' | 'profit' | 'invoice' | 'shipping' | 'customs' | 'coInfo' | 'docset' | 'marks';
+export type ModKey = 'quote' | 'pi' | 'purchase' | 'ci' | 'pl' | 'customs' | 'origin' | 'booking' | 'marks' | 'export' | 'bl' | 'lc' | 'payment';
 export type Src = 'S' | 'B' | 'FF' | 'CB' | 'F';
 
 export const SRC_NAME: Record<Src, string> = { S: '卖方', B: '买方', FF: '货代', CB: '报关行', F: '工厂' };
@@ -42,6 +43,7 @@ export const MODS: Record<ModKey, ModDef> = {
   ci: { code: 'CI', name: '商业发票', desc: 'Commercial Invoice：发票号、原产地、注明文字', grp: 'doc', docs: ['ci'], steps: ['invoice'], uses: ['parties', 'items', 'terms', 'contractNo', 'shipping', 'docset'] },
   pl: { code: 'PL', name: '箱单', desc: 'Packing List：箱号、净毛重、体积自动计算', grp: 'doc', docs: ['pl'], steps: ['packing'], uses: ['parties', 'items', 'invoice', 'shipping', 'docset'] },
   customs: { code: 'CD', name: '报关资料', desc: '报关预录入表 + 发票 + 箱单，发报关行', grp: 'doc', docs: ['customs', 'ci', 'pl'], steps: ['customs', 'customsItems'], uses: ['parties', 'items', 'terms', 'contractNo', 'packing', 'shipping'] },
+  origin: { code: 'CO', name: '产地证', desc: '原产地证申请资料：按目的国提示能用的证书（RCEP、Form E 等），照着填单一窗口', grp: 'doc', docs: ['co'], steps: ['coInfo'], uses: ['parties', 'items', 'invoice', 'customsItems', 'packing', 'shipping', 'marks'] },
   booking: { code: 'SI', name: '订舱 / 提单', desc: '订舱委托书、SI 提单补料、装船通知：船期、收发通、提单', grp: 'doc', docs: ['booking', 'si', 'advice'], steps: ['shipping'], uses: ['parties', 'items', 'terms', 'contractNo', 'packing', 'marks'] },
   marks: { code: 'SM', name: '唛头箱贴', desc: '正唛、侧唛，按箱号批量打印', grp: 'doc', docs: ['marks', 'labels'], steps: ['marks'], uses: ['contractNo', 'items', 'packing'] },
   export: { code: 'ZIP', name: '单据导出', desc: '按客户 / 工厂 / 报关行 / 货代一键打包', grp: 'doc', special: 'export' },
@@ -51,19 +53,19 @@ export const MODS: Record<ModKey, ModDef> = {
 };
 
 export const DOCNAMES: Record<DocKey, string> = {
-  quote: '报价单', pi: 'PI 形式发票', contract: '销售合同', po: '采购单', ci: '商业发票', pl: '装箱单', customs: '报关预录入表', marks: '唛头', labels: '箱贴',
+  quote: '报价单', pi: 'PI 形式发票', contract: '销售合同', po: '采购单', ci: '商业发票', pl: '装箱单', customs: '报关预录入表', co: '产地证申请资料', marks: '唛头', labels: '箱贴',
   booking: '订舱委托书', si: 'SI 提单补料', advice: '装船通知',
 };
 
 export type Fmt = 'PDF' | 'Excel' | 'Word';
 export const DOC_FMT: Record<DocKey, Fmt[]> = {
-  quote: ['PDF', 'Excel'], pi: ['PDF', 'Excel'], contract: ['PDF', 'Word'], po: ['PDF', 'Excel'], ci: ['PDF', 'Excel'], pl: ['PDF', 'Excel'], customs: ['PDF', 'Excel'], marks: ['PDF'], labels: ['PDF'],
+  quote: ['PDF', 'Excel'], pi: ['PDF', 'Excel'], contract: ['PDF', 'Word'], po: ['PDF', 'Excel'], ci: ['PDF', 'Excel'], pl: ['PDF', 'Excel'], customs: ['PDF', 'Excel'], co: ['PDF', 'Excel'], marks: ['PDF'], labels: ['PDF'],
   booking: ['PDF', 'Excel'], si: ['PDF', 'Excel'], advice: ['PDF'],
 };
 export const EXT: Record<Fmt, string> = { PDF: 'pdf', Excel: 'xlsx', Word: 'docx' };
 
 export function docFile(o: Order, d: DocKey): string {
-  return { quote: o.numbers.quote, pi: o.numbers.pi, contract: o.numbers.contract, po: 'CG-' + o.no, ci: o.numbers.ci, pl: 'PL-' + o.no, customs: 'CD-' + o.no, marks: 'Marks-' + o.no, labels: 'Labels-' + o.no, booking: 'BK-' + o.no, si: 'SI-' + o.no, advice: 'SA-' + o.no }[d];
+  return { quote: o.numbers.quote, pi: o.numbers.pi, contract: o.numbers.contract, po: 'CG-' + o.no, ci: o.numbers.ci, pl: 'PL-' + o.no, customs: 'CD-' + o.no, co: 'CO-' + o.no, marks: 'Marks-' + o.no, labels: 'Labels-' + o.no, booking: 'BK-' + o.no, si: 'SI-' + o.no, advice: 'SA-' + o.no }[d];
 }
 
 /* ---------- 表单字段 ---------- */
@@ -81,6 +83,8 @@ export type FieldDef =
   | { kind: 'fees' }
   /** 成本利润：利润汇总 */
   | { kind: 'profit' }
+  /** 产地证：目的国能用的证书 */
+  | { kind: 'coAdvice' }
   | {
       kind: 'field';
       path: string;
@@ -236,6 +240,17 @@ export const STEPS: Record<StepKey, StepDef> = {
       f('customs.freight', '运费', { src: 'FF' }),
       f('customs.insFee', '保费'),
       f('customs.docs', '随附单证', { wide: true, src: 'CB' }),
+    ],
+  },
+  coInfo: {
+    label: '证书与申报', hint: '按目的国列出能用的证书，点一下选用；货物、编码、件数毛重、唛头、发票号自动带出。',
+    fields: [
+      { kind: 'coAdvice' },
+      f('co.type', '证书类型', { type: 'select', options: ['', ...Object.keys(CERTS)], optionLabels: { '': '按目的国推荐', ...Object.fromEntries(Object.values(CERTS).map((c) => [c.key, c.name])) }, rerender: true }),
+      f('co.criterion', '原产地标准（整单）', { placeholder: '一般原产地证：P 完全国产 / W 含进口料件；协定证书：WO / PE / RVC 等' }),
+      f('co.route', '运输方式和路线（第 3 栏）', { wide: true, placeholder: '空着按装运港、目的港自动生成' }),
+      f('co.place', '申报地点（第 11 栏）', { placeholder: '空着用签约地点' }),
+      f('co.remarks', '备注（第 5 栏）', { type: 'textarea', wide: true, placeholder: '如：ISSUED RETROSPECTIVELY（开船后补办）、第三方发票说明' }),
     ],
   },
   docset: {
@@ -399,6 +414,8 @@ export function neededMods(o: Order): Set<ModKey> {
     n.add('bl');
   }
   if (/L\/C/.test(o.terms.payment)) n.add('lc');
+  // 选了证书，或目的国有自贸协定（客户能少交关税）时，产地证标为要做
+  if (o.co?.type || certsFor(destOf(o).cn).length > 1) n.add('origin');
   return n;
 }
 
@@ -408,7 +425,7 @@ export const inputId = (p: string) => 'in-' + p.replace(/[.*]/g, '-');
 export type ExpKey = DocKey;
 export const EXPDOCS: { key: ExpKey; name: string; ph?: string }[] = [
   { key: 'quote', name: '报价单' }, { key: 'pi', name: 'PI 形式发票' }, { key: 'contract', name: '销售合同' }, { key: 'po', name: '采购单（给工厂）' },
-  { key: 'ci', name: '商业发票' }, { key: 'pl', name: '装箱单' }, { key: 'customs', name: '报关预录入表' }, { key: 'marks', name: '唛头' },
+  { key: 'ci', name: '商业发票' }, { key: 'pl', name: '装箱单' }, { key: 'customs', name: '报关预录入表' }, { key: 'co', name: '产地证申请资料' }, { key: 'marks', name: '唛头' },
   { key: 'labels', name: '箱贴（每箱一张）' },
   { key: 'booking', name: '订舱委托书' }, { key: 'si', name: 'SI 提单补料' }, { key: 'advice', name: '装船通知' },
 ];

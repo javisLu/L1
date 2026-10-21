@@ -11,7 +11,7 @@ import type { Order, OrderSnap, SendRecord } from './types';
  * 并生成发给客户（英文）或工厂、货代（中文）的改版说明。
  */
 
-const SNAP_KEYS = ['seller', 'buyer', 'terms', 'numbers', 'items', 'packs', 'pkg', 'shipping', 'customs', 'partners', 'docset', 'contractClauses', 'purchase'] as const;
+const SNAP_KEYS = ['seller', 'buyer', 'terms', 'numbers', 'items', 'packs', 'pkg', 'shipping', 'customs', 'partners', 'docset', 'contractClauses', 'purchase', 'co'] as const;
 
 export const takeSnap = (o: Order): OrderSnap =>
   JSON.parse(JSON.stringify(Object.fromEntries(SNAP_KEYS.filter((k) => o[k] !== undefined).map((k) => [k, o[k]])))) as OrderSnap;
@@ -231,7 +231,7 @@ export function totalChanges(prev: Order, cur: Order, doc: DocKey): Change[] {
 /* ---------------- 改版说明 ---------------- */
 
 const DOC_EN: Record<DocKey, string> = {
-  quote: 'Quotation', pi: 'Proforma Invoice', contract: 'Sales Contract', po: 'Purchase Order', ci: 'Commercial Invoice', pl: 'Packing List', customs: 'customs documents',
+  quote: 'Quotation', pi: 'Proforma Invoice', contract: 'Sales Contract', po: 'Purchase Order', co: 'Certificate of Origin application', ci: 'Commercial Invoice', pl: 'Packing List', customs: 'customs documents',
   marks: 'Shipping Marks', labels: 'carton labels', booking: 'Booking Note', si: 'Shipping Instruction', advice: 'Shipping Advice',
 };
 /** 发给客户的单据默认写英文说明，其它（工厂、货代、报关行）写中文 */

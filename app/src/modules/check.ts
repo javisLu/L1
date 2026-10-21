@@ -6,6 +6,7 @@ import { autoFreight } from '../domain/shipping';
 import { MODS, STEPS, STEP_MOD, missing, neededMods, ownerOf, type ModKey, type StepKey } from './defs';
 import { REQS, reqState, reqStrict } from '../domain/requirements';
 import { factoriesOf, profitOf, purchaseOf } from '../domain/purchase';
+import { certOf, certsFor, destOf } from '../domain/origin';
 import type { CustReq, Order } from '../domain/types';
 
 export type Level = 'error' | 'warn';
@@ -180,7 +181,20 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
       out.push({ level: 'warn', text: `按现在的采购价和费用，本单预计亏损 ¥${money(-pf.profit)}`, mod: 'purchase', step: 'profit' });
   }
 
-  // 9. 客户要求清单：确认之后不符合算错误（之前只提醒）；自定义提醒在生产之后还没勾选的提醒一下
+  // 9. 产地证：知道目的国；目的国有自贸协定却选了一般原产地证；协定证书要有编码
+  if (need.has('origin')) {
+    const d = destOf(o), c = certOf(o), list = certsFor(d.cn);
+    if (!d.cn) out.push({ level: 'warn', text: '产地证：还不知道目的国，在报关资料里填运抵国', mod: 'customs', path: 'customs.destCountry' });
+    else if (c.key === 'general' && o.co?.type === 'general' && list.length > 1)
+      out.push({ level: 'warn', text: `产地证：${d.cn}可以办${list[0].name}，客户进口能少交关税，确认是不是只要一般原产地证`, mod: 'origin', path: 'co.type' });
+    if (d.cn && o.co?.type && !o.co.criterion?.trim())
+      out.push({ level: 'warn', text: '产地证：原产地标准还没填（完全国产 / 含进口料件不同，按实际情况填）', mod: 'origin', path: 'co.criterion' });
+    if (c.hs6) o.items.forEach((it, i) => {
+      if (String(it.hs ?? '').replace(/\D/g, '').length < 6) out.push({ level: 'warn', text: `产地证：第 ${i + 1} 行没有商品编码，${c.name}要填前 6 位`, mod: 'customs', path: `items.${i}.hs` });
+    });
+  }
+
+  // 10. 客户要求清单：确认之后不符合算错误（之前只提醒）；自定义提醒在生产之后还没勾选的提醒一下
   if (o.status !== '完结') {
     const strict = reqStrict(o);
     const late = STATUSES.indexOf(o.status) >= STATUSES.indexOf('生产');

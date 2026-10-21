@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { AssetsProvider, CleanProvider, Box, Fld, Img, Page, Row, Table, Txt, useAssets, useIsPdf, type DocAssets, type St } from './primitives';
 import { THEMES, TRANSPORT_CD } from '../domain/constants';
-import { amountWords, fixed, int, money, needAddr, sym, calcOrder, toNum, type Row as CalcRow } from '../domain/calc';
+import { amountWords, fixed, int, intWords, money, needAddr, sym, calcOrder, toNum, type Row as CalcRow } from '../domain/calc';
 import { getPath } from '../store/data';
 import type { Order } from '../domain/types';
 import type { DocKey } from '../modules/defs';
@@ -10,6 +10,7 @@ import { pkgNote, pkgSummary } from '../domain/package';
 import { isBlank, blTypeCn, blTypeText, consigneeText, containerRows, freightText, goodsLines, insureNeeded, notifyText, shipperText } from '../domain/shipping';
 import { useData } from '../store/data';
 import { factoriesOf, poNo, poRows, purchaseOf, rmbWords } from '../domain/purchase';
+import { certHs, certOf, criterionOf, declPlace, destOf, routeText } from '../domain/origin';
 
 const MONO = 'var(--f-doc-num)';
 const accent = (o: Order) => THEMES[o.docset.theme] ?? '#1d3f72';
@@ -551,6 +552,70 @@ function Advice({ o }: { o: Order }) {
   );
 }
 
+/* ---------- 产地证申请资料（M2-4） ---------- */
+/** 按原产地证的栏目排：照着在单一窗口填；协定证书编码 6 位、多一列发票金额 */
+function OriginData({ o }: { o: Order }) {
+  const k = calcOrder(o), a = accent(o), pk = pkgSummary(o, k);
+  const c = certOf(o), d = destOf(o), cur = o.terms.currency;
+  const crit = criterionOf(o);
+  const rows = k.rows.map((r, i) => {
+    const hs = String(r.hs ?? '').replace(/\D/g, '');
+    const pkgs = r.pack ? '混装' : r.n ? `${int(r.n)} CARTONS OF` : '';
+    const row: ReactNode[] = [
+      String(i + 1),
+      <>{pkgs ? `${pkgs} ` : ''}<Fld p={`items.${i}.nameEn`} v={String(r.nameEn || '').toUpperCase()} ph="[英文品名]" /></>,
+      <Fld p={`items.${i}.hs`} v={certHs(hs, c)} ph="[编码]" />,
+      <Fld p="co.criterion" v={/^W$/i.test(crit) && hs.length >= 4 ? `W ${hs.slice(0, 4)}` : crit} ph="[原产地标准]" />,
+      `${int(r.q)} ${r.unit}\nG.W. ${fixed(r.gwT, 2)} KGS`,
+    ];
+    if (c.hs6) row.push(`${cur} ${money(r.a)}`);
+    return row;
+  });
+  const cols = c.hs6
+    ? [{ label: 'No.', w: '5%', align: 'center' as const }, { label: '7. Packages & description of goods', w: '35%' }, { label: '8. HS code', w: '12%' }, { label: 'Origin criterion', w: '10%', align: 'center' as const }, { label: '9. Quantity / G.W.', w: '18%', align: 'right' as const }, { label: 'Invoice value', w: '20%', align: 'right' as const }]
+    : [{ label: 'No.', w: '6%', align: 'center' as const }, { label: '7. Packages & description of goods', w: '44%' }, { label: '8. HS code', w: '15%' }, { label: 'Origin criterion', w: '12%', align: 'center' as const }, { label: '9. Quantity / G.W.', w: '23%', align: 'right' as const }];
+  return (
+    <Page accent={a}>
+      <Box style={{ marginBottom: 6 }}>
+        <Txt style={{ width: '100%', textAlign: 'center', fontSize: 13, fontWeight: 700, letterSpacing: 3, color: a }}>原产地证申请资料</Txt>
+        <Txt style={{ width: '100%', textAlign: 'center', fontSize: 9, fontWeight: 700, marginTop: 2 }}>{c.name}</Txt>
+        <Txt style={{ width: '100%', textAlign: 'center', color: '#777', fontSize: 7, letterSpacing: 1, marginTop: 2 }}>草稿 · 照此在「中国国际贸易单一窗口」填写 · 以签发机构审核为准</Txt>
+      </Box>
+      <Grid>
+        <Row>{gcell('1. Exporter（出口商）', <>{F(o, 'seller.name')}{'\n'}{F(o, 'seller.address')}{'\n'}CHINA</>, 2, 54)}{gcell('Certificate No.（签发后填）', '', 2, 54)}</Row>
+        <Row>{gcell('2. Consignee（收货人）', <>{F(o, 'buyer.name', '[买方公司名称]')}{'\n'}{F(o, 'buyer.address', '[买方地址]')}{d.en ? `\n${d.en}` : ''}</>, 2, 54)}{gcell('5. Remarks（备注）', <Fld p="co.remarks" v={o.co?.remarks ?? ''} ph="—" />, 2, 54)}</Row>
+        <Row>{gcell('3. Means of transport and route（运输方式和路线）', <>{<Fld p="co.route" v={routeText(o)} ph="[装运港、目的港]" />}{o.shipping.etd ? `\nETD: ${o.shipping.etd}` : ''}{o.shipping.vessel ? `\n${o.shipping.vessel}` : ''}</>, 2, 40)}{gcell('4. Country / region of destination（目的国）', d.en ? <Fld p="customs.destCountry" v={d.en} /> : <Hint text="[在报关资料填运抵国]" />, 2, 40)}</Row>
+      </Grid>
+      <Box style={{ marginTop: 10 }}>
+        <Table
+          accent={a}
+          cols={cols}
+          rows={rows.length ? rows : EmptyRow(cols.length)}
+        />
+      </Box>
+      <Box style={{ marginTop: 6, flexDirection: 'row', justifyContent: 'space-between' }}>
+        <Box style={{ width: '48.5%', border: '0.75px solid #9aa3ae', padding: '4px 6px' }}>
+          <Txt style={{ fontSize: 6.3, color: '#5b6470' }}>6. Marks and numbers（唛头）</Txt>
+          <Txt style={{ fontFamily: MONO, fontSize: 7.5 }}>{F(o, 'shipping.marks', 'N/M')}</Txt>
+        </Box>
+        <Box style={{ width: '48.5%', border: '0.75px solid #9aa3ae', padding: '4px 6px' }}>
+          <Txt style={{ fontSize: 6.3, color: '#5b6470' }}>合计（写在货物描述最后，后面打 ***** 防止添加）</Txt>
+          <Txt>{nz(k, `TOTAL: ${pk.mode === 'ctns' ? `${intWords(k.ctns)} (${k.ctns}) CARTONS` : `${intWords(pk.count)} (${pk.count}) ${pk.unitEn}`} ONLY`)}</Txt>
+          <Txt>{nz(k, `G.W. ${fixed(pk.gw, 2)} KGS`)}</Txt>
+          <Txt>*****</Txt>
+        </Box>
+      </Box>
+      <Grid>
+        <Row>{gcell('10. Number and date of invoices（发票号和日期）', <>{F(o, 'numbers.ci')}   {F(o, 'numbers.date')}</>, 4, 30)}</Row>
+        <Row>{gcell('11. Declaration by the exporter（出口商声明）', <>The undersigned hereby declares that the above details and statements are correct, that all the goods were produced in China and that they comply with the Rules of Origin of the People's Republic of China.{'\n'}{declPlace(o)}   {o.numbers.date}</>, 4, 46)}</Row>
+      </Grid>
+      <Txt style={{ marginTop: 8, color: '#666', fontSize: 7 }}>
+        说明：{c.hs6 ? `自贸协定证书商品编码填前 6 位；原产地标准常用 ${c.criteria.join(' / ')}（完全获得填 WO，按区域价值成分判定的要填 FOB 价）。` : '一般原产地证：完全国产填 P，含进口料件填 W + 4 位品目号。'}第 12 栏由签发机构填写。
+      </Txt>
+    </Page>
+  );
+}
+
 /* ---------- 采购单（给工厂，M2-2） ---------- */
 /** 按工厂出：只列这个工厂供的货；不写客户信息和销售价 */
 function PurchaseOrder({ o, factory }: { o: Order; factory?: string }) {
@@ -685,6 +750,7 @@ export function DocView({ doc, order, assets = NO_ASSETS, labels = DEFAULT_LABEL
 function DocBody({ doc, order, labels, factory }: { doc: DocKey; order: Order; labels: LabelOptions; factory?: string }) {
   switch (doc) {
     case 'po': return <PurchaseOrder o={order} factory={factory} />;
+    case 'co': return <OriginData o={order} />;
     case 'quote': return <QuotePI o={order} kind="quote" />;
     case 'pi': return <QuotePI o={order} kind="pi" />;
     case 'contract': return <Contract o={order} />;

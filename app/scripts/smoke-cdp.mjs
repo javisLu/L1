@@ -262,6 +262,15 @@ await step('25-hs-memory', async () => {
   await waitToast('已打包 7 个文件');
 });
 
+await step('26-certificate-of-origin', async () => {
+  // M2-4：产地证——按目的国列出能用的证书，选用后导出申请资料
+  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("产地证")');
+  await page.waitForSelector('.co-cert', { timeout: 5000 });
+  await page.click('.co-cert:has-text("RCEP")'); await page.waitForSelector('.co-cert.on:has-text("RCEP")', { timeout: 5000 });
+  await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 CO-.*\\.pdf');
+  await page.click('.mod-head button:has-text("导出 Excel")'); await waitToast('已保存 CO-.*\\.xlsx');
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

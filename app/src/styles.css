@@ -654,3 +654,17 @@ button.last-exp:hover{background:var(--surface-2)}
 .pf-mini.neg{color:var(--stamp)}
 .pv-fac{margin-left:8px}
 @media (max-width:640px){.fee{grid-template-columns:minmax(0,1fr) auto 100px 28px}}
+
+/* 产地证（M2-4） */
+.co-adv{display:flex;flex-direction:column;gap:10px}
+.co-dest{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px}
+.co-dest b{font-size:16px}
+.co-dest em{font-style:normal;color:var(--ink-3);font-family:var(--f-num);font-size:12px}
+.co-dest .muted{font-size:12px}
+.co-certs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.co-cert{position:relative;text-align:left;border:1px solid var(--line-2);background:var(--surface);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;color:var(--ink);cursor:pointer}
+.co-cert:hover{border-color:var(--brand)}
+.co-cert.on{border-color:var(--brand);background:var(--brand-soft)}
+.co-cert b{font-size:13.5px}
+.co-cert small{color:var(--ink-3);font-size:11.5px}
+.co-cert i{position:absolute;top:8px;right:10px;font-style:normal;font-size:11px;color:var(--brand)}

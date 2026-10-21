@@ -225,6 +225,20 @@ export interface Purchase {
   fees: CostFee[];
 }
 
+/** 产地证申请资料：证书类型、原产地标准、运输路线、备注、申报地点 */
+export interface OriginCert {
+  /** 证书（domain/origin.ts 的 CERTS 键）；空 = 按目的国推荐第一个 */
+  type: string;
+  /** 原产地标准（如 P、W、WO、PE、RVC 40%）；空 = 按证书常用的 */
+  criterion: string;
+  /** 第 3 栏运输方式和路线；空 = 按装运港、目的港自动 */
+  route: string;
+  /** 第 5 栏备注（如后发、第三方发票） */
+  remarks: string;
+  /** 第 11 栏申报地点（空 = 签约地点） */
+  place: string;
+}
+
 export interface Order {
   id: string;
   no: string;
@@ -249,6 +263,8 @@ export interface Order {
   contractClauses: ContractClause[];
   /** 工厂采购与成本利润（M2-2；老订单没有） */
   purchase?: Purchase;
+  /** 产地证资料（M2-4；没填 = 按目的国推荐） */
+  co?: OriginCert;
   /** 关键日期（首页「今天要做」用；货好、ETD、ETA、截关在 shipping 里，报价有效期在 numbers 里） */
   dates?: KeyDates;
   /** 每份单据最近一次导出：时间、发给谁、单据指纹（用来判断导出后有没有改过） */
@@ -264,7 +280,7 @@ export interface Order {
 }
 
 /** 单据用到的订单数据（不含导出记录、提醒等） */
-export type OrderSnap = Pick<Order, 'seller' | 'buyer' | 'terms' | 'numbers' | 'items' | 'packs' | 'pkg' | 'shipping' | 'customs' | 'partners' | 'docset' | 'contractClauses' | 'purchase'>;
+export type OrderSnap = Pick<Order, 'seller' | 'buyer' | 'terms' | 'numbers' | 'items' | 'packs' | 'pkg' | 'shipping' | 'customs' | 'partners' | 'docset' | 'contractClauses' | 'purchase' | 'co'>;
 
 export interface SendRecord {
   id: string;
