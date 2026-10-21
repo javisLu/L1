@@ -6,6 +6,7 @@ import { autoReqCount } from '../domain/requirements';
 import { toast, useUI, type Page } from '../store/ui';
 import { money, sym, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
+import { receivedOf } from '../domain/receipts';
 import type { Order } from '../domain/types';
 
 export const orderAmount = (o: Order) => sym(o.terms.currency) + money(calcOrder(o).amount);
@@ -23,7 +24,14 @@ export function Home() {
   );
   const active = sorted.filter((o) => o.status !== '完结').length;
   const toShip = sorted.filter((o) => o.status === '确认' || o.status === '生产').length;
-  const recv = sorted.filter((o) => o.status === '出货');
+  // 应收未收：确认之后、没完结的订单，按收款记录算还差多少（按币种合计）
+  const owed = new Map<string, number>();
+  for (const o of orders) {
+    const st = STATUSES.indexOf(o.status);
+    if (st < STATUSES.indexOf('确认') || o.status === '完结') continue;
+    const left = receivedOf(o).outstanding;
+    if (left > 0.005) owed.set(o.terms.currency, (owed.get(o.terms.currency) ?? 0) + left);
+  }
 
   const lib = (page: Page, ic: string, t: string, s: string, c?: number) => (
     <button key={page} onClick={() => ui.go(page)}>
@@ -46,7 +54,7 @@ export function Home() {
             <div className="stats">
               <div className="stat"><b>{active}</b><span>进行中订单</span></div>
               <div className="stat"><b>{toShip}</b><span>待出货</span></div>
-              <div className="stat"><b>{recv.length ? recv.map(orderAmount).join(' + ') : '—'}</b><span>已出货待收款</span></div>
+              <div className="stat"><b>{owed.size ? [...owed].map(([c, n]) => sym(c) + money(n)).join(' + ') : '—'}</b><span>应收未收</span></div>
             </div>
             <TodayPanel />
             <div className="panel">

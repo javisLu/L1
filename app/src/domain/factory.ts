@@ -142,6 +142,7 @@ export function copyOrder(src: Order, no: string, numbering: Numbering = default
   delete o.reqDone;
   delete o.sent;
   delete o.snaps;
+  delete o.receipts;
   // 采购价、费用沿用；各工厂的采购单号、交货日期重新填
   if (o.purchase) o.purchase.pos = {};
   o.items.forEach((i) => (i.id = uid()));

@@ -284,6 +284,17 @@ await step('27-tools', async () => {
   await page.fill('.search input', '铝合金'); await page.waitForSelector('.tbl td:has-text("9403200000")', { timeout: 5000 });
 });
 
+await step('28-receipts', async () => {
+  // M4-1：收款记录——登记定金（金额自动带出）、填结汇汇率，订单卡片显示已收 / 未收
+  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("收款记录")');
+  await page.waitForSelector('.pay-sum', { timeout: 5000 });
+  await page.click('.mod-head button:has-text("登记一笔收款")');
+  await page.waitForFunction(() => Number(document.querySelector('#in-receipts-0-amount')?.value) > 0, null, { timeout: 5000 });
+  await page.fill('#in-receipts-0-fee', '25'); await page.fill('#in-receipts-0-rate', '7.1');
+  await page.waitForSelector('.pay-tbl td.calc:has-text("¥")', { timeout: 5000 });
+  await page.click('button:has-text("← 订单菜单")'); await page.waitForSelector('.mcard:has-text("收款记录") .st:has-text("已收")', { timeout: 5000 });
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

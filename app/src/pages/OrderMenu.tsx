@@ -8,12 +8,13 @@ import { SendHistory } from '../components/history';
 import { pkgSummary } from '../domain/package';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
-import { fixed, int, money, calcOrder } from '../domain/calc';
+import { fixed, int, money, sym, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
 import { DOCNAMES, MODS, STEP_MOD, missing, neededMods, type DocKey, type ModKey } from '../modules/defs';
 import { docState, shortStamp } from '../domain/exports';
 import { orderAmount } from './Home';
 import { profitOf } from '../domain/purchase';
+import { planOf, receivedOf } from '../domain/receipts';
 import type { Order, PartnerType } from '../domain/types';
 
 export function OrderMenu({ order: o }: { order: Order }) {
@@ -37,7 +38,13 @@ export function OrderMenu({ order: o }: { order: Order }) {
     const m = MODS[key];
     let st;
     let dls = null;
-    if (m.special) {
+    if (m.special === 'payment') {
+      const p = planOf(o), r = receivedOf(o), s = sym(o.terms.currency);
+      st = !(o.receipts ?? []).length ? <span className="st ph">还没登记收款 · 应收 {s}{money(p.total)}</span>
+        : r.outstanding > 0.005 ? <span className="st warn">已收 {s}{money(r.gross)} · 未收 {s}{money(r.outstanding)}</span>
+        : <span className="st ok">✓ 已收齐 {s}{money(r.gross)}</span>;
+      dls = <span className="pay-mini" aria-hidden><i style={{ width: `${Math.min(100, r.ratio * 100)}%` }} /></span>;
+    } else if (m.special) {
       const last = Object.values(o.exports ?? {}).filter((x) => x?.to).sort((a, b) => b!.at.localeCompare(a!.at))[0];
       st = last ? <span className="st ok">上次打包 {shortStamp(last.at)} · 发给{last.to}</span> : <span className="st ph">按收件人选好单据，一键打包</span>;
     } else {
@@ -157,6 +164,10 @@ export function OrderMenu({ order: o }: { order: Order }) {
         <div className="mgroup">
           <div className="sec-title"><h2>单据</h2><span className="muted" style={{ fontSize: 12.5 }}>每项资料只在一个模块里填，所有单据自动共用；导出后再改动，会提示哪份单据需要重发</span></div>
           <div className="mods">{keys.filter((x) => MODS[x].grp === 'doc' && !MODS[x].ph).map(card)}</div>
+        </div>
+        <div className="mgroup">
+          <div className="sec-title"><h2>收款与业务</h2><span className="muted" style={{ fontSize: 12.5 }}>不出单据，记本单的钱和进度</span></div>
+          <div className="mods">{keys.filter((x) => MODS[x].grp === 'biz' && !MODS[x].ph).map(card)}</div>
         </div>
       </main>
     </>

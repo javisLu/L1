@@ -1,5 +1,6 @@
 import { applyCustomer, blankOrder, productToItem } from './factory';
 import { buildLib } from './hs';
+import { planOf } from './receipts';
 import { uid } from './calc';
 import { defaultSettings } from './settings';
 import type { Customer, DataState, Order, Partner, Product, Seller } from './types';
@@ -101,6 +102,8 @@ export function seed(): DataState {
       o.customs.freight = 'EUR 3,100';
       Object.assign(o.shipping, { equipment: '1×40GP', eta: '2026-09-02' });
       o.partners = { forwarder: 'p2', broker: 'p3', factory: '' };
+      // 收款示例：赊销 30 天，开船后一次收齐、已结汇
+      o.receipts = [{ id: uid(), date: '2026-08-29', kind: '全款', amount: planOf(o).total, fee: 15, rate: 7.86, note: '水单 TT0829' }];
     }),
   ];
   return { settings: defaultSettings(), seller, products, customers, partners, orders, seq: 4, hsLib: buildLib(products, orders) };

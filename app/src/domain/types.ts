@@ -225,6 +225,17 @@ export interface Purchase {
   fees: CostFee[];
 }
 
+/** 一笔到账：客户汇来的金额（外币）、银行扣费（外币）、结汇汇率（空 = 还没结汇） */
+export interface Receipt {
+  id: string;
+  date: string;
+  kind: '定金' | '尾款' | '全款' | '其他';
+  amount: Num;
+  fee: Num;
+  rate: Num;
+  note: string;
+}
+
 /** 产地证申请资料：证书类型、原产地标准、运输路线、备注、申报地点 */
 export interface OriginCert {
   /** 证书（domain/origin.ts 的 CERTS 键）；空 = 按目的国推荐第一个 */
@@ -265,6 +276,8 @@ export interface Order {
   purchase?: Purchase;
   /** 产地证资料（M2-4；没填 = 按目的国推荐） */
   co?: OriginCert;
+  /** 收款记录（M4-1） */
+  receipts?: Receipt[];
   /** 关键日期（首页「今天要做」用；货好、ETD、ETA、截关在 shipping 里，报价有效期在 numbers 里） */
   dates?: KeyDates;
   /** 每份单据最近一次导出：时间、发给谁、单据指纹（用来判断导出后有没有改过） */

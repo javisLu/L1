@@ -9,6 +9,7 @@ import { Placeholder, Workbench } from './pages/Workbench';
 import { ExportCenter } from './pages/ExportCenter';
 import { Clauses, Customers, HsMemory, Partners, Products } from './pages/Libraries';
 import { HsQuery, RateTool, WordsTool } from './pages/Tools';
+import { Payments } from './pages/Payments';
 import { QuoteCalc } from './pages/QuoteCalc';
 import { Settings } from './pages/Settings';
 import { DocLibrary } from './pages/DocLibrary';
@@ -47,6 +48,7 @@ function Screen() {
     case 'module': {
       const m = mod ? MODS[mod] : null;
       if (!m) return <OrderMenu order={order!} />;
+      if (m.special === 'payment') return <Payments order={order!} />;
       if (m.special) return <ExportCenter order={order!} />;
       if (m.ph) return <Placeholder order={order!} mod={mod!} />;
       return <Workbench order={order!} mod={mod!} />;

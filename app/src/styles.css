@@ -682,3 +682,28 @@ button.last-exp:hover{background:var(--surface-2)}
 .tool-panel{padding:18px 20px}
 .link-btn{border:0;background:none;padding:0;color:var(--brand);cursor:pointer;font:inherit;text-decoration:underline}
 @media (max-width:640px){.rt-list{grid-template-columns:1fr}}
+
+/* 收款记录（M4-1） */
+.pay{display:flex;flex-direction:column;gap:14px}
+.pay .panel{padding:16px 18px}
+.pay h3{font-size:14px;margin:0 0 10px}
+.pay-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.pay-sum .panel{display:flex;flex-direction:column;gap:4px}
+.pay-sum small{color:var(--ink-3);font-size:12px}
+.pay-sum b{font-size:22px;font-family:var(--f-num);font-weight:600}
+.pay-sum span{font-size:12px}
+.pay .ok,.pay-pf .ok{color:var(--ok)}
+.pay .warn{color:var(--warn)}
+.pay .neg{color:var(--stamp)}
+.pay-bar,.pay-mini{display:block;height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
+.pay-bar i,.pay-mini i{display:block;height:100%;background:var(--ok)}
+.pay-mini{margin-top:8px;width:100%}
+.pay-line{display:grid;grid-template-columns:120px 160px 1fr;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px dashed var(--line)}
+.pay-line b{font-family:var(--f-num);font-weight:500}
+.pay-line em{font-style:normal;font-size:12.5px}
+.pay-pf{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.pay-pf > div{display:flex;flex-direction:column;gap:3px}
+.pay-pf small{color:var(--ink-3);font-size:12px}
+.pay-pf b{font-size:20px;font-family:var(--f-num);font-weight:600}
+.pay-pf span{font-size:12px}
+@media (max-width:760px){.pay-sum,.pay-pf{grid-template-columns:1fr}.pay-line{grid-template-columns:1fr 1fr}}

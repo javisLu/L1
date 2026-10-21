@@ -1,5 +1,6 @@
 import { STATUSES } from './constants';
-import { toNum, today as localToday } from './calc';
+import { money, toNum, today as localToday } from './calc';
+import { receivedOf } from './receipts';
 import type { Order, OrderStatus } from './types';
 import type { DocKey, ModKey, StepKey } from '../modules/defs';
 
@@ -120,15 +121,17 @@ export function orderReminders(o: Order, today: string): Reminder[] {
     if (d <= 0 && d >= -30) add({ key: 'advice:' + s.etd, level: 'blue', days: d, go: { mod: 'booking', doc: 'advice' }, text: `${md(s.etd)} 已开船，还没给客户发装船通知` });
   }
 
-  // 7. 尾款
-  if (o.status !== '收款') {
+  // 7. 尾款（收款记录里已收齐的不再提醒；逾期提醒写上还差多少）
+  const owe = receivedOf(o);
+  if (o.status !== '收款' && owe.outstanding > 0.005) {
     const { date } = balanceDue(o);
+    const left = (o.receipts ?? []).length ? `，还差 ${o.terms.currency} ${money(owe.outstanding)}` : '';
     if (date) {
       const d = daysUntil(date, today);
       const shipped = !before(o, '出货');
-      if (shipped && d < 0) add({ key: 'bal:' + date, level: 'red', days: d, text: `尾款逾期 ${-d} 天（应于 ${md(date)} 前收到）` });
+      if (shipped && d < 0) add({ key: 'bal:' + date, level: 'red', days: d, go: { mod: 'payment' }, text: `尾款逾期 ${-d} 天（应于 ${md(date)} 前收到${left}）` });
       else if (d >= 0 && d <= 5 && (shipped || o.terms.payBalanceAt === 'before shipment'))
-        add({ key: 'bal:' + date, level: 'amber', days: d, text: `尾款 ${rel(d)}到期（${md(date)}）${shipped ? '' : '，出货前要收到'}` });
+        add({ key: 'bal:' + date, level: 'amber', days: d, go: { mod: 'payment' }, text: `尾款 ${rel(d)}到期（${md(date)}）${shipped ? '' : '，出货前要收到'}${left}` });
     }
   }
 

@@ -7,6 +7,7 @@ import { MODS, STEPS, STEP_MOD, missing, neededMods, ownerOf, type ModKey, type 
 import { REQS, reqState, reqStrict } from '../domain/requirements';
 import { factoriesOf, profitOf, purchaseOf } from '../domain/purchase';
 import { certOf, certsFor, destOf } from '../domain/origin';
+import { planOf, receivedOf } from '../domain/receipts';
 import type { CustReq, Order } from '../domain/types';
 
 export type Level = 'error' | 'warn';
@@ -194,7 +195,19 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
     });
   }
 
-  // 10. 客户要求清单：确认之后不符合算错误（之前只提醒）；自定义提醒在生产之后还没勾选的提醒一下
+  // 10. 收款：生产了还没收定金、标了收款还没收齐、收多了
+  if ((o.receipts ?? []).length || STATUSES.indexOf(o.status) >= STATUSES.indexOf('生产')) {
+    const p = planOf(o), r = receivedOf(o), c = o.terms.currency;
+    const st = STATUSES.indexOf(o.status);
+    if (p.deposit > 0 && r.deposit < p.deposit - 0.005 && st >= STATUSES.indexOf('生产') && st < STATUSES.indexOf('收款'))
+      out.push({ level: 'warn', text: `订单已到「${o.status}」，定金还没登记收齐（应收 ${c} ${money(p.deposit)}，已登记 ${c} ${money(r.deposit)}）`, mod: 'payment' });
+    if (st >= STATUSES.indexOf('收款') && r.outstanding > Math.max(1, p.total * 0.005))
+      out.push({ level: 'warn', text: `订单标为「${o.status}」，收款记录里还差 ${c} ${money(r.outstanding)}`, mod: 'payment' });
+    if (r.outstanding < -Math.max(1, p.total * 0.01))
+      out.push({ level: 'warn', text: `收款记录比合同金额多 ${c} ${money(-r.outstanding)}，确认是不是登记重了`, mod: 'payment' });
+  }
+
+  // 11. 客户要求清单：确认之后不符合算错误（之前只提醒）；自定义提醒在生产之后还没勾选的提醒一下
   if (o.status !== '完结') {
     const strict = reqStrict(o);
     const late = STATUSES.indexOf(o.status) >= STATUSES.indexOf('生产');
