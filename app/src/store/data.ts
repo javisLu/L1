@@ -10,7 +10,7 @@ import { docSig, nowStamp } from '../domain/exports';
 import { asOrder, recordSend } from '../domain/history';
 import type { DocKey } from '../modules/defs';
 import { defaultSettings } from '../domain/settings';
-import { defaultPurchase } from '../domain/purchase';
+import { defaultPurchase, setRefRates } from '../domain/purchase';
 import { buildLib, fillItems, learn, normName, renameRow } from '../domain/hs';
 import { mergeCustomer, mergeProduct } from '../io/library';
 import type { Customer, DataState, HsEntry, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings } from '../domain/types';
@@ -394,3 +394,7 @@ export const useData = create<DataStore>()(
     },
   ),
 );
+
+// 成本利润里没填汇率时用的参考汇率，跟着「汇率换算」里的表走
+setRefRates(useData.getState().settings.rates?.cny);
+useData.subscribe((s) => setRefRates(s.settings.rates?.cny));

@@ -5,7 +5,7 @@ import {
 import { addrLabel, needAddr, toNum } from '../domain/calc';
 import type { Order } from '../domain/types';
 import { autoFreight, blTypeText, consigneeText, insureNeeded, notifyText } from '../domain/shipping';
-import { REF_RATE } from '../domain/purchase';
+import { refRate } from '../domain/purchase';
 import { CERTS, certsFor, destOf } from '../domain/origin';
 
 /** 运输信息里的提示：当前运费条款、提单类型、是否投保 */
@@ -189,7 +189,7 @@ export const STEPS: Record<StepKey, StepDef> = {
     fields: [
       f('purchase.rate', (o) => `汇率（1 ${o.terms.currency} = ? 元）`, { show: (o) => o.terms.currency !== 'CNY', placeholder: '按实际结汇汇率填' }),
       f('purchase.vat', '增值税率 %'),
-      { kind: 'note', text: (o) => (o.terms.currency !== 'CNY' && !toNum(o.purchase?.rate) ? `没填汇率时按参考汇率 ${REF_RATE[o.terms.currency]} 估算，请按实际结汇汇率填写。` : '') },
+      { kind: 'note', text: (o) => (o.terms.currency !== 'CNY' && !toNum(o.purchase?.rate) ? `没填汇率时按参考汇率 ${refRate(o.terms.currency)} 估算（在「小工具 → 汇率换算」里更新），请按实际结汇汇率填写。` : '') },
       head('费用（人民币，整票）'),
       { kind: 'fees' },
       head('本单利润'),

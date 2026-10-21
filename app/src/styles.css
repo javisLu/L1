@@ -668,3 +668,17 @@ button.last-exp:hover{background:var(--surface-2)}
 .co-cert b{font-size:13.5px}
 .co-cert small{color:var(--ink-3);font-size:11.5px}
 .co-cert i{position:absolute;top:8px;right:10px;font-style:normal;font-size:11px;color:var(--brand)}
+
+/* 小工具（M2-5） */
+.rt-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+.rt-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
+.rt-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
+.rt-row input{width:110px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);border-radius:6px;padding:6px 9px;text-align:right;font-family:var(--f-num)}
+.wd-list{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.wd-row{border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.wd-row small{display:block;color:var(--ink-3);font-size:12px;margin-bottom:4px}
+.wd-row > div{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.wd-t{font-family:var(--f-num);font-size:13.5px;line-height:1.5;word-break:break-word}
+.tool-panel{padding:18px 20px}
+.link-btn{border:0;background:none;padding:0;color:var(--brand);cursor:pointer;font:inherit;text-decoration:underline}
+@media (max-width:640px){.rt-list{grid-template-columns:1fr}}

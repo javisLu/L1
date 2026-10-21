@@ -106,6 +106,9 @@ export function Home() {
             </div></div>
             <div className="side-group"><h3>小工具</h3><div className="lib">
               {lib('calc', '¥→$', '报价计算器', '成本 + 运费 + 退税 → FOB / CIF')}
+              {lib('rates', '汇率', '汇率换算', '各币种互换，可联网更新参考汇率')}
+              {lib('words', '大写', '金额大写', 'SAY US DOLLARS … ONLY、人民币大写，一键复制')}
+              {lib('hsq', 'HS', 'HS 查询', '先查自己的记忆库，没有一键到网上查')}
             </div></div>
           </aside>
         </div>

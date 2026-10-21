@@ -430,6 +430,15 @@ export interface LabelSettings {
   info: boolean;
 }
 
+/** 参考汇率：1 外币 = ? 元人民币 */
+export interface RateTable {
+  cny: Record<Currency, number>;
+  /** 汇率日期 YYYY-MM-DD */
+  date: string;
+  /** 来源：软件内置 / 欧洲央行参考价 / 手工填写 */
+  source: string;
+}
+
 export interface Settings {
   numbering: Numbering;
   defaults: OrderDefaults;
@@ -437,6 +446,8 @@ export interface Settings {
   labels: LabelSettings;
   /** 上次自动备份的日期 YYYY-MM-DD */
   lastAutoBackup: string;
+  /** 参考汇率（小工具 → 汇率换算） */
+  rates: RateTable;
 }
 
 /** HS 记忆库的一条：中文品名 ↔ 商品编号 ↔ 申报要素 ↔ 退税率（导出过的订单自动记住，也可导入 / 手工改） */

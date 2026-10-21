@@ -1,3 +1,4 @@
+import { DEFAULT_RATES } from './rates';
 import type { Numbering, Settings } from './types';
 
 export function defaultSettings(): Settings {
@@ -11,6 +12,7 @@ export function defaultSettings(): Settings {
     assets: { logo: '', stamp: '', signature: '' },
     labels: { layout: 'a4-4', info: true },
     lastAutoBackup: '',
+    rates: { ...DEFAULT_RATES, cny: { ...DEFAULT_RATES.cny } },
   };
 }
 

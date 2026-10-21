@@ -1,4 +1,5 @@
 import { calcOrder, toNum, uid } from './calc';
+import { DEFAULT_RATES } from './rates';
 import type { Currency, Order, Partner, Purchase } from './types';
 
 /**
@@ -20,8 +21,10 @@ const EMPTY: Purchase = { ...defaultPurchase(), fees: [] };
 /** 老订单没有采购数据时按默认值读 */
 export const purchaseOf = (o: Order): Purchase => o.purchase ?? EMPTY;
 
-/** 参考汇率（没填汇率时估算用，界面上会提示按实际结汇汇率填写） */
-export const REF_RATE: Record<Currency, number> = { USD: 7.1, EUR: 7.8, GBP: 9.1, CNY: 1, JPY: 0.048, AUD: 4.7, CAD: 5.2, HKD: 0.91, AED: 1.93 };
+/** 参考汇率（没填汇率时估算用）：取「小工具 → 汇率换算」里的表，store 启动和更新时同步过来 */
+let refTable: Record<Currency, number> = { ...DEFAULT_RATES.cny };
+export const setRefRates = (t?: Record<Currency, number>) => void (t && (refTable = { ...DEFAULT_RATES.cny, ...t }));
+export const refRate = (cur: Currency) => refTable[cur] || 1;
 
 /** 这一行货物由哪个工厂供货（没单独选的按订单菜单里的工厂） */
 export const factoryOf = (o: Order, i: number) => o.items[i]?.factory || o.partners.factory || '';
@@ -82,7 +85,7 @@ export function profitOf(o: Order): Profit {
   const k = calcOrder(o);
   const cur = o.terms.currency;
   const typed = toNum(p.rate);
-  const rate = cur === 'CNY' ? 1 : typed || REF_RATE[cur] || 1;
+  const rate = cur === 'CNY' ? 1 : typed || refRate(cur);
   const vat = toNum(p.vat);
   let cost = 0, rebate = 0;
   const noCost: number[] = [];

@@ -271,6 +271,19 @@ await step('26-certificate-of-origin', async () => {
   await page.click('.mod-head button:has-text("导出 Excel")'); await waitToast('已保存 CO-.*\\.xlsx');
 });
 
+await step('27-tools', async () => {
+  // M2-5：汇率换算（手工改汇率）、金额大写、HS 查询
+  await page.click('.brand'); await page.click('.lib button:has-text("汇率换算")'); await page.waitForSelector('.rt-list', { timeout: 5000 });
+  await page.fill('#rt-amt', '100');
+  await page.fill('.rt-row input[aria-label="USD 汇率"]', '7'); await page.click('.sec-title h1');
+  await page.waitForFunction(() => [...document.querySelectorAll('.qt tr.hl b')].some((b) => b.textContent === '700.00'), null, { timeout: 5000 });
+  await page.click('.brand'); await page.click('.lib button:has-text("金额大写")');
+  await page.fill('#wd-amt', '1250.5');
+  await page.waitForSelector('.wd-t:has-text("SAY US DOLLARS ONE THOUSAND TWO HUNDRED AND FIFTY AND CENTS FIFTY ONLY")', { timeout: 5000 });
+  await page.click('.brand'); await page.click('.lib button:has-text("HS 查询")');
+  await page.fill('.search input', '铝合金'); await page.waitForSelector('.tbl td:has-text("9403200000")', { timeout: 5000 });
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

@@ -8,6 +8,7 @@ import { OrderMenu } from './pages/OrderMenu';
 import { Placeholder, Workbench } from './pages/Workbench';
 import { ExportCenter } from './pages/ExportCenter';
 import { Clauses, Customers, HsMemory, Partners, Products } from './pages/Libraries';
+import { HsQuery, RateTool, WordsTool } from './pages/Tools';
 import { QuoteCalc } from './pages/QuoteCalc';
 import { Settings } from './pages/Settings';
 import { DocLibrary } from './pages/DocLibrary';
@@ -58,6 +59,9 @@ function Screen() {
     case 'calc': return <QuoteCalc />;
     case 'settings': return <Settings />;
     case 'doclib': return <DocLibrary />;
+    case 'rates': return <RateTool />;
+    case 'words': return <WordsTool />;
+    case 'hsq': return <HsQuery />;
     default: return <Home />;
   }
 }

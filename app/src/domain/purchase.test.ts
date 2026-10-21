@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { seed } from './seed';
-import { factoriesOf, poNo, poRows, poTotal, profitOf, rmbWords } from './purchase';
+import { factoriesOf, poNo, poRows, poTotal, profitOf, refRate, rmbWords, setRefRates } from './purchase';
 import { docSig } from './exports';
 import { asOrder, diffDoc, takeSnap, totalChanges } from './history';
 import { checkOrder } from '../modules/check';
@@ -70,7 +70,7 @@ describe('每单利润', () => {
   it('没填汇率用参考汇率；人民币报价汇率为 1；没填采购价的行列出来', () => {
     const o = order();
     o.purchase!.rate = '';
-    expect(profitOf(o)).toMatchObject({ rate: 7.1, rateRef: true });
+    expect(profitOf(o)).toMatchObject({ rate: refRate('USD'), rateRef: true });
     o.terms.currency = 'CNY';
     expect(profitOf(o)).toMatchObject({ rate: 1, rateRef: false });
     o.items[1].cost = '';
@@ -133,5 +133,16 @@ describe('采购单 Excel', () => {
     expect(all).not.toContain(o.buyer.name);
     expect(all).toContain('月结 30 天');
     expect(formula).toBe(true);
+  });
+});
+
+describe('参考汇率跟着汇率换算的表', () => {
+  it('更新参考汇率后，没填汇率的订单按新汇率估算', () => {
+    const o = order();
+    o.purchase!.rate = '';
+    setRefRates({ ...seed().settings.rates.cny, USD: 6.5 });
+    expect(profitOf(o).rate).toBe(6.5);
+    setRefRates(seed().settings.rates.cny);
+    expect(profitOf(o).rate).toBe(6.68);
   });
 });
