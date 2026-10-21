@@ -15,6 +15,8 @@ import { docState, shortStamp } from '../domain/exports';
 import { orderAmount } from './Home';
 import { profitOf } from '../domain/purchase';
 import { planOf, receivedOf } from '../domain/receipts';
+import { parseMT700, reviewLc, softClauses } from '../domain/lc';
+import { localDay } from '../domain/reminders';
 import type { Order, PartnerType } from '../domain/types';
 
 export function OrderMenu({ order: o }: { order: Order }) {
@@ -44,6 +46,13 @@ export function OrderMenu({ order: o }: { order: Order }) {
         : r.outstanding > 0.005 ? <span className="st warn">已收 {s}{money(r.gross)} · 未收 {s}{money(r.outstanding)}</span>
         : <span className="st ok">✓ 已收齐 {s}{money(r.gross)}</span>;
       dls = <span className="pay-mini" aria-hidden><i style={{ width: `${Math.min(100, r.ratio * 100)}%` }} /></span>;
+    } else if (m.special === 'lc') {
+      const f = parseMT700(o.lc?.text ?? '');
+      const n = Object.keys(f).length;
+      const issues = n ? reviewLc(o, f, localDay()).filter((x) => x.level === 'error').length + softClauses(f).length : 0;
+      st = !n ? <span className="st ph">粘贴信用证电文，自动审证</span>
+        : issues ? <span className="st warn">{issues} 处要改证 · {f['20'] || '信用证'}</span>
+        : <span className="st ok">✓ 已审，没有硬伤 · {f['20'] || '信用证'}</span>;
     } else if (m.special) {
       const last = Object.values(o.exports ?? {}).filter((x) => x?.to).sort((a, b) => b!.at.localeCompare(a!.at))[0];
       st = last ? <span className="st ok">上次打包 {shortStamp(last.at)} · 发给{last.to}</span> : <span className="st ph">按收件人选好单据，一键打包</span>;

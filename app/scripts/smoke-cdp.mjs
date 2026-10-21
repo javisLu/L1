@@ -295,6 +295,17 @@ await step('28-receipts', async () => {
   await page.click('button:has-text("← 订单菜单")'); await page.waitForSelector('.mcard:has-text("收款记录") .st:has-text("已收")', { timeout: 5000 });
 });
 
+await step('29-lc-review', async () => {
+  // M4-3：信用证审证——放示例电文，查出要改证的问题、单据要求、改证函，一键按信用证改订单
+  await page.click('.brand'); await page.click('.orow[role=button] >> nth=1'); await page.click('.mcard:has-text("信用证审证")');
+  await page.click('button:has-text("放一份示例看看")');
+  await page.waitForSelector('.lc-sum.bad', { timeout: 5000 });
+  await page.waitForSelector('.lc-docs tbody tr', { timeout: 5000 });
+  await page.waitForSelector('.lc-letter', { timeout: 5000 });
+  await page.click('.lc-list button:has-text("订单按信用证改") >> nth=0'); await waitToast('订单已按信用证改好');
+  await page.click('.mod-head button:has-text("写进关键日期")'); await waitToast('已写进订单的关键日期');
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

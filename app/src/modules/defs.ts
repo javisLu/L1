@@ -33,7 +33,7 @@ export interface ModDef {
   /** 规划中：显示开发阶段 */
   ph?: string;
   plan?: string[];
-  special?: 'export' | 'payment';
+  special?: 'export' | 'payment' | 'lc';
 }
 
 export const MODS: Record<ModKey, ModDef> = {
@@ -48,7 +48,7 @@ export const MODS: Record<ModKey, ModDef> = {
   marks: { code: 'SM', name: '唛头箱贴', desc: '正唛、侧唛，按箱号批量打印', grp: 'doc', docs: ['marks', 'labels'], steps: ['marks'], uses: ['contractNo', 'items', 'packing'] },
   export: { code: 'ZIP', name: '单据导出', desc: '按客户 / 工厂 / 报关行 / 货代一键打包', grp: 'doc', special: 'export' },
   bl: { code: 'B/L', name: '提单核对', desc: '货代提单确认件与订单自动比对', grp: 'biz', ph: 'M4', plan: ['上传货代提单确认件（PDF）或直接粘贴文字', '自动比对发货人、收货人、通知人、货描、唛头、件数、毛重、体积、柜号封号', '差异标红，一键生成修改意见发给货代', '文字版 PDF 离线可用；扫描件需在设置里配置自己的 AI Key'] },
-  lc: { code: 'L/C', name: '信用证审证', desc: '条款解析、软条款风险、与订单比对', grp: 'biz', ph: 'M4 / M5', plan: ['粘贴 MT700 信用证原文，自动解析 31D / 44C / 48 / 39A / 43P / 46A / 47A 等条款', '规则层（离线）：日期冲突、金额容差、内置软条款特征库逐条匹配', '与本订单比对：金额、货描、港口、交期、贸易术语是否一致', 'AI 层（自带 Key）：结合内置 UCP600 / ISBP745 知识库，输出风险条款、原因、改证建议措辞', '按信用证要求生成单据，货描逐字一致'] },
+  lc: { code: 'L/C', name: '信用证审证', desc: '粘贴 MT700 电文：和订单逐条比对、列出单据要求、找软条款、生成改证函', grp: 'biz', special: 'lc' },
   payment: { code: 'T/T', name: '收款记录', desc: '定金、尾款到账登记，银行扣费、结汇汇率，实际利润', grp: 'biz', special: 'payment' },
 };
 
