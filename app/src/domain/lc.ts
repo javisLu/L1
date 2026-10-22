@@ -57,7 +57,7 @@ export type LcFields = Record<string, string>;
 export function parseMT700(text: string): LcFields {
   const out: LcFields = {};
   let cur = '';
-  for (const raw of String(text ?? '').replace(/\r/g, '').split('\n')) {
+  for (const raw of splitTags(String(text ?? '').replace(/\r/g, '')).split('\n')) {
     const m = raw.match(/^\s*:?(\d{2}[A-Z]?)\s*:\s?(.*)$/);
     if (m && LC_TAGS[m[1]]) {
       cur = m[1];
@@ -72,6 +72,17 @@ export function parseMT700(text: string): LcFields {
   for (const k of Object.keys(out)) out[k] = out[k].trim();
   return out;
 }
+
+const TAG_ALT = Object.keys(LC_TAGS).sort((a, b) => b.length - a.length).join('|');
+/** 带冒号前缀的代号（:31D:）在哪都算；不带前缀的（31D:）要前后有空白，免得把正文里的时间之类当成代号 */
+const TAG_COLON = new RegExp(`(^|\\s):(${TAG_ALT}):`, 'g');
+const TAG_BARE = new RegExp(`(^|\\s)(${TAG_ALT}):(?=\\s)`, 'g');
+/** 粘贴时换行丢了、整段连成一行：在每个栏目代号前补上换行 */
+export const splitTags = (t: string) => t.replace(TAG_COLON, '$1\n:$2:').replace(TAG_BARE, '$1\n$2:');
+
+/** 31D 的到期地点：去掉日期和 DATE / PLACE 这些字样，「261130 IN CHINA」「DATE 231031 PLACE IN CHINA」都取出 CHINA */
+export const expiryPlace = (s: string) =>
+  String(s ?? '').replace(/\bDATE\b/i, ' ').replace(/\d{6}/, ' ').replace(/\bPLACE(\s+OF\s+EXPIRY)?\b/i, ' ').replace(/^\s*(IN|AT)\s+/i, '').replace(/\s+/g, ' ').trim();
 
 /** 电文日期 YYMMDD → YYYY-MM-DD */
 export function swiftDate(s: string): string {
@@ -164,7 +175,8 @@ const COPY_WORDS: Record<string, string> = { DUPLICATE: '2', TRIPLICATE: '3', QU
 
 /** 46A 拆成每份单据（按 +、1)、1. 等开头分条） */
 export function docsRequired(f: LcFields): LcDoc[] {
-  const t = f['46A'] ?? '';
+  // 一行里用「+」或「1)」连着写的单据也拆开
+  const t = (f['46A'] ?? '').replace(/(^|\s)\+\s*(?=[A-Z0-9(])/g, '\n+').replace(/\s(?=\(?\d{1,2}\)\s)/g, '\n');
   if (!t.trim()) return [];
   const parts = t.split(/\n(?=\s*(?:\+|\d{1,2}[).]|\(\d{1,2}\)|-\s))/).map((x) => x.replace(/^\s*(?:\+|\d{1,2}[).]|\(\d{1,2}\)|-\s)\s*/, '').replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
   return parts.map((p) => {
@@ -244,7 +256,7 @@ export function reviewLc(o: Order, f: LcFields, today: string): LcFinding[] {
     else if (gap < 10) add({ level: 'warn', area: '交单期', text: `有效期只比最迟装运期晚 ${gap} 天，开船后要在 ${gap} 天内交单（48 交单期 ${days} 天，以先到者为准）`, amend: 'Please extend the expiry date to allow at least 15 days for presentation after shipment.' });
     else add({ level: 'ok', area: '交单期', text: `开船后 ${days} 天内交单，且不晚于有效期 ${expiry}` });
   }
-  const place = (f['31D'] ?? '').replace(/^\s*\d{6}\s*/, '').trim();
+  const place = expiryPlace(f['31D'] ?? '');
   if (place && !/CHINA|中国|BENEFICIARY'?S?\s+COUNTRY/i.test(place)) add({ level: 'warn', area: '到期地点', text: `31D 到期地点是「${place}」，不在中国：单据要在有效期前寄到国外银行，实际交单时间更短`, amend: 'Please amend the place of expiry to CHINA.' });
   if (o.shipping.etd && latest && expiry) {
     const lastDay = addDays(o.shipping.etd, days);

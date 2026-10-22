@@ -3,7 +3,7 @@ import { OrderCrumbs, TopBar } from '../components/common';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { localDay } from '../domain/reminders';
-import { LC_TAGS, amendmentText, docsRequired, parseMT700, reviewLc, sampleMT700, softClauses, swiftDate, type LcLevel } from '../domain/lc';
+import { LC_TAGS, expiryPlace, amendmentText, docsRequired, parseMT700, reviewLc, sampleMT700, softClauses, swiftDate, type LcLevel } from '../domain/lc';
 import type { Order } from '../domain/types';
 
 const LEVEL: Record<LcLevel, { icon: string; cls: string }> = {
@@ -70,7 +70,7 @@ export function LcReview({ order: o }: { order: Order }) {
               {(showAll ? Object.keys(f) : SHOW.filter((t) => f[t])).map((t) => (
                 <div key={t} className="lc-f">
                   <span><b>{t}</b> {LC_TAGS[t]?.cn ?? ''}</span>
-                  <em>{['31C', '44C'].includes(t) ? `${swiftDate(f[t])}` : t === '31D' ? `${swiftDate(f[t])} ${f[t].replace(/^\s*\d{6}\s*/, '')}` : f[t]}</em>
+                  <em>{['31C', '44C'].includes(t) ? `${swiftDate(f[t])}` : t === '31D' ? `${swiftDate(f[t])} ${expiryPlace(f[t])}` : f[t]}</em>
                 </div>
               ))}
               <button className="link-btn" onClick={() => setShowAll(!showAll)}>{showAll ? '只看主要栏目' : `看全部 ${found} 个栏目`}</button>

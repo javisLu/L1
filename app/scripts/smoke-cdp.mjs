@@ -304,6 +304,9 @@ await step('29-lc-review', async () => {
   await page.waitForSelector('.lc-letter', { timeout: 5000 });
   await page.click('.lc-list button:has-text("订单按信用证改") >> nth=0'); await waitToast('订单已按信用证改好');
   await page.click('.mod-head button:has-text("写进关键日期")'); await waitToast('已写进订单的关键日期');
+  // 换行丢了、连成一行的电文也要能拆开
+  await page.fill('.lc-text', '20: LC1 31D: 261130 CHINA 32B: USD100,00 44C: 261115 46A: + COMMERCIAL INVOICE IN TRIPLICATE + PACKING LIST');
+  await page.waitForFunction(() => document.querySelectorAll('.lc-f').length >= 4 && document.querySelectorAll('.lc-docs tbody tr').length === 2, null, { timeout: 5000 });
 });
 
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));

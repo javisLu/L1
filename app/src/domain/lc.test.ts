@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { seed } from './seed';
-import { allowed, amendmentText, docsRequired, parseAmount, parseMT700, presentDays, reviewLc, sameParty, sampleMT700, softClauses, swiftDate, tolerance } from './lc';
+import { allowed, amendmentText, docsRequired, expiryPlace, parseAmount, parseMT700, presentDays, reviewLc, sameParty, sampleMT700, softClauses, swiftDate, tolerance } from './lc';
 
 const lcOrder = () => seed().orders[1]; // 2026-002，信用证付款，10-08 开船
 
@@ -18,6 +18,22 @@ describe('解析电文', () => {
     expect(swiftDate(f['31D'])).toBe('2026-11-30');
     expect(parseAmount(f['32B'])).toEqual({ cur: 'USD', amount: 12345.6 });
     expect(swiftDate(f['44C'])).toBe('2026-11-15');
+  });
+
+  it('粘贴时换行丢了、整段连成一行也能拆开（46A 里用 + 连着的单据也拆开）', () => {
+    const one = '27: 1/1 40A: IRREVOCABLE 20: LC20231001 31D: DATE 231031 PLACE IN CHINA 50: ABC IMPORT COMPANY, NEW YORK, USA 59: XYZ EXPORT COMPANY, SHANGHAI, CHINA 32B: USD50,000.00 41A: AVAILABLE WITH BANK OF CHINA BY SIGHT PAYMENT 43P: ALLOWED 43T: NOT ALLOWED 44A: SHANGHAI PORT, CHINA 44B: NEW YORK PORT, USA 44C: 231020 45A: 1000 SETS OF ELECTRIC MOTORS, MODEL EM-200, AS PER CONTRACT NO. EM2023 46A: + COMMERCIAL INVOICE IN TRIPLICATE + FULL SET OF CLEAN ON BOARD BILL OF LADING + PACKING LIST 47A: + SHIPPING ADVICE MUST BE SENT TO APPLICANT WITHIN 48 HOURS AFTER SHIPMENT. 71B: ALL BANK CHARGES OUTSIDE USA ARE FOR BENEFICIARY ACCOUNT.';
+    const f = parseMT700(one);
+    expect(Object.keys(f).sort()).toEqual(['20', '27', '31D', '32B', '40A', '41A', '43P', '43T', '44A', '44B', '44C', '45A', '46A', '47A', '50', '59', '71B']);
+    expect(f['20']).toBe('LC20231001');
+    expect(swiftDate(f['31D'])).toBe('2023-10-31');
+    expect(expiryPlace(f['31D'])).toBe('CHINA');
+    expect(parseAmount(f['32B'])).toEqual({ cur: 'USD', amount: 50000 });
+    expect(f['47A']).toContain('WITHIN 48 HOURS');
+    expect(docsRequired(f).map((d) => [d.name, d.copies])).toEqual([['商业发票', '3 份'], ['海运提单', '全套'], ['装箱单', '']]);
+    // 原始电文连成一行（:31D:261130CHINA）也行
+    expect(parseMT700(':20:LC1 :31D:261130CHINA :44C:261115')).toEqual({ '20': 'LC1', '31D': '261130CHINA', '44C': '261115' });
+    // 正文里的「48 HOURS」「10:30」不会被当成栏目
+    expect(Object.keys(parseMT700(':47A: SEND ADVICE WITHIN 48 HOURS, CUT-OFF 10:30 AM'))).toEqual(['47A']);
   });
 
   it('金额、溢短装、分批转运的各种写法', () => {
