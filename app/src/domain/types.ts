@@ -280,6 +280,8 @@ export interface Order {
   receipts?: Receipt[];
   /** 信用证电文（M4-3，粘贴的 MT700 原文） */
   lc?: { text: string };
+  /** 提单草稿（M4-2，粘贴或从 PDF 读出的文字） */
+  bl?: { text: string; file?: string };
   /** 关键日期（首页「今天要做」用；货好、ETD、ETA、截关在 shipping 里，报价有效期在 numbers 里） */
   dates?: KeyDates;
   /** 每份单据最近一次导出：时间、发给谁、单据指纹（用来判断导出后有没有改过） */

@@ -11,6 +11,7 @@ import { Clauses, Customers, HsMemory, Partners, Products } from './pages/Librar
 import { HsQuery, RateTool, WordsTool } from './pages/Tools';
 import { Payments } from './pages/Payments';
 import { LcReview } from './pages/LcReview';
+import { BlCheck } from './pages/BlCheck';
 import { QuoteCalc } from './pages/QuoteCalc';
 import { Settings } from './pages/Settings';
 import { DocLibrary } from './pages/DocLibrary';
@@ -51,6 +52,7 @@ function Screen() {
       if (!m) return <OrderMenu order={order!} />;
       if (m.special === 'payment') return <Payments order={order!} />;
       if (m.special === 'lc') return <LcReview order={order!} />;
+      if (m.special === 'bl') return <BlCheck order={order!} />;
       if (m.special) return <ExportCenter order={order!} />;
       if (m.ph) return <Placeholder order={order!} mod={mod!} />;
       return <Workbench order={order!} mod={mod!} />;

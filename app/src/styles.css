@@ -739,3 +739,12 @@ button.last-exp:hover{background:var(--surface-2)}
 .lc-letter{width:100%;border:1px solid var(--line-2);border-radius:6px;padding:10px;font-family:var(--f-num);font-size:12.5px;background:var(--surface-2);color:var(--ink);margin-top:8px}
 .warn-note{border-color:var(--warn);color:var(--warn)}
 @media (max-width:980px){.lc{grid-template-columns:1fr}}
+
+/* 提单核对（M4-2） */
+.bl-tbl td{vertical-align:top;font-size:12.5px}
+.bl-tbl tr.bad td{background:var(--stamp-soft)}
+.bl-res{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600}
+.bl-res i{font-style:normal;width:16px;height:16px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:10px}
+.bl-res.ok{color:var(--ok)} .bl-res.ok i{background:var(--ok-soft)}
+.bl-res.bad{color:var(--stamp)} .bl-res.bad i{background:var(--surface)}
+.bl-res.info{color:var(--brand)} .bl-res.info i{background:var(--brand-soft)}

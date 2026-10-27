@@ -31,6 +31,7 @@ npm run typecheck
 - 今天要做（首页）与关键日期（订单页）：规则在 `src/domain/reminders.ts`（报价到期、货好未订舱、截关、开船未改状态 / 未发装船通知、尾款、到港、信用证），尾款到期日没填时按付款方式和 ETD / ETA 推算；「知道了」存在 `Order.dismissed`，键里带日期。
 - 客户要求清单：客户库 →「单据要求清单」，规则在 `src/domain/requirements.ts`（每条有 describe / check / apply）。新建订单或更换客户时 `applyCustomer` 自动套用 apply；`checkOrder(o, reqs)` 第 8 节逐条核对（确认之后不符合算错误，带一键修正）；自定义提醒的确认记在 `Order.reqDone`。订单页面板在 `src/components/requirements.tsx`。
 - 智能粘贴：买方信息、客户库里的「智能粘贴」，或在买方公司名 / 地址里直接粘贴整块签名。离线规则识别，见 `src/domain/contact.ts`。
+- 提单核对（M4-2）：`src/domain/bl.ts`（`checkBl` 按订单内容在草稿文字里逐项查找，`numbersBefore` / `numberAppears` 比对件毛体，`blNoIn` 取提单号，`blAskText` 给货代的修改意见）；PDF 读文字在 `src/io/pdftext.ts`（pdfjs-dist 4.10.38，worker 按 `?url` 打包）；订单上的 `Order.bl`。页面 `src/pages/BlCheck.tsx`，模块 `bl`（`special: 'bl'`）。
 - 信用证审证（M4-3）：`src/domain/lc.ts`（`parseMT700` 按栏目代号拆电文，`reviewLc` 和订单比对，`docsRequired` 拆 46A 单据，`softClauses` 软条款特征，`amendmentText` 改证函，`sampleMT700` 示例电文）；订单上的 `Order.lc.text`。页面 `src/pages/LcReview.tsx`，模块 `lc`（`special: 'lc'`）。
 - 收款记录（M4-1）：`src/domain/receipts.ts`（`planOf` 应收拆定金 / 尾款，`receivedOf` 已收 / 扣费 / 结汇 / 未收，`nextReceipt` 登记时的默认值，`actualProfit` 实际利润与汇率差）；订单上的 `Order.receipts`。页面 `src/pages/Payments.tsx`，模块 `payment`（`special: 'payment'`，订单菜单「收款与业务」组）。
 - 小工具（M2-5）：`src/pages/Tools.tsx`（汇率换算、金额大写、HS 查询）。参考汇率在 `Settings.rates`（`RateTable`，1 外币 = ? 元），`domain/rates.ts` 的 `convert` / `fetchRates`（欧洲央行 → ExchangeRate-API 备用）；`purchase.ts` 的 `setRefRates` 由 store 同步，成本利润没填汇率时用。联网地址写在 `src-tauri/tauri.conf.json` 的 CSP `connect-src`。

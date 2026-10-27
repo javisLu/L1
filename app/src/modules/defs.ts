@@ -33,7 +33,7 @@ export interface ModDef {
   /** 规划中：显示开发阶段 */
   ph?: string;
   plan?: string[];
-  special?: 'export' | 'payment' | 'lc';
+  special?: 'export' | 'payment' | 'lc' | 'bl';
 }
 
 export const MODS: Record<ModKey, ModDef> = {
@@ -47,7 +47,7 @@ export const MODS: Record<ModKey, ModDef> = {
   booking: { code: 'SI', name: '订舱 / 提单', desc: '订舱委托书、SI 提单补料、装船通知：船期、收发通、提单', grp: 'doc', docs: ['booking', 'si', 'advice'], steps: ['shipping'], uses: ['parties', 'items', 'terms', 'contractNo', 'packing', 'marks'] },
   marks: { code: 'SM', name: '唛头箱贴', desc: '正唛、侧唛，按箱号批量打印', grp: 'doc', docs: ['marks', 'labels'], steps: ['marks'], uses: ['contractNo', 'items', 'packing'] },
   export: { code: 'ZIP', name: '单据导出', desc: '按客户 / 工厂 / 报关行 / 货代一键打包', grp: 'doc', special: 'export' },
-  bl: { code: 'B/L', name: '提单核对', desc: '货代提单确认件与订单自动比对', grp: 'biz', ph: 'M4', plan: ['上传货代提单确认件（PDF）或直接粘贴文字', '自动比对发货人、收货人、通知人、货描、唛头、件数、毛重、体积、柜号封号', '差异标红，一键生成修改意见发给货代', '文字版 PDF 离线可用；扫描件需在设置里配置自己的 AI Key'] },
+  bl: { code: 'B/L', name: '提单核对', desc: '货代的提单草稿和订单逐项比对：收发通、柜号封号、件毛体、唛头、货描、运费', grp: 'biz', special: 'bl' },
   lc: { code: 'L/C', name: '信用证审证', desc: '粘贴 MT700 电文：和订单逐条比对、列出单据要求、找软条款、生成改证函', grp: 'biz', special: 'lc' },
   payment: { code: 'T/T', name: '收款记录', desc: '定金、尾款到账登记，银行扣费、结汇汇率，实际利润', grp: 'biz', special: 'payment' },
 };

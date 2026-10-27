@@ -309,6 +309,16 @@ await step('29-lc-review', async () => {
   await page.waitForFunction(() => document.querySelectorAll('.lc-f').length >= 4 && document.querySelectorAll('.lc-docs tbody tr').length === 2, null, { timeout: 5000 });
 });
 
+await step('30-bl-check', async () => {
+  // M4-2：提单核对——粘贴货代草稿，毛重写错要标出来、生成修改意见，提单号能填回订单
+  await page.click('.brand'); await page.click('.orow[role=button] >> nth=1'); await page.click('.mcard:has-text("提单核对")');
+  await page.fill('.lc-text', 'B/L NO.: TEST123456789\nSHIPPER: QINGDAO HENGYUAN INDUSTRIAL CO., LTD.\nCONSIGNEE: ABC TRADING LLC\nNOTIFY: SAME AS CONSIGNEE\nG.W.: 1.00 KGS');
+  await page.waitForSelector('.lc-sum.bad', { timeout: 5000 });
+  await page.waitForSelector('.bl-tbl tr.bad:has-text("毛重")', { timeout: 5000 });
+  await page.waitForSelector('.lc-letter', { timeout: 5000 });
+  await page.click('.mod-head button:has-text("填进订单")'); await waitToast('TEST123456789 已填进订单');
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

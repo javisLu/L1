@@ -16,6 +16,7 @@ import { orderAmount } from './Home';
 import { profitOf } from '../domain/purchase';
 import { planOf, receivedOf } from '../domain/receipts';
 import { parseMT700, reviewLc, softClauses } from '../domain/lc';
+import { checkBl } from '../domain/bl';
 import { localDay } from '../domain/reminders';
 import type { Order, PartnerType } from '../domain/types';
 
@@ -46,6 +47,12 @@ export function OrderMenu({ order: o }: { order: Order }) {
         : r.outstanding > 0.005 ? <span className="st warn">已收 {s}{money(r.gross)} · 未收 {s}{money(r.outstanding)}</span>
         : <span className="st ok">✓ 已收齐 {s}{money(r.gross)}</span>;
       dls = <span className="pay-mini" aria-hidden><i style={{ width: `${Math.min(100, r.ratio * 100)}%` }} /></span>;
+    } else if (m.special === 'bl') {
+      const t = o.bl?.text ?? '';
+      const bad = t.trim() ? checkBl(o, t).filter((c) => c.result === 'missing' || c.result === 'diff').length : 0;
+      st = !t.trim() ? <span className="st ph">粘贴或上传货代的提单草稿</span>
+        : bad ? <span className="st warn">{bad} 处要货代改</span>
+        : <span className="st ok">✓ 草稿和订单一致</span>;
     } else if (m.special === 'lc') {
       const f = parseMT700(o.lc?.text ?? '');
       const n = Object.keys(f).length;
