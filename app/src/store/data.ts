@@ -12,8 +12,9 @@ import type { DocKey } from '../modules/defs';
 import { defaultSettings } from '../domain/settings';
 import { defaultPurchase, setRefRates } from '../domain/purchase';
 import { buildLib, fillItems, learn, normName, renameRow } from '../domain/hs';
+import { defaultLeads } from '../domain/leads';
 import { mergeCustomer, mergeProduct } from '../io/library';
-import type { Customer, DataState, HsEntry, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings } from '../domain/types';
+import type { Customer, DataState, HsEntry, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings, LeadsState } from '../domain/types';
 
 export type ImportMode = 'overwrite' | 'skip';
 export interface ImportResult { added: number; updated: number; skipped: number }
@@ -38,6 +39,8 @@ function withPurchase(d: DataState): DataState {
   for (const o of d.orders ?? []) o.purchase ??= defaultPurchase();
   // v6：HS 记忆库（老数据从产品库和订单生成）；v7：去掉导入税则表
   d.hsLib ??= buildLib(d.products ?? [], d.orders ?? []);
+  // v8：商机（关键词按产品库生成）
+  d.leads ??= defaultLeads(d.products ?? []);
   delete (d as { tariff?: unknown }).tariff;
   return d;
 }
@@ -101,6 +104,7 @@ interface Actions {
   deleteHs: (id: string) => void;
   /** 按中文品名合并 */
   importHs: (rows: HsEntry[], mode: ImportMode, fields: string[]) => ImportResult;
+  updateLeads: (recipe: (l: LeadsState) => void) => void;
   /** 清空订单与资料库（保留公司信息与设置），开始正式使用 */
   clearAll: () => void;
   resetDemo: () => void;
@@ -356,6 +360,7 @@ export const useData = create<DataStore>()(
           if (e) { recipe(e); e.source = 'manual'; }
         }),
       deleteHs: (id) => setState((s) => void (s.hsLib = s.hsLib.filter((e) => e.id !== id))),
+      updateLeads: (recipe) => setState((s) => void recipe((s.leads ??= defaultLeads(s.products)))),
       importHs: (rows, mode, fields) => {
         const r: ImportResult = { added: 0, updated: 0, skipped: 0 };
         setState((s) => {
@@ -381,11 +386,11 @@ export const useData = create<DataStore>()(
         }),
 
       // 重置示例数据时保留用户在「设置」里的公司信息与设置
-      resetDemo: () => setState((s) => ({ ...seed(), settings: s.settings })),
+      resetDemo: () => setState((s) => ({ ...seed(), settings: s.settings, leads: s.leads })),
     })),
     {
       name: 'trade-workbench-data',
-      version: 7,
+      version: 8,
       // v1 → v2：新增「设置」
       migrate: (persisted, from) => {
         const d = persisted as DataState;
@@ -394,7 +399,7 @@ export const useData = create<DataStore>()(
         d.settings = withSettings(d.settings);
         // v4：去掉「上传自己的 Excel 模板」的数据（改为软件自带的单据模板库）
         delete (d as { templates?: unknown }).templates;
-        // v5：订单新增工厂采购与成本利润；v6：HS 记忆库；v7：去掉税则表
+        // v5：订单新增工厂采购与成本利润；v6：HS 记忆库；v7：去掉税则表；v8：商机
         withPurchase(d);
         return d as never;
       },
@@ -402,12 +407,13 @@ export const useData = create<DataStore>()(
       // 每次读取都把新增的设置项补上默认值（版本号没变也补），避免新功能读到旧数据里没有的设置
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<DataState>;
-        return { ...current, ...p, settings: withSettings(p.settings) } as typeof current;
+        // 旧数据里没有的新模块按用户自己的数据生成，别拿示例数据的（关键词要按用户的产品库）
+        return { ...current, ...p, settings: withSettings(p.settings), leads: p.leads ?? defaultLeads(p.products ?? current.products) } as typeof current;
       },
       onRehydrateStorage: () => (_state, error) => {
         if (error) hydrationError = error;
       },
-      partialize: (s) => ({ settings: s.settings, seller: s.seller, products: s.products, customers: s.customers, partners: s.partners, orders: s.orders, seq: s.seq, hsLib: s.hsLib }),
+      partialize: (s) => ({ settings: s.settings, seller: s.seller, products: s.products, customers: s.customers, partners: s.partners, orders: s.orders, seq: s.seq, hsLib: s.hsLib, leads: s.leads }),
     },
   ),
 );

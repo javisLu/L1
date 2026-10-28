@@ -79,7 +79,7 @@ function ImageBox({ k, title, hint, maxSide, whiteOption }: { k: keyof Assets; t
   );
 }
 
-const LIB_NAMES: Partial<Record<Page, string>> = { customers: '客户库', partners: '合作方库', products: '产品库', hs: 'HS 记忆库', clauses: '条款库', calc: '报价计算器', rates: '汇率换算', words: '金额大写', hsq: 'HS 查询' };
+const LIB_NAMES: Partial<Record<Page, string>> = { customers: '客户库', partners: '合作方库', products: '产品库', hs: 'HS 记忆库', clauses: '条款库', calc: '报价计算器', rates: '汇率换算', words: '金额大写', hsq: 'HS 查询', leads: '商机' };
 
 /** 从哪里打开的设置：返回按钮上显示的名字（从首页进入时不显示） */
 function backLabel(prev: Page, order: Order | undefined, mod: ModKey | null): string | null {

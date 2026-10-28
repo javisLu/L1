@@ -7,8 +7,8 @@ import type { DataState } from '../domain/types';
 
 const KEEP = 14;
 const snapshot = (): DataState => {
-  const { settings, seller, products, customers, partners, orders, seq, hsLib } = useData.getState();
-  return JSON.parse(JSON.stringify({ settings, seller, products, customers, partners, orders, seq, hsLib }));
+  const { settings, seller, products, customers, partners, orders, seq, hsLib, leads } = useData.getState();
+  return JSON.parse(JSON.stringify({ settings, seller, products, customers, partners, orders, seq, hsLib, leads }));
 };
 const stamp = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(\d{8})/, '$1-');
 

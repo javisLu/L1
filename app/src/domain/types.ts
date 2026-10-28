@@ -490,4 +490,18 @@ export interface DataState {
   seq: number;
   /** HS 记忆库（M2-3；老数据没有时由产品库和订单生成） */
   hsLib: HsEntry[];
+  /** 商机：关键词、来源、上次取到的公告、关注 / 隐藏 */
+  leads: LeadsState;
+}
+
+export interface LeadsState {
+  keywords: string[];
+  sources: ('wb' | 'ted')[];
+  items: import('./leads').Lead[];
+  /** 上次联网更新（YYYY-MM-DD HH:mm） */
+  fetchedAt: string;
+  starred: string[];
+  hidden: string[];
+  /** 已经看过的（没看过的标「新」） */
+  seen: string[];
 }

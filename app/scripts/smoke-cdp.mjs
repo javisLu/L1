@@ -332,6 +332,18 @@ await step('31-english-docs', async () => {
   await page.waitForSelector('.cn-badge', { state: 'detached', timeout: 5000 });
 });
 
+await step('32-leads', async () => {
+  // 商机：首页面板进商机页，关键词按产品库自动生成，中文关键词要拦住，英文能加；预览里取不到要说明白（不去请求）
+  await page.click('.brand'); await page.waitForSelector('.leads-panel', { timeout: 5000 });
+  await page.click('.leads-panel button:has-text("设置关键词")');
+  await page.waitForSelector('.lead-kw:has-text("display rack")', { timeout: 5000 });
+  await page.fill('.lead-kw-in', '办公椅'); await page.click('.lead-set button:has-text("添加")'); await waitToast('关键词要用英文');
+  await page.fill('.lead-kw-in', 'Office Chair'); await page.press('.lead-kw-in', 'Enter');
+  await page.waitForSelector('.lead-kw:has-text("office chair")', { timeout: 5000 });
+  await page.click('button:has-text("立即更新")'); await waitToast('请在桌面版里更新');
+  await page.click('.lead-kw:has-text("office chair") button'); await page.waitForSelector('.lead-kw:has-text("office chair")', { state: 'detached', timeout: 5000 });
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);

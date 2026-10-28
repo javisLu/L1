@@ -1,5 +1,6 @@
 import { applyCustomer, blankOrder, productToItem } from './factory';
 import { buildLib } from './hs';
+import { defaultLeads } from './leads';
 import { planOf } from './receipts';
 import { uid } from './calc';
 import { defaultSettings } from './settings';
@@ -106,5 +107,5 @@ export function seed(): DataState {
       o.receipts = [{ id: uid(), date: '2026-08-29', kind: '全款', amount: planOf(o).total, fee: 15, rate: 7.86, note: '水单 TT0829' }];
     }),
   ];
-  return { settings: defaultSettings(), seller, products, customers, partners, orders, seq: 4, hsLib: buildLib(products, orders) };
+  return { settings: defaultSettings(), seller, products, customers, partners, orders, seq: 4, hsLib: buildLib(products, orders), leads: defaultLeads(products) };
 }

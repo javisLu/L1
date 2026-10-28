@@ -12,6 +12,9 @@ import { HsQuery, RateTool, WordsTool } from './pages/Tools';
 import { Payments } from './pages/Payments';
 import { LcReview } from './pages/LcReview';
 import { BlCheck } from './pages/BlCheck';
+import { Leads, refreshLeads } from './pages/Leads';
+import { isDesktop } from './store/storage';
+import { localDay } from './domain/reminders';
 import { QuoteCalc } from './pages/QuoteCalc';
 import { Settings } from './pages/Settings';
 import { DocLibrary } from './pages/DocLibrary';
@@ -68,6 +71,7 @@ function Screen() {
     case 'rates': return <RateTool />;
     case 'words': return <WordsTool />;
     case 'hsq': return <HsQuery />;
+    case 'leads': return <Leads />;
     default: return <Home />;
   }
 }
@@ -75,7 +79,11 @@ function Screen() {
 export function App() {
   const hydrated = useHydrated();
   useEffect(() => {
-    if (hydrated === 'ok') void autoBackupIfDue();
+    if (hydrated !== 'ok') return;
+    void autoBackupIfDue();
+    // 商机每天第一次打开软件时自动更新一次（桌面版；失败不打扰）
+    const l = useData.getState().leads;
+    if (isDesktop && l.keywords.length && !l.fetchedAt.startsWith(localDay())) void refreshLeads(true);
   }, [hydrated]);
   if (hydrated === 'loading') return <div className="empty">正在载入本地数据…</div>;
   if (hydrated === 'error')

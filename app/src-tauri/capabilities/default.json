@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "主窗口权限：读写本应用数据目录；导出文件写入「文档/外贸超级工作台」；在文件夹中显示导出的文件；用系统浏览器打开 HS 编码网查询",
+  "description": "主窗口权限：读写本应用数据目录；导出文件写入「文档/外贸超级工作台」；在文件夹中显示导出的文件；用系统浏览器打开 HS 编码网查询；联网取世界银行、欧盟 TED 的公开采购公告",
   "windows": [
     "main"
   ],
@@ -23,6 +23,23 @@
       "allow": [
         {
           "url": "https://www.hsbianma.com/*"
+        },
+        {
+          "url": "https://projects.worldbank.org/*"
+        },
+        {
+          "url": "https://ted.europa.eu/*"
+        }
+      ]
+    },
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://search.worldbank.org/*"
+        },
+        {
+          "url": "https://api.ted.europa.eu/*"
         }
       ]
     }

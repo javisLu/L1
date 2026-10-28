@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { TopBar, StatusPill } from '../components/common';
 import { useData } from '../store/data';
 import { TodayPanel } from '../components/today';
+import { LeadsPanel } from '../components/leadsPanel';
 import { autoReqCount } from '../domain/requirements';
 import { toast, useUI, type Page } from '../store/ui';
 import { money, sym, calcOrder } from '../domain/calc';
@@ -57,6 +58,7 @@ export function Home() {
               <div className="stat"><b>{owed.size ? [...owed].map(([c, n]) => sym(c) + money(n)).join(' + ') : '—'}</b><span>应收未收</span></div>
             </div>
             <TodayPanel />
+            <LeadsPanel />
             <div className="panel">
               <div className="toolbar">
                 <label className="search">

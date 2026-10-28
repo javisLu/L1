@@ -754,3 +754,34 @@ button.last-exp:hover{background:var(--surface-2)}
 .cn-list .tbl td{vertical-align:top;font-size:12.5px}
 .cn-txt{white-space:pre-line;word-break:break-word}
 .cn-list p{font-size:12.5px;margin:0 0 10px;line-height:1.6}
+
+/* 商机 */
+.leads{display:flex;flex-direction:column;gap:12px}
+.lead-set{padding:14px 18px;display:flex;flex-direction:column;gap:10px}
+.lead-row{display:grid;grid-template-columns:60px 1fr;gap:10px;align-items:start;font-size:13px}
+.lead-row > b{padding-top:5px}
+.lead-kw{display:inline-flex;align-items:center;gap:4px}
+.lead-kw button{border:0;background:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 2px}
+.lead-kw-in{border:1px solid var(--line-2);border-radius:6px;padding:5px 9px;background:var(--surface);color:var(--ink);font:inherit;font-size:12.5px;width:180px}
+.lead-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.lead-bar select{border:1px solid var(--line-2);border-radius:6px;padding:6px 8px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
+.lead-bar .seg button{white-space:nowrap}
+.lead{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.lead.compact{padding:10px 12px;margin-top:8px}
+.lead-h{display:flex;align-items:baseline;gap:8px;min-width:0}
+.lead-t{font-size:14px;line-height:1.45;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.lead.compact .lead-t{font-size:13px;-webkit-line-clamp:1}
+.lead-src{flex-shrink:0;font-size:11px;border-radius:4px;padding:1px 6px;background:var(--brand-soft);color:var(--brand)}
+.lead-src.ted{background:var(--ok-soft);color:var(--ok)}
+.lead-new{flex-shrink:0;font-size:11px;border-radius:4px;padding:1px 5px;background:var(--stamp);color:#fff}
+.lead-m{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--ink-2)}
+.lead-m span{max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lead-m .warn{color:var(--warn);font-weight:600}
+.lead-k{color:var(--ink-3)}
+.lead-c{font-size:12px;color:var(--ink-2)}
+.lead-a{display:flex;gap:6px;flex-wrap:wrap}
+.lead-a .btn.on{color:var(--warn)}
+.leads-panel{padding:14px 18px;margin-bottom:14px}
+.leads-panel .today-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.leads-panel h2{font-size:15px;margin:0}
+.leads-panel .muted{font-size:12px}
