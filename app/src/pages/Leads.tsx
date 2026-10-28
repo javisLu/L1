@@ -7,8 +7,10 @@ import { daysUntil, localDay } from '../domain/reminders';
 import { nowStamp } from '../domain/exports';
 import { isDesktop } from '../store/storage';
 
+let running = false;
 /** 联网更新商机（首页自动更新和「立即更新」共用）；quiet：自动更新时失败不打扰 */
 export async function refreshLeads(quiet = false) {
+  if (running) { if (!quiet) toast('正在更新商机，请稍等'); return; }
   const st = useData.getState();
   const l = st.leads;
   if (!l.keywords.length) { if (!quiet) toast('先填几个产品关键词（英文），再更新'); return; }
@@ -16,6 +18,7 @@ export async function refreshLeads(quiet = false) {
   // 官方接口不允许网页直接调，只有桌面版能取
   if (!isDesktop) { if (!quiet) toast('浏览器预览里取不到商机，请在桌面版里更新', undefined, 6000, 'leads'); return; }
   if (!quiet) toast('正在联网取商机…', undefined, 60000, 'leads');
+  running = true;
   try {
     const { fetchLeads } = await import('../io/leadsFetch');
     const r = await fetchLeads(l.keywords, l.sources, localDay());
@@ -24,6 +27,8 @@ export async function refreshLeads(quiet = false) {
     if (!quiet) toast(`已更新：${r.leads.length} 条在招标的商机${r.errors.length ? `（${r.errors.length} 个查询没取到）` : ''}`, undefined, undefined, 'leads');
   } catch (e) {
     if (!quiet) toast('更新失败：' + (e instanceof Error ? e.message : String(e)) + '。请检查网络后再试', undefined, 9000, 'leads');
+  } finally {
+    running = false;
   }
 }
 
