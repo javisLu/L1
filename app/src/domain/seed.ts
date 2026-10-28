@@ -11,7 +11,7 @@ export function seed(): DataState {
     name: 'Qingdao Hengyuan Industrial Co., Ltd.', nameCn: '青岛恒远实业有限公司',
     address: 'No. 18 Haier Road, Laoshan District, Qingdao, Shandong, China',
     phone: '+86 532 8888 6666', email: 'sales@hengyuan-demo.com', tax: '91370212MA3DEMO001',
-    bank: 'Beneficiary: Qingdao Hengyuan Industrial Co., Ltd.\nBank: Bank of China, Qingdao Branch\nSWIFT: BKCHCNBJ500\nA/C No.: 2201 0000 0000 0000 (示例)',
+    bank: 'Beneficiary: Qingdao Hengyuan Industrial Co., Ltd.\nBank: Bank of China, Qingdao Branch\nSWIFT: BKCHCNBJ500\nA/C No.: 2201 0000 0000 0000 (SAMPLE)',
   };
   const products: Product[] = [
     { id: uid(), model: 'AL-S200', nameCn: '铝合金展示架（标准款）', nameEn: 'Aluminium Display Rack - Standard', spec: '1200×450×1800 mm', hs: '9403200000', unit: 'PCS', price: 12.5, pcsPerCtn: 2, l: 122, w: 47, h: 20, nw: 14.5, gw: 16, elements: '0|0|展示用|铝合金|无品牌|AL-S200', cat: '展示架' },

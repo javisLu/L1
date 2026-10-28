@@ -8,6 +8,7 @@ import { REQS, reqState, reqStrict } from '../domain/requirements';
 import { factoriesOf, profitOf, purchaseOf } from '../domain/purchase';
 import { certOf, certsFor, destOf } from '../domain/origin';
 import { planOf, receivedOf } from '../domain/receipts';
+import { cnFields } from '../domain/english';
 import type { CustReq, Order } from '../domain/types';
 
 export type Level = 'error' | 'warn';
@@ -207,7 +208,13 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
       out.push({ level: 'warn', text: `收款记录比合同金额多 ${c} ${money(-r.outstanding)}，确认是不是登记重了`, mod: 'payment' });
   }
 
-  // 11. 客户要求清单：确认之后不符合算错误（之前只提醒）；自定义提醒在生产之后还没勾选的提醒一下
+  // 11. 发给客户的单据（报价单、PI、发票、箱单）上不能有中文
+  const cn = cnFields(o);
+  for (const f of cn.slice(0, 6))
+    out.push({ level: 'warn', text: `客户单据上有中文：${f.label}「${f.text.replace(/\s+/g, ' ').slice(0, 24)}${f.text.length > 24 ? '…' : ''}」`, mod: 'quote', path: f.path });
+  if (cn.length > 6) out.push({ level: 'warn', text: `客户单据上还有 ${cn.length - 6} 处中文，在报价单 / PI 页「单据上有中文」里一起看`, mod: 'quote' });
+
+  // 12. 客户要求清单：确认之后不符合算错误（之前只提醒）；自定义提醒在生产之后还没勾选的提醒一下
   if (o.status !== '完结') {
     const strict = reqStrict(o);
     const late = STATUSES.indexOf(o.status) >= STATUSES.indexOf('生产');

@@ -15,6 +15,8 @@ import { docState, shortStamp } from '../domain/exports';
 import { docVersions } from '../domain/history';
 import { openDiff } from '../components/history';
 import { factoriesOf, factoryName } from '../domain/purchase';
+import { EN_DOCS } from '../domain/english';
+import { CnBadge } from '../components/english';
 import type { LabelLayout, Order } from '../domain/types';
 
 
@@ -168,6 +170,7 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
               <>
                 {docs.map((d) => <button key={d} className={'tab' + (doc === d ? ' on' : '')} onClick={() => ui.set({ doc: d })}>{DOCNAMES[d]}</button>)}
                 {doc === 'po' && <FactoryTabs order={o} />}
+                {EN_DOCS.includes(doc) && <CnBadge order={o} doc={doc} />}
                 <div className="r">
                   <span className="tip">点单据上的内容可直接跳到输入框</span>
                   {!!s.table && !ui.expand && <button className="btn ghost sm" onClick={() => setWide(true)}>收起，表格加宽</button>}

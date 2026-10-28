@@ -320,7 +320,7 @@ function Packing({ o }: { o: Order }) {
   const rows = k.rows.map((r, i) => {
     const pi = packIdx(r);
     const sub = r.pack
-      ? <Txt style={{ color: '#777', fontSize: 7 }}>{r.model ? `${r.model} · ` : ''}MIXED · 混装 C/NO. {cnoText(r)}</Txt>
+      ? <Txt style={{ color: '#777', fontSize: 7 }}>{r.model ? `${r.model} · ` : ''}MIXED C/NO. {cnoText(r)}</Txt>
       : <Txt style={{ color: '#777', fontSize: 7 }}>{r.model} · <Fld p={`items.${i}.pcsPerCtn`} v={r.pcsPerCtn ? `${r.pcsPerCtn} ${r.unit}/CTN` : ''} ph="[每箱装]" /></Txt>;
     return [
       r.pack ? cnoText(r) : r.n ? `${r.from}-${r.to}` : '—',
@@ -560,7 +560,7 @@ function OriginData({ o }: { o: Order }) {
   const crit = criterionOf(o);
   const rows = k.rows.map((r, i) => {
     const hs = String(r.hs ?? '').replace(/\D/g, '');
-    const pkgs = r.pack ? '混装' : r.n ? `${int(r.n)} CARTONS OF` : '';
+    const pkgs = r.pack ? 'PACKED IN MIXED CARTONS:' : r.n ? `${int(r.n)} CARTONS OF` : '';
     const row: ReactNode[] = [
       String(i + 1),
       <>{pkgs ? `${pkgs} ` : ''}<Fld p={`items.${i}.nameEn`} v={String(r.nameEn || '').toUpperCase()} ph="[英文品名]" /></>,

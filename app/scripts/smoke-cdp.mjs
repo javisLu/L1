@@ -319,6 +319,19 @@ await step('30-bl-check', async () => {
   await page.click('.mod-head button:has-text("填进订单")'); await waitToast('TEST123456789 已填进订单');
 });
 
+await step('31-english-docs', async () => {
+  // M4-4：英文单据——条款里写了中文会提示，常见写法一键翻成英文
+  await page.click('.brand'); await page.click('.orow[role=button]'); await page.click('.mcard:has-text("报价单")');
+  await page.click('.step:not(.use):has-text("编号与样式")');
+  await page.fill('#in-docset-clauses', '价格有效期30天\n银行手续费由买方承担');
+  await page.click('.pv-strip').catch(() => {});
+  await page.click('.cn-badge'); await page.waitForSelector('.cn-list', { timeout: 5000 });
+  await page.click('.modal button:has-text("一键翻成英文")'); await waitToast('已全部翻成英文');
+  await page.waitForFunction(() => document.querySelector('#in-docset-clauses')?.value === 'Prices are valid for 30 days.\nBank charges are borne by the Buyer.', null, { timeout: 5000 });
+  await page.click('.modal-h button:has-text("关闭")');
+  await page.waitForSelector('.cn-badge', { state: 'detached', timeout: 5000 });
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 await browser.close().catch(() => {});
 process.exit(errors.length ? 1 : 0);
