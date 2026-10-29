@@ -421,6 +421,7 @@ button.last-exp:hover{background:var(--surface-2)}
 .chk-n.error{color:var(--stamp);background:var(--stamp-soft)}
 .chk-n.warn{color:var(--warn);background:var(--warn-soft)}
 .chk-panel ul{list-style:none;margin:0;padding:0}
+.chk-basis{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px}
 .chk-panel li{display:flex;gap:6px;align-items:flex-start}
 .chk-fix{flex:none;margin-top:2px;font-size:12px;padding:2px 8px}
 .chk-item{display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;border:0;background:none;padding:5px 4px;border-radius:6px;font-size:12.5px;line-height:1.5;cursor:pointer}

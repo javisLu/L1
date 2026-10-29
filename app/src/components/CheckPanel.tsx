@@ -28,7 +28,7 @@ export function CheckPanel({ order, max = 5 }: { order: Order; max?: number }) {
           <li key={i}>
             <button className={'chk-item ' + x.level} onClick={() => (x.toOrder ? useUI.getState().openOrder(order.id) : jumpToField(x.mod, x.step, x.path))} title={x.toOrder ? '到订单页勾选确认' : `到「${MODS[x.mod].name}」修改`}>
               <span className="dot" aria-label={x.level === 'error' ? '错误' : '提醒'} />
-              <span className="t">{x.text}</span>
+              <span className="t">{x.text}{x.basis && <small className="chk-basis">依据：{x.basis}</small>}</span>
               <span className="go">{x.toOrder ? '订单页' : MODS[x.mod].name} →</span>
             </button>
             {x.fix && (

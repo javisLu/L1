@@ -7,6 +7,7 @@ import { MODS, STEPS, STEP_MOD, missing, neededMods, ownerOf, type ModKey, type 
 import { REQS, reqState, reqStrict } from '../domain/requirements';
 import { factoriesOf, missingSellerCosts, profitOf, purchaseOf } from '../domain/purchase';
 import { parseMT700 } from '../domain/lc';
+import { originMarkMissing } from '../domain/compliance';
 import { certOf, certsFor, destOf } from '../domain/origin';
 import { planOf, receivedOf } from '../domain/receipts';
 import { cnFields } from '../domain/english';
@@ -24,6 +25,8 @@ export interface Issue {
   toOrder?: boolean;
   /** 可以一键修正的问题 */
   fix?: { label: string; apply: (o: Order) => void };
+  /** 依据（国际惯例条文、海关公告、目的国法规），只写有条文可查的 */
+  basis?: string;
 }
 
 /** 柜型装载参考：体积按实际可装（m³），重量按常见限重（kg） */
@@ -114,6 +117,14 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
       fix: { label: '替换为实际值', apply: (x) => { x.shipping.marks = fillMarks(x.shipping.marks, x).replace(/\{(PO|CTNS)\}/g, (_m, t: string) => (t === 'PO' ? x.numbers.po || '—' : String(calcOrder(x).ctns || 'UP'))); } },
     });
   }
+
+  // 目的国要求标原产地（如美国）：唛头 / 侧唛里要有 MADE IN CHINA
+  const om = need.has('marks') ? originMarkMissing(o) : null;
+  if (om)
+    out.push({
+      level: 'warn', text: `发往${om.country}的货物（或外包装）要用英文标明原产国，唛头 / 侧唛里还没有 MADE IN CHINA；货物本身要不要也标，跟客户确认`, mod: 'marks', path: 'shipping.marks', basis: om.basis,
+      fix: { label: '唛头加一行 MADE IN CHINA', apply: (x) => void (x.shipping.marks = (x.shipping.marks ?? '').replace(/\s+$/, '') + (x.shipping.marks?.trim() ? '\n' : '') + 'MADE IN CHINA') },
+    });
 
   // 4. 贸易术语相关
   const inc = o.terms.incoterm;
