@@ -38,6 +38,8 @@ const CONTAINERS: { re: RegExp; name: string; cbm: number; kg: number }[] = [
 ];
 const FREIGHT_TERMS = ['CFR', 'CIF', 'CPT', 'CIP', 'DAP', 'DPU', 'DDP'];
 const INSURANCE_TERMS = ['CIF', 'CIP'];
+/** 报关单各栏的填法依据 */
+const DECL_RULE = '海关总署公告 2019 年第 18 号《中华人民共和国海关进出口货物报关单填制规范》';
 /** 出货前不必填完的步骤：缺项只作提醒 */
 const LATER: StepKey[] = ['shipping', 'customs', 'customsItems', 'packing'];
 
@@ -80,7 +82,7 @@ export function checkOrder(o: Order, reqs: CustReq[] = [], partners: Partner[] =
     }
     const hs = String(r.hs ?? '').replace(/\D/g, '');
     if (hs && hs.length !== 10 && need.has('customs')) {
-      out.push({ level: 'warn', text: `${name}：HS 编码 ${r.hs} 是 ${hs.length} 位，中国海关申报需要 10 位`, mod: 'customs', path: `items.${i}.hs` });
+      out.push({ level: 'warn', text: `${name}：HS 编码 ${r.hs} 是 ${hs.length} 位，中国海关申报需要 10 位`, mod: 'customs', path: `items.${i}.hs`, basis: DECL_RULE });
     }
     if (r.model) models.set(r.model.trim().toUpperCase(), (models.get(r.model.trim().toUpperCase()) ?? 0) + 1);
   });
@@ -135,17 +137,17 @@ export function checkOrder(o: Order, reqs: CustReq[] = [], partners: Partner[] =
   // 4. 贸易术语相关
   const inc = o.terms.incoterm;
   if (needAddr(o) && !o.terms.deliveryAddress.trim()) {
-    out.push({ level: 'error', text: `${inc} 需要写明交货地址`, mod: 'quote', path: 'terms.deliveryAddress' });
+    out.push({ level: 'error', text: `${inc} 需要写明交货地址`, mod: 'quote', path: 'terms.deliveryAddress', basis: 'Incoterms® 2020（EXW、FCA 和 D 组术语在约定地点交货，地点要写具体）' });
   }
   if (need.has('customs')) {
     if (FREIGHT_TERMS.includes(inc) && !String(o.customs.freight ?? '').trim()) {
-      out.push({ level: shipped ? 'error' : 'warn', text: `${inc} 成交，报关单需要填运费`, mod: 'customs', path: 'customs.freight' });
+      out.push({ level: shipped ? 'error' : 'warn', text: `${inc} 成交，报关单需要填运费`, mod: 'customs', path: 'customs.freight', basis: DECL_RULE });
     }
     if (INSURANCE_TERMS.includes(inc) && !String(o.customs.insFee ?? '').trim()) {
-      out.push({ level: shipped ? 'error' : 'warn', text: `${inc} 成交，报关单需要填保费`, mod: 'customs', path: 'customs.insFee' });
+      out.push({ level: shipped ? 'error' : 'warn', text: `${inc} 成交，报关单需要填保费`, mod: 'customs', path: 'customs.insFee', basis: DECL_RULE });
     }
     if (['EXW', 'FCA', 'FOB', 'FAS'].includes(inc) && String(o.customs.freight ?? '').trim()) {
-      out.push({ level: 'warn', text: `${inc} 成交，报关单一般不填运费（现在填了 ${o.customs.freight}）`, mod: 'customs', path: 'customs.freight' });
+      out.push({ level: 'warn', text: `${inc} 成交，报关单一般不填运费（现在填了 ${o.customs.freight}）`, mod: 'customs', path: 'customs.freight', basis: DECL_RULE });
     }
   }
   // 报价单 / PI 是价格承诺：写「价格可随时变动」客户一般不接受
@@ -186,7 +188,7 @@ export function checkOrder(o: Order, reqs: CustReq[] = [], partners: Partner[] =
         fix: { label: '收货人改为 TO ORDER', apply: (x) => { x.shipping.consigneeMode = 'order'; if (x.shipping.blType && x.shipping.blType !== 'original') x.shipping.blType = 'original'; } },
       });
     if (sh.blType === 'telex' || sh.blType === 'seaway')
-      out.push({ level: 'warn', text: `${way}付款要交正本提单给银行，现在选的是${sh.blType === 'telex' ? '电放' : '海运单'}`, mod: 'booking', path: 'shipping.blType', fix: { label: '改为正本提单', apply: (x) => void (x.shipping.blType = 'original') } });
+      out.push({ level: 'warn', text: `${way}付款要交正本提单给银行，现在选的是${sh.blType === 'telex' ? '电放' : '海运单'}`, mod: 'booking', path: 'shipping.blType', ...(lcPay ? { basis: 'UCP600 第 20 条 a 款 iv 项（提交全套正本提单）' } : {}), fix: { label: '改为正本提单', apply: (x) => void (x.shipping.blType = 'original') } });
   }
   if (sh.consigneeMode === 'order' && sh.blType && sh.blType !== 'original' && !lcPay && !coll) out.push({ level: 'warn', text: '收货人是 TO ORDER 时一般出正本提单；电放、海运单需要写明收货人', mod: 'booking', path: 'shipping.blType' });
   if (need.has('booking') && !sh.equipment?.trim() && STATUSES.indexOf(o.status) >= STATUSES.indexOf('生产')) out.push({ level: 'warn', text: '订舱委托书还没填柜型柜量（如 1×40HQ、LCL 拼箱）', mod: 'booking', path: 'shipping.equipment' });
@@ -217,7 +219,7 @@ export function checkOrder(o: Order, reqs: CustReq[] = [], partners: Partner[] =
       out.push({ level: 'warn', text: `第 ${pf.noCost.slice(0, 4).map((i) => i + 1).join('、')} 行没填采购单价，采购单和利润不完整`, mod: 'purchase', path: `items.${pf.noCost[0]}.cost` });
     const miss = missingSellerCosts(o);
     if (pf.hasCost && miss.length)
-      out.push({ level: 'warn', text: `${inc} 成交由我方付${miss.join('、')}，费用里还没填，利润偏高`, mod: 'purchase', step: 'profit' });
+      out.push({ level: 'warn', text: `${inc} 成交由我方付${miss.join('、')}，费用里还没填，利润偏高`, mod: 'purchase', step: 'profit', basis: 'Incoterms® 2020 A4 运输（C 组、D 组由卖方订立运输合同、付运费）、A5 保险（CIF、CIP 由卖方投保）' });
     if (factoriesOf(o).length && /专用发票|专票/.test(pur.invoice) && !o.seller.invoiceInfo?.trim())
       out.push({ level: 'warn', text: '采购单上还没有我方开票信息（名称、税号、地址电话、开户行及账号），工厂开增值税专票要用', mod: 'purchase', path: 'seller.invoiceInfo' });
     if (pf.hasCost && !pf.noCost.length && pf.profit < 0)

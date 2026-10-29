@@ -426,11 +426,11 @@ function CustomsDraft({ o }: { o: Order }) {
         ))}
       </Box>
       <Box style={{ borderLeft: line, borderRight: line, borderBottom: line, padding: '3px 5px' }}>
-        <Txt>特殊关系确认：        价格影响确认：        支付特许权使用费确认：        自报自缴：</Txt>
+        <Txt>{'特殊关系确认：\u3000\u3000\u3000\u3000价格影响确认：\u3000\u3000\u3000\u3000支付特许权使用费确认：\u3000\u3000\u3000\u3000自报自缴：'}</Txt>
       </Box>
       <Row style={{ borderLeft: line, borderBottom: line }}>
         <Box style={{ width: '38%', borderRight: line, padding: '3px 5px', minHeight: 54 }}>
-          <Txt>报关人员        报关人员证号        电话</Txt>
+          <Txt>{'报关人员\u3000\u3000\u3000\u3000报关人员证号\u3000\u3000\u3000\u3000电话'}</Txt>
           <Txt style={{ marginTop: 14 }}>申报单位  {broker?.name ?? ''}</Txt>
         </Box>
         <Box style={{ width: '37%', borderRight: line, padding: '3px 5px' }}>

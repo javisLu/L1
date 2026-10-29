@@ -96,6 +96,7 @@ export function LcReview({ order: o }: { order: Order }) {
                       <i>{LEVEL[x.level].icon}</i>
                       <div>
                         <b>{x.area}</b> {x.text}
+                        {x.basis && <small className="chk-basis">依据：{x.basis}</small>}
                         {x.fix && <button className="btn ghost sm" onClick={() => { updateOrder(o.id, x.fix!.apply); toast('订单已按信用证改好'); }}>{x.fix.label}</button>}
                       </div>
                     </li>

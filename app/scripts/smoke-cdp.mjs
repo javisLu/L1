@@ -301,6 +301,7 @@ await step('29-lc-review', async () => {
   await page.click('button:has-text("放一份示例看看")');
   await page.waitForSelector('.lc-sum.bad', { timeout: 5000 });
   await page.waitForSelector('.lc-docs tbody tr', { timeout: 5000 });
+  await page.waitForSelector('.lc-list .chk-basis:has-text("UCP600")', { timeout: 5000 });
   await page.waitForSelector('.lc-letter', { timeout: 5000 });
   await page.click('.lc-list button:has-text("订单按信用证改") >> nth=0'); await waitToast('订单已按信用证改好');
   await page.click('.mod-head button:has-text("写进关键日期")'); await waitToast('已写进订单的关键日期');

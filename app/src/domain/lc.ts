@@ -146,7 +146,32 @@ export interface LcFinding {
   amend?: string;
   /** 一键按信用证改订单 */
   fix?: { label: string; apply: (o: Order) => void };
+  /** 依据（UCP600 条款） */
+  basis?: string;
 }
+
+/** 各项比对对应的 UCP600 条款（国际商会《跟单信用证统一惯例》2007 年修订本） */
+const LC_BASIS: Record<string, string> = {
+  信用证类型: 'UCP600 第 3 条（信用证是不可撤销的）',
+  受益人: 'UCP600 第 18 条 a 款（发票由受益人出具、以申请人为抬头）',
+  申请人: 'UCP600 第 18 条 a 款（发票由受益人出具、以申请人为抬头）',
+  金额: 'UCP600 第 18 条 b 款（发票金额）、第 30 条（溢短装）',
+  有效期: 'UCP600 第 6 条 d 款（有效期和交单地点）',
+  到期地点: 'UCP600 第 6 条 d 款（有效期和交单地点）',
+  交单期: 'UCP600 第 14 条 c 款（装运日后 21 天内交单，且不晚于有效期）',
+  交单: 'UCP600 第 14 条 c 款（装运日后 21 天内交单，且不晚于有效期）',
+  装运期: 'UCP600 第 20 条 a 款 ii 项（提单上的装船日期视为装运日期）',
+  装运港: 'UCP600 第 20 条 a 款 iii 项（提单须显示信用证规定的装货港、卸货港）',
+  卸货港: 'UCP600 第 20 条 a 款 iii 项（提单须显示信用证规定的装货港、卸货港）',
+  分批装运: 'UCP600 第 31 条（分批支款或分批装运）',
+  转运: 'UCP600 第 20 条 b、c 款（转运）',
+  贸易术语: 'UCP600 第 18 条 c 款（发票货物描述须与信用证一致）',
+  货描: 'UCP600 第 18 条 c 款（发票货物描述须与信用证一致）',
+  提单收货人: 'UCP600 第 20 条（提单）、第 14 条 d 款（单据内容不得与信用证矛盾）',
+  运费: 'UCP600 第 20 条（提单）、第 14 条 d 款（单据内容不得与信用证矛盾）',
+  提单类型: 'UCP600 第 20 条 a 款 iv 项（提交全套正本提单）',
+  保险: 'UCP600 第 28 条（保险单据）',
+};
 
 /* ---------- 单据要求 ---------- */
 export interface LcDoc {
@@ -222,7 +247,7 @@ const INCO = /\b(EXW|FCA|FAS|FOB|CFR|CNF|C&F|CIF|CPT|CIP|DAP|DPU|DDP)\b/;
 
 export function reviewLc(o: Order, f: LcFields, today: string): LcFinding[] {
   const out: LcFinding[] = [];
-  const add = (x: LcFinding) => out.push(x);
+  const add = (x: LcFinding) => out.push(x.level === 'ok' ? x : { ...x, basis: x.basis ?? LC_BASIS[x.area] });
   const k = calcOrder(o);
 
   // 1. 类型、受益人、申请人

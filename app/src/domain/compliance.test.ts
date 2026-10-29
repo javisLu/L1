@@ -80,3 +80,22 @@ describe('ISF 提醒', () => {
     expect(orderReminders(seed().orders[0], '2026-10-30').some((x) => x.text.includes('ISF'))).toBe(false);
   });
 });
+
+import { parseMT700, reviewLc, sampleMT700 } from './lc';
+describe('提醒带依据', () => {
+  it('单据检查：HS 位数、报关运费带报关单填制规范；没有条文的惯例不硬标', () => {
+    const o = seed().orders[0];
+    o.items[0].hs = '940320';
+    const iss = checkOrder(o);
+    expect(iss.find((x) => x.text.includes('HS 编码'))?.basis).toContain('2019 年第 18 号');
+    o.docset.clauses = 'All prices are subject to change without prior notice.';
+    expect(checkOrder(o).find((x) => x.text.includes('价格可随时变动'))?.basis).toBeUndefined();
+  });
+  it('审证：问题项带 UCP600 条款，一致的项不带', () => {
+    const o = seed().orders[1];
+    o.shipping.consigneeMode = 'buyer';
+    const r = reviewLc(o, parseMT700(sampleMT700(o, '2026-10-21')), '2026-10-21');
+    expect(r.find((x) => x.area === '提单收货人')?.basis).toContain('UCP600 第 20 条');
+    expect(r.filter((x) => x.level === 'ok').every((x) => !x.basis)).toBe(true);
+  });
+});
