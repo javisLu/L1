@@ -1,12 +1,23 @@
 import type { LeadsState, Product } from './types';
 
 /**
- * 商机（官方公开采购）：世界银行采购公告、欧盟 TED 招标公告。
+ * 商机（官方公开采购）：世界银行、欧盟 TED、英国 Find a Tender / Contracts Finder、新西兰 GETS。
  * 都是采购方为了招标主动公开的信息，按产品库里的英文品名匹配；软件联网时直接调官方接口，不用我们自己的服务器。
  */
 
-export type LeadSource = 'wb' | 'ted';
-export const SOURCE_NAME: Record<LeadSource, string> = { wb: '世界银行', ted: '欧盟 TED' };
+export type LeadSource = 'wb' | 'ted' | 'ukfts' | 'ukcf' | 'nz';
+export const SOURCE_NAME: Record<LeadSource, string> = { wb: '世界银行', ted: '欧盟 TED', ukfts: '英国 FTS', ukcf: '英国 CF', nz: '新西兰' };
+/** 来源说明（商机页勾选来源时显示） */
+export const SOURCE_DESC: Record<LeadSource, string> = {
+  wb: '各国世行项目的货物采购，带官方联系人',
+  ted: '欧盟各国政府的货物招标，近 30 天发布、还在招标的',
+  ukfts: '英国 Find a Tender：英国政府限额以上招标（货物类）',
+  ukcf: '英国 Contracts Finder：英国政府中小额招标（货物类）',
+  nz: '新西兰 GETS：新西兰政府在招标的项目（货物类）',
+};
+export const ALL_SOURCES: LeadSource[] = ['wb', 'ted', 'ukfts', 'ukcf', 'nz'];
+/** 按关键词查询的来源；其余来源一次取回最近的全部公告，在本机按关键词筛 */
+export const KEYWORD_SOURCES: LeadSource[] = ['wb', 'ted'];
 
 export interface Lead {
   id: string;
@@ -125,6 +136,77 @@ export function parseTed(json: unknown, keyword: string, today: string): Lead[] 
     .filter((l) => l.title && matches(l.title, keyword) && (!l.deadline || l.deadline >= today));
 }
 
+/* ---------- 英国（OCDS 格式：Find a Tender、Contracts Finder） ---------- */
+export const FTS_URL = (since: string) => `https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages?stages=tender&limit=100&updatedFrom=${since}T00:00:00`;
+export const CF_URL = (since: string) => `https://www.contractsfinder.service.gov.uk/Published/Notices/OCDS/Search?stages=tender&limit=100&publishedFrom=${since}`;
+
+/** 文字里命中的第一个关键词 */
+export const firstMatch = (text: string, keywords: string[]) => keywords.find((k) => matches(text, k)) ?? '';
+
+interface OcdsParty { name?: string; roles?: string[]; address?: { streetAddress?: string; locality?: string; postalCode?: string; countryName?: string }; contactPoint?: { name?: string; email?: string; telephone?: string } }
+interface OcdsRelease {
+  id: string; date?: string; buyer?: { name?: string }; parties?: OcdsParty[];
+  tender?: { title?: string; description?: string; status?: string; mainProcurementCategory?: string; tenderPeriod?: { endDate?: string }; documents?: { documentType?: string; url?: string }[] };
+}
+
+/** 只要货物类、还在招标、截止日不太近、标题或描述里有关键词的 */
+export function parseOcds(json: unknown, source: 'ukfts' | 'ukcf', keywords: string[], cut: string): Lead[] {
+  const list = (json as { releases?: OcdsRelease[] })?.releases ?? [];
+  const out: Lead[] = [];
+  for (const r of list) {
+    const t = r.tender ?? {};
+    if (t.mainProcurementCategory !== 'goods' || (t.status && t.status !== 'active')) continue;
+    const deadline = day(t.tenderPeriod?.endDate ?? '');
+    if (deadline && deadline < cut) continue;
+    const keyword = firstMatch(`${t.title ?? ''} ${t.description ?? ''}`, keywords);
+    if (!keyword) continue;
+    const b = r.parties?.find((p) => p.roles?.includes('buyer'));
+    const notice = t.documents?.find((d) => d.documentType === 'tenderNotice')?.url;
+    const url = source === 'ukfts'
+      ? `https://www.find-tender.service.gov.uk/Notice/${r.id}`
+      : notice || `https://www.contractsfinder.service.gov.uk/Notice/${r.id.slice(0, 36)}`;
+    out.push({
+      id: `${source}:${r.id}`, source, title: (t.title ?? '').replace(/^GB-[^:]{2,40}:\s*/, '').trim(), buyer: r.buyer?.name ?? b?.name ?? '', country: '英国',
+      deadline, published: day(r.date ?? ''), url, keyword, kind: 'Tender notice', desc: (t.description ?? '').slice(0, 300),
+      contact: b?.contactPoint ? { name: b.contactPoint.name ?? '', email: b.contactPoint.email ?? '', phone: b.contactPoint.telephone ?? '', org: b.name ?? '', address: [b.address?.streetAddress, b.address?.locality, b.address?.postalCode, b.address?.countryName].filter(Boolean).join(', ') } : undefined,
+    });
+  }
+  return out;
+}
+
+/* ---------- 新西兰 GETS（官方招标 RSS） ---------- */
+export const NZ_URL = 'https://www.gets.govt.nz/ExternalRSSFeed.htm';
+const unescape = (s: string) => s.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+const tag = (xml: string, t: string) => unescape(xml.match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`))?.[1] ?? '').trim();
+const MONTH_FULL: Record<string, string> = { January: '01', February: '02', March: '03', April: '04', May: '05', June: '06', July: '07', August: '08', September: '09', October: '10', November: '11', December: '12' };
+/** 「Monday, 31 December 2029 5:00 PM +13:00」→ 2029-12-31 */
+const nzDate = (s: string) => { const m = s.match(/(\d{1,2})\s+([A-Z][a-z]+)\s+(\d{4})/); return m && MONTH_FULL[m[2]] ? `${m[3]}-${MONTH_FULL[m[2]]}-${m[1].padStart(2, '0')}` : ''; };
+
+/** 只要有货物类分类（UNSPSC 10–60 大类是产品，70 以上是服务）的 */
+export function parseNz(xml: string, keywords: string[], cut: string): Lead[] {
+  const out: Lead[] = [];
+  for (const item of String(xml ?? '').split(/<item[\s>]/).slice(1)) {
+    const title = tag(item, 'title');
+    const text = tag(item, 'description').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    const field = (name: string, next: string) => text.match(new RegExp(`${name}:\\s*(.*?)\\s*(?:${next}:|$)`))?.[1]?.trim() ?? '';
+    const cats = field('Categories', 'Region');
+    if (!(cats.match(/\b\d{8}\b/g) ?? []).some((c) => Number(c.slice(0, 2)) >= 10 && Number(c.slice(0, 2)) <= 60)) continue;
+    const deadline = nzDate(field('Close date', 'Categories'));
+    if (deadline && deadline < cut) continue;
+    const overview = field('Overview', '$^');
+    const keyword = firstMatch(`${title} ${overview}`, keywords);
+    if (!keyword) continue;
+    const id = field('RFx ID', 'Organisation') || tag(item, 'link');
+    const pub = tag(item, 'pubDate');
+    const pm = pub.match(/(\d{1,2}) ([A-Z][a-z]{2}) (\d{4})/);
+    out.push({
+      id: 'nz:' + id, source: 'nz', title, buyer: field('Organisation', 'Open date'), country: '新西兰', deadline,
+      published: pm ? `${pm[3]}-${MONTHS[pm[2]]}-${pm[1].padStart(2, '0')}` : '', url: tag(item, 'link').replace(/([^:])\/\//, '$1/'), keyword, kind: 'RFx', desc: overview.slice(0, 300),
+    });
+  }
+  return out;
+}
+
 /** 合并多次查询：同一条只留一次，最新发布的在前 */
 export function mergeLeads(lists: Lead[][]): Lead[] {
   const seen = new Map<string, Lead>();
@@ -141,5 +223,11 @@ export function cutoffDate(today: string): string {
 }
 
 export const defaultLeads = (products: Product[]): LeadsState => ({
-  keywords: keywordsFromProducts(products), sources: ['wb', 'ted'], items: [], fetchedAt: '', starred: [], hidden: [], seen: [],
+  keywords: keywordsFromProducts(products), sources: [...ALL_SOURCES], items: [], fetchedAt: '', starred: [], hidden: [], seen: [], srcVer: 2,
 });
+
+/** 老数据只勾了世界银行、欧盟 TED：新加的来源默认勾上（只补一次，之后用户取消的不再加回） */
+export function withNewSources(l: LeadsState): LeadsState {
+  if ((l.srcVer ?? 1) >= 2) return l;
+  return { ...l, sources: [...new Set([...l.sources, ...ALL_SOURCES.filter((s) => !KEYWORD_SOURCES.includes(s))])], srcVer: 2 };
+}

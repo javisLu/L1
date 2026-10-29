@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "主窗口权限：读写本应用数据目录；导出文件写入「文档/外贸超级工作台」；在文件夹中显示导出的文件；用系统浏览器打开 HS 编码网查询；联网取世界银行、欧盟 TED 的公开采购公告",
+  "description": "主窗口权限：读写本应用数据目录；导出文件写入「文档/外贸超级工作台」；在文件夹中显示导出的文件；用系统浏览器打开 HS 编码网查询；联网取世界银行、欧盟 TED、英国、新西兰政府的公开采购公告",
   "windows": [
     "main"
   ],
@@ -29,6 +29,15 @@
         },
         {
           "url": "https://ted.europa.eu/*"
+        },
+        {
+          "url": "https://www.find-tender.service.gov.uk/*"
+        },
+        {
+          "url": "https://www.contractsfinder.service.gov.uk/*"
+        },
+        {
+          "url": "https://www.gets.govt.nz/*"
         }
       ]
     },
@@ -40,6 +49,15 @@
         },
         {
           "url": "https://api.ted.europa.eu/*"
+        },
+        {
+          "url": "https://www.find-tender.service.gov.uk/*"
+        },
+        {
+          "url": "https://www.contractsfinder.service.gov.uk/*"
+        },
+        {
+          "url": "https://www.gets.govt.nz/*"
         }
       ]
     }

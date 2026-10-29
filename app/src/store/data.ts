@@ -12,7 +12,7 @@ import type { DocKey } from '../modules/defs';
 import { defaultSettings } from '../domain/settings';
 import { defaultPurchase, setRefRates } from '../domain/purchase';
 import { buildLib, fillItems, learn, normName, renameRow } from '../domain/hs';
-import { defaultLeads } from '../domain/leads';
+import { defaultLeads, withNewSources } from '../domain/leads';
 import { mergeCustomer, mergeProduct } from '../io/library';
 import type { Customer, DataState, HsEntry, Order, OrderSnap, Partner, PartnerType, Product, Seller, Settings, LeadsState } from '../domain/types';
 
@@ -408,7 +408,7 @@ export const useData = create<DataStore>()(
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<DataState>;
         // 旧数据里没有的新模块按用户自己的数据生成，别拿示例数据的（关键词要按用户的产品库）
-        return { ...current, ...p, settings: withSettings(p.settings), leads: p.leads ?? defaultLeads(p.products ?? current.products) } as typeof current;
+        return { ...current, ...p, settings: withSettings(p.settings), leads: p.leads ? withNewSources(p.leads) : defaultLeads(p.products ?? current.products) } as typeof current;
       },
       onRehydrateStorage: () => (_state, error) => {
         if (error) hydrationError = error;

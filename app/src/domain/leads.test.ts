@@ -58,3 +58,39 @@ describe('商机', () => {
     expect(parseWb(wb, 'furniture', '2026-11-21')).toEqual([]);
   });
 });
+
+import { ALL_SOURCES, parseNz, parseOcds, withNewSources } from './leads';
+
+describe('英国、新西兰', () => {
+  const cut = '2026-11-01';
+  it('英国 OCDS：只要货物类、还在招标、截止不太近、有关键词；带联系人', () => {
+    const rel = (id: string, title: string, cat: string, end: string, status = 'active') => ({
+      id, date: '2026-10-28T10:00:00Z', buyer: { name: 'Scottish Police Authority' },
+      parties: [{ name: 'Scottish Police Authority', roles: ['buyer'], address: { locality: 'Glasgow', countryName: 'United Kingdom' }, contactPoint: { name: 'Ewen', email: 'e@police.uk', telephone: '+44 1' } }],
+      tender: { title, status, mainProcurementCategory: cat, tenderPeriod: { endDate: end } },
+    });
+    const json = { releases: [rel('1-2026', 'Supply of Office Furniture', 'goods', '2026-11-30T12:00:00Z'), rel('2-2026', 'Furniture removal services', 'services', '2026-11-30'), rel('3-2026', 'Classroom furniture', 'goods', '2026-10-30'), rel('4-2026', 'Lab furniture', 'goods', '2026-12-30', 'cancelled'), rel('5-2026', 'Vehicles', 'goods', '2026-12-30')] };
+    const r = parseOcds(json, 'ukfts', ['furniture'], cut);
+    expect(r.map((x) => x.id)).toEqual(['ukfts:1-2026']);
+    expect(r[0]).toMatchObject({ country: '英国', deadline: '2026-11-30', url: 'https://www.find-tender.service.gov.uk/Notice/1-2026', keyword: 'furniture' });
+    expect(r[0].contact?.email).toBe('e@police.uk');
+    const cf = parseOcds({ releases: [{ ...rel('81b0ecdd-9ed0-4bd5-a77d-832e0f1837dc-919532', 'GB-Colchester: Office furniture', 'goods', '2026-12-01'), tender: { ...rel('x', 'GB-Colchester: Office furniture', 'goods', '2026-12-01').tender } }] }, 'ukcf', ['furniture'], cut);
+    expect(cf[0].url).toBe('https://www.contractsfinder.service.gov.uk/Notice/81b0ecdd-9ed0-4bd5-a77d-832e0f1837dc');
+    expect(cf[0].title).toBe('Office furniture');
+  });
+  it('新西兰 RSS：分类里有产品类（UNSPSC 10–60）才要；截止日从描述里取', () => {
+    const item = (id: string, title: string, close: string, cats: string) => `<item><title>${title}</title><link>https://www.gets.govt.nz//MOE/ExternalTenderDetails.htm?id=${id}</link><pubDate>Tue, 21 Oct 2026 20:00:00 GMT</pubDate><description>&lt;table&gt;&lt;tr&gt;&lt;td&gt;&lt;b&gt;RFx ID: &lt;/b&gt;&lt;/td&gt;&lt;td&gt;${id}&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;Organisation: &lt;/td&gt;&lt;td&gt;Ministry of Education&lt;/td&gt;&lt;/tr&gt; Open date: Wednesday, 22 October 2026 9:00 AM +13:00 Close date: ${close} Categories: ${cats} Region: New Zealand Overview: Supply of school furniture to schools.</description></item>`;
+    const xml = `<rss><channel>${item('1', 'School furniture panel', 'Monday, 24 November 2026 5:00 PM +13:00', '56100000 - Accommodation furniture')}${item('2', 'Furniture design services', 'Monday, 24 November 2026 5:00 PM +13:00', '80000000 - Management services')}${item('3', 'Office furniture', 'Thursday, 30 October 2026 5:00 PM +13:00', '56100000 - Furniture')}</channel></rss>`;
+    const r = parseNz(xml, ['furniture'], cut);
+    expect(r.map((x) => x.id)).toEqual(['nz:1']);
+    expect(r[0]).toMatchObject({ country: '新西兰', deadline: '2026-11-24', published: '2026-10-21', buyer: 'Ministry of Education', url: 'https://www.gets.govt.nz/MOE/ExternalTenderDetails.htm?id=1' });
+  });
+  it('老数据只勾了世界银行、TED：新来源补勾一次；取消过的不再加回', () => {
+    const old = { keywords: ['x'], sources: ['wb', 'ted'] as const, items: [], fetchedAt: '', starred: [], hidden: [], seen: [] };
+    const up = withNewSources({ ...old, sources: [...old.sources] });
+    expect(up.sources).toEqual(ALL_SOURCES);
+    expect(up.srcVer).toBe(2);
+    const off = withNewSources({ ...up, sources: ['wb'] });
+    expect(off.sources).toEqual(['wb']);
+  });
+});

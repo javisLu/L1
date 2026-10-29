@@ -774,6 +774,9 @@ button.last-exp:hover{background:var(--surface-2)}
 .lead.compact .lead-t{font-size:13px;-webkit-line-clamp:1}
 .lead-src{flex-shrink:0;font-size:11px;border-radius:4px;padding:1px 6px;background:var(--brand-soft);color:var(--brand)}
 .lead-src.ted{background:var(--ok-soft);color:var(--ok)}
+.lead-src.ukfts,.lead-src.ukcf{background:var(--warn-soft);color:var(--warn)}
+.lead-src.nz{background:var(--stamp-soft);color:var(--stamp)}
+.lead-srcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:4px 16px}
 .lead-new{flex-shrink:0;font-size:11px;border-radius:4px;padding:1px 5px;background:var(--stamp);color:#fff}
 .lead-m{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--ink-2)}
 .lead-m span{max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

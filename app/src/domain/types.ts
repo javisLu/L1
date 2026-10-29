@@ -504,7 +504,9 @@ export interface DataState {
 
 export interface LeadsState {
   keywords: string[];
-  sources: ('wb' | 'ted')[];
+  sources: ('wb' | 'ted' | 'ukfts' | 'ukcf' | 'nz')[];
+  /** 来源列表的版本：2 = 加了英国、新西兰（老数据补勾一次） */
+  srcVer?: number;
   items: import('./leads').Lead[];
   /** 上次联网更新（YYYY-MM-DD HH:mm） */
   fetchedAt: string;

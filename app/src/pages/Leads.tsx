@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { LibCrumbs, TopBar } from '../components/common';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
-import { SOURCE_NAME, keywordsFromProducts, type Lead, type LeadSource } from '../domain/leads';
+import { ALL_SOURCES, SOURCE_DESC, SOURCE_NAME, keywordsFromProducts, type Lead, type LeadSource } from '../domain/leads';
 import { daysUntil, localDay } from '../domain/reminders';
 import { nowStamp } from '../domain/exports';
 import { isDesktop } from '../store/storage';
@@ -22,7 +22,7 @@ export async function refreshLeads(quiet = false) {
   try {
     const { fetchLeads } = await import('../io/leadsFetch');
     const r = await fetchLeads(l.keywords, l.sources, localDay());
-    if (!r.leads.length && r.errors.length === l.keywords.length * l.sources.length) throw new Error(r.errors[0]);
+    if (!r.leads.length && r.attempts && r.errors.length === r.attempts) throw new Error(r.errors[0]);
     st.updateLeads((x) => { x.items = r.leads; x.fetchedAt = nowStamp(); });
     if (!quiet) toast(`已更新：${r.leads.length} 条在招标的商机${r.errors.length ? `（${r.errors.length} 个查询没取到）` : ''}`, undefined, undefined, 'leads');
   } catch (e) {
@@ -131,11 +131,11 @@ export function Leads() {
           </div>
           <div className="lead-row">
             <b>来源</b>
-            <div className="chips">
-              {(['wb', 'ted'] as LeadSource[]).map((s) => (
+            <div className="lead-srcs">
+              {ALL_SOURCES.map((s) => (
                 <label key={s} className="chk-inline">
                   <input type="checkbox" checked={leads.sources.includes(s)} onChange={(e) => updateLeads((x) => void (x.sources = e.target.checked ? [...x.sources, s] : x.sources.filter((i) => i !== s)))} />
-                  {SOURCE_NAME[s]}<span className="muted">{s === 'wb' ? '（各国世行项目的货物采购，带官方联系人）' : '（欧盟各国政府的货物招标，近 30 天发布、还在招标的）'}</span>
+                  {SOURCE_NAME[s]}<span className="muted">（{SOURCE_DESC[s]}）</span>
                 </label>
               ))}
             </div>
@@ -149,7 +149,7 @@ export function Leads() {
             <button className={tab === 'hidden' ? 'on' : ''} onClick={() => setTab('hidden')}>不感兴趣 · {leads.items.filter((l) => leads.hidden.includes(l.id)).length}</button>
           </div>
           <select value={src} onChange={(e) => setSrc(e.target.value as LeadSource | '')} aria-label="来源">
-            <option value="">全部来源</option><option value="wb">世界银行</option><option value="ted">欧盟 TED</option>
+            <option value="">全部来源</option>{ALL_SOURCES.map((s) => <option key={s} value={s}>{SOURCE_NAME[s]}</option>)}
           </select>
           {leads.items.some((l) => !leads.seen.includes(l.id)) && <button className="btn ghost sm" onClick={() => updateLeads((x) => void (x.seen = [...new Set([...x.seen, ...x.items.map((l) => l.id)])]))}>全部标为已看</button>}
         </div>
@@ -162,7 +162,7 @@ export function Leads() {
           </div>
         )}
         <div className="note">
-          数据来自世界银行、欧盟 TED 的官方公开采购公告（采购方为招标主动公开），软件联网时直接调官方接口。多是政府和国际项目的采购，单子偏正规、偏大，要按原文要求投标；
+          数据来自世界银行、欧盟 TED、英国 Find a Tender / Contracts Finder、新西兰 GETS 的官方公开采购公告（采购方为招标主动公开），软件联网时直接调官方接口。多是政府和国际项目的采购，单子偏正规、偏大，要按原文要求投标（部分要求在当地注册或有当地代理）；
           关键词用英文，越具体越准、越通用越多。
         </div>
       </main>
