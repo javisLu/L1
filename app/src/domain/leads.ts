@@ -41,9 +41,11 @@ export function keywordsFromProducts(products: Product[], max = 6): string[] {
 }
 
 const lc = (s: string) => String(s ?? '').toLowerCase();
+/** 「except furniture」「excluding lamps」这类排除说明不算提到 */
+const EXCEPT = /\b(except|excluding|excl\.?|other than|apart from|not including)\b[^,;.()–]*/g;
 /** 关键词（短语）每个词都出现在文字里才算命中，避免「display」「rack」分开命中不相干的公告 */
 export function matches(text: string, keyword: string): boolean {
-  const t = ` ${lc(text).replace(/[^a-z0-9]+/g, ' ')} `;
+  const t = ` ${lc(text).replace(EXCEPT, ' ').replace(/[^a-z0-9]+/g, ' ')} `;
   return lc(keyword).split(/\s+/).filter(Boolean).every((w) => t.includes(` ${w.replace(/[^a-z0-9]+/g, '')}`));
 }
 
@@ -81,15 +83,15 @@ export function parseWb(json: unknown, keyword: string, today: string): Lead[] {
 /* ---------- 欧盟 TED ---------- */
 export const TED_URL = 'https://api.ted.europa.eu/v3/notices/search';
 const ymd = (d: string) => d.replace(/-/g, '');
-/** 近 30 天发布、还在招标（cn-standard）的公告，标题里有关键词 */
+/** 近 30 天发布、还在招标（cn-standard）的货物类（不要服务、工程）公告，标题里有关键词；接口默认从旧到新，要指定最新的在前 */
 export function tedBody(keyword: string, today: string): string {
   const from = new Date(today + 'T00:00:00');
   from.setDate(from.getDate() - 30);
   const since = from.toISOString().slice(0, 10);
   return JSON.stringify({
-    query: `notice-title~"${keyword.replace(/"/g, '')}" AND notice-type=cn-standard AND publication-date>=${ymd(since)}`,
+    query: `notice-title~"${keyword.replace(/"/g, '')}" AND notice-type=cn-standard AND contract-nature=supplies AND publication-date>=${ymd(since)} SORT BY publication-date DESC`,
     fields: ['publication-number', 'notice-title', 'buyer-name', 'buyer-country', 'publication-date', 'deadline-receipt-tender-date-lot', 'notice-type'],
-    limit: 50, page: 1,
+    limit: 100, page: 1,
   });
 }
 
@@ -120,7 +122,7 @@ export function parseTed(json: unknown, keyword: string, today: string): Lead[] 
         kind: 'Contract notice', desc: '',
       };
     })
-    .filter((l) => l.title && (!l.deadline || l.deadline >= today));
+    .filter((l) => l.title && matches(l.title, keyword) && (!l.deadline || l.deadline >= today));
 }
 
 /** 合并多次查询：同一条只留一次，最新发布的在前 */

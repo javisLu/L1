@@ -14,6 +14,7 @@ const wb = {
 const ted = {
   notices: [
     { 'publication-number': '711485-2026', 'notice-type': 'cn-standard', 'notice-title': { eng: 'Germany – Furniture – VZ Nürnberg, Möblierung', deu: 'x' }, 'buyer-name': { deu: ['Bundesagentur für Arbeit'] }, 'buyer-country': ['DEU'], 'publication-date': '2026-10-15+02:00', 'deadline-receipt-tender-date-lot': ['2026-11-16+01:00', '2026-11-10+01:00'] },
+    { 'publication-number': '700001-2026', 'notice-type': 'cn-standard', 'notice-title': { eng: 'Romania – Office machinery – Supplies except furniture' }, 'buyer-country': ['ROU'], 'publication-date': '2026-10-16+02:00', 'deadline-receipt-tender-date-lot': ['2026-11-20+01:00'] },
     { 'publication-number': '700000-2026', 'notice-type': 'cn-standard', 'notice-title': { eng: 'France – Office furniture – old' }, 'buyer-country': ['FRA'], 'publication-date': '2026-10-01+02:00', 'deadline-receipt-tender-date-lot': ['2026-10-20+01:00'] },
   ],
 };
@@ -28,6 +29,10 @@ describe('商机', () => {
     expect(matches('Supply of display stands', 'display rack')).toBe(false);
     expect(matches('Supply of display stands and racks', 'display rack')).toBe(true);
     expect(matches('Fourniture de matériels', 'furniture')).toBe(false);
+    // 「家具除外」不算
+    expect(matches('Office and computing machinery, equipment and supplies except furniture and software packages', 'furniture')).toBe(false);
+    expect(matches('Lamps and lighting fittings (excluding LED lamps), office furniture', 'led lamp')).toBe(false);
+    expect(matches('Lamps and lighting fittings (excluding LED lamps), office furniture', 'furniture')).toBe(true);
   });
 
   it('世界银行：只要货物类招标 / 询价、没过截止日、真有关键词；带官方联系人', () => {
@@ -43,7 +48,7 @@ describe('商机', () => {
     const r = parseTed(ted, 'furniture', '2026-10-28');
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({ id: 'ted:711485-2026', title: 'Furniture – VZ Nürnberg, Möblierung', buyer: 'Bundesagentur für Arbeit', country: '德国', deadline: '2026-11-10', published: '2026-10-15' });
-    expect(JSON.parse(tedBody('office chair', '2026-10-28')).query).toBe('notice-title~"office chair" AND notice-type=cn-standard AND publication-date>=20260928');
+    expect(JSON.parse(tedBody('office chair', '2026-10-28')).query).toBe('notice-title~"office chair" AND notice-type=cn-standard AND contract-nature=supplies AND publication-date>=20260928 SORT BY publication-date DESC');
   });
 
   it('合并去重、最新发布在前；截止太近的不列', () => {

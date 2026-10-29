@@ -135,7 +135,7 @@ export function Leads() {
               {(['wb', 'ted'] as LeadSource[]).map((s) => (
                 <label key={s} className="chk-inline">
                   <input type="checkbox" checked={leads.sources.includes(s)} onChange={(e) => updateLeads((x) => void (x.sources = e.target.checked ? [...x.sources, s] : x.sources.filter((i) => i !== s)))} />
-                  {SOURCE_NAME[s]}<span className="muted">{s === 'wb' ? '（各国世行项目的货物采购，带官方联系人）' : '（欧盟各国政府招标，近 30 天发布、还在招标的）'}</span>
+                  {SOURCE_NAME[s]}<span className="muted">{s === 'wb' ? '（各国世行项目的货物采购，带官方联系人）' : '（欧盟各国政府的货物招标，近 30 天发布、还在招标的）'}</span>
                 </label>
               ))}
             </div>
