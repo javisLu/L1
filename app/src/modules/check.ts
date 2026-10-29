@@ -7,11 +7,11 @@ import { MODS, STEPS, STEP_MOD, missing, neededMods, ownerOf, type ModKey, type 
 import { REQS, reqState, reqStrict } from '../domain/requirements';
 import { factoriesOf, missingSellerCosts, profitOf, purchaseOf } from '../domain/purchase';
 import { parseMT700 } from '../domain/lc';
-import { originMarkMissing } from '../domain/compliance';
+import { ISF_BASIS, isfData, isfNeeded, originMarkMissing } from '../domain/compliance';
 import { certOf, certsFor, destOf } from '../domain/origin';
 import { planOf, receivedOf } from '../domain/receipts';
 import { cnFields } from '../domain/english';
-import type { CustReq, Order } from '../domain/types';
+import type { CustReq, Order, Partner } from '../domain/types';
 
 export type Level = 'error' | 'warn';
 export interface Issue {
@@ -45,7 +45,7 @@ const LATER: StepKey[] = ['shipping', 'customs', 'customsItems', 'packing'];
  * 单据一致性检查：本单需要的单据缺了什么、各单据之间有没有对不上的地方。
  * 所有单据共用订单数据，金额、数量这类不会不一致；这里查的是容易出错、需要人确认的地方。
  */
-export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
+export function checkOrder(o: Order, reqs: CustReq[] = [], partners: Partner[] = []): Issue[] {
   const out: Issue[] = [];
   const k = calcOrder(o);
   const shipped = STATUSES.indexOf(o.status) >= STATUSES.indexOf('出货');
@@ -125,6 +125,12 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
       level: 'warn', text: `发往${om.country}的货物（或外包装）要用英文标明原产国，唛头 / 侧唛里还没有 MADE IN CHINA；货物本身要不要也标，跟客户确认`, mod: 'marks', path: 'shipping.marks', basis: om.basis,
       fix: { label: '唛头加一行 MADE IN CHINA', apply: (x) => void (x.shipping.marks = (x.shipping.marks ?? '').replace(/\s+$/, '') + (x.shipping.marks?.trim() ? '\n' : '') + 'MADE IN CHINA') },
     });
+
+  // 美国海运单：ISF 资料里的厂家要有英文名称、地址（生产以后提醒）
+  if (isfNeeded(o) && partners.length && STATUSES.indexOf(o.status) >= STATUSES.indexOf('生产')) {
+    const miss = isfData(o, partners).missingMakers;
+    if (miss.length) out.push({ level: 'warn', text: `美国 ISF 资料要写生产厂家的英文名称和地址，${miss.join('、')}还没填（在合作方库补）`, mod: 'booking', step: 'shipping', basis: ISF_BASIS });
+  }
 
   // 4. 贸易术语相关
   const inc = o.terms.incoterm;

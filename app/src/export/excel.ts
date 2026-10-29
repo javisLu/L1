@@ -8,7 +8,7 @@ import type { DocAssets } from '../docs/primitives';
 import { pkgNote, pkgSummary } from '../domain/package';
 import { fit, imageInfo } from './images';
 
-type ExcelDoc = Exclude<DocKey, 'contract' | 'po' | 'co' | 'marks' | 'labels' | 'booking' | 'si' | 'advice'>;
+type ExcelDoc = Exclude<DocKey, 'contract' | 'po' | 'co' | 'marks' | 'labels' | 'booking' | 'si' | 'advice' | 'isf'>;
 const MONEY = '#,##0.00';
 const thin = { style: 'thin' as const, color: { argb: 'FFC9CFD8' } };
 const box = { top: thin, left: thin, bottom: thin, right: thin };

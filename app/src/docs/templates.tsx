@@ -12,6 +12,7 @@ import { useData } from '../store/data';
 import { factoriesOf, poNo, poRows, purchaseOf, rmbWords } from '../domain/purchase';
 import { certHs, certOf, criterionOf, declPlace, destOf, routeText } from '../domain/origin';
 import { lcNoOf } from '../domain/lc';
+import { isfData } from '../domain/compliance';
 
 const MONO = 'var(--f-doc-num)';
 const accent = (o: Order) => THEMES[o.docset.theme] ?? '#1d3f72';
@@ -556,6 +557,44 @@ function Advice({ o }: { o: Order }) {
   );
 }
 
+/* ---------- 美国 ISF 资料 ---------- */
+/** 卖方给美国进口商的 ISF（10+2）资料：按美国海关的 10 项排，进口商编号等由进口商自己填 */
+function Isf({ o }: { o: Order }) {
+  const a = accent(o);
+  const d = isfData(o, useData.getState().partners);
+  const byImporter = <Txt style={{ color: '#777' }}>To be provided by the Importer</Txt>;
+  const rows = d.rows.map((r) => [
+    String(r.i + 1),
+    <Fld p={`items.${r.i}.nameEn`} v={r.desc} ph="[品名]" />,
+    <Fld p={`items.${r.i}.hs`} v={r.hts6} ph="[HS]" />,
+    r.origin,
+    r.makerMissing ? <Hint text="[工厂英文名称、地址：在合作方库填写]" /> : r.maker,
+  ]);
+  return (
+    <Page accent={a}>
+      <Head o={o} title="ISF INFORMATION" meta={[['Date', F(o, 'numbers.date')], ['Invoice No.', F(o, 'numbers.ci')], ['PO No.', F(o, 'numbers.po', '—')], ['B/L No.', F(o, 'shipping.blNo', '—')]]} />
+      <Txt style={{ marginBottom: 8 }}>Importer Security Filing (10+2) — information provided by the Seller for the U.S. Importer. Please file the ISF with U.S. Customs no later than 24 hours before the cargo is laden on the vessel at the port of loading.</Txt>
+      <Grid>
+        <Row>{gcell('Vessel / Voyage', F(o, 'shipping.vessel', '—'))}{gcell('Port of Loading / Discharge', <>{F(o, 'terms.pol')} / {F(o, 'terms.pod', '[目的港]')}</>, 1)}{gcell('ETD', F(o, 'shipping.etd', '—'), 1)}</Row>
+        <Row>{gcell('1. Seller (Name & Address)', d.seller)}{gcell('2. Buyer (Name & Address)', d.buyer || '—')}</Row>
+        <Row>{gcell('3. Importer of Record Number', byImporter)}{gcell('4. Consignee Number(s)', byImporter)}</Row>
+        <Row>{gcell('6. Ship to Party (Name & Address)', <>{d.shipTo || '—'}{'\n'}<Txt style={{ color: '#777' }}>(to be confirmed by the Importer)</Txt></>, 4)}</Row>
+        <Row>{gcell('9. Container Stuffing Location', d.stuffing ? <Fld p="shipping.stuffing" v={d.stuffing} /> : <Hint text="[装柜地点：在订舱 / 提单的运输信息里填写]" />)}{gcell('10. Consolidator (Stuffer)', d.consolidator ? <Fld p="shipping.consolidator" v={d.consolidator} /> : <Hint text="[装柜方：在运输信息里填写，或在合作方库填货代英文名称地址]" />)}</Row>
+      </Grid>
+      <Box style={{ marginTop: 10 }}>
+        <Txt style={{ fontSize: 7, letterSpacing: 1.2, color: a, fontWeight: 700, marginBottom: 3 }}>5. MANUFACTURER (OR SUPPLIER) · 7. COUNTRY OF ORIGIN · 8. HTS NUMBER</Txt>
+        <Table
+          accent={a}
+          cols={[{ label: 'No.', w: '6%', align: 'center' }, { label: 'Description of Goods', w: '30%' }, { label: 'HTS (6-digit)', w: '13%' }, { label: 'Origin', w: '11%', align: 'center' }, { label: 'Manufacturer (Name & Address)', w: '40%' }]}
+          rows={rows.length ? rows : EmptyRow(5)}
+        />
+      </Box>
+      <Txt style={{ marginTop: 8, color: '#666', fontSize: 7 }}>HTS numbers are given at 6-digit level (from the Chinese tariff code). The Importer or its customs broker should confirm the full U.S. HTS classification.</Txt>
+      <Sign o={o} left={<>For and on behalf of <B>{o.seller.name}</B></>} right="" />
+    </Page>
+  );
+}
+
 /* ---------- 产地证申请资料（M2-4） ---------- */
 /** 按原产地证的栏目排：照着在单一窗口填；协定证书编码 6 位、多一列发票金额 */
 function OriginData({ o }: { o: Order }) {
@@ -768,5 +807,6 @@ function DocBody({ doc, order, labels, factory }: { doc: DocKey; order: Order; l
     case 'booking': return <Booking o={order} />;
     case 'si': return <Si o={order} />;
     case 'advice': return <Advice o={order} />;
+    case 'isf': return <Isf o={order} />;
   }
 }

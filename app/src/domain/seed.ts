@@ -59,9 +59,9 @@ export function seed(): DataState {
   ];
   const partners: Partner[] = [
     { id: 'p1', type: '货代', name: '青岛远航国际货运代理有限公司', contact: '王经理', phone: '138 0000 1111', note: '新加坡、东南亚航线' },
-    { id: 'p2', type: '货代', name: '捷通物流（上海）有限公司', contact: '陈小姐', phone: '139 0000 2222', note: '美线、欧线' },
+    { id: 'p2', type: '货代', name: '捷通物流（上海）有限公司', contact: '陈小姐', phone: '139 0000 2222', note: '美线、欧线', nameEn: 'Jietong Logistics (Shanghai) Co., Ltd.', addressEn: 'Room 1208, No. 99 Yanggao Road, Pudong, Shanghai, China' },
     { id: 'p3', type: '报关行', name: '青岛海通报关有限公司', contact: '李小姐', phone: '137 0000 3333', note: '青岛大港' },
-    { id: 'p4', type: '工厂', name: '临沂金盛铝业有限公司', contact: '张厂长', phone: '136 0000 4444', note: '铝合金展架' },
+    { id: 'p4', type: '工厂', name: '临沂金盛铝业有限公司', contact: '张厂长', phone: '136 0000 4444', note: '铝合金展架', nameEn: 'Linyi Jinsheng Aluminium Co., Ltd.', addressEn: 'No. 66 Industrial Road, Lanshan District, Linyi, Shandong, China' },
     { id: 'p6', type: '工厂', name: '义乌恒达五金配件厂', contact: '刘经理', phone: '135 0000 6666', note: '挂钩、螺丝等配件' },
     { id: 'p5', type: '船公司', name: 'COSCO SHIPPING', contact: '订舱部', phone: '—', note: '' },
   ];

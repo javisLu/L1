@@ -188,7 +188,9 @@ export function Partners() {
   const { partners, orders, addPartner, updatePartner, deletePartner } = useData();
   const ui = useUI();
   const rows = partners.filter((p) => p.type === ui.ptype);
-  const cell = (id: string, k: 'name' | 'contact' | 'phone' | 'note', v: string, ph: string) => (
+  // 工厂、货代要英文名称和地址：美国 ISF 资料里的厂家、装柜方
+  const en = ui.ptype === '工厂' || ui.ptype === '货代';
+  const cell = (id: string, k: 'name' | 'contact' | 'phone' | 'note' | 'nameEn' | 'addressEn', v: string, ph: string) => (
     <input className="cell" aria-label={ph} placeholder={ph} value={v} onChange={(e) => updatePartner(id, (p) => void (p[k] = e.target.value))} />
   );
   return (
@@ -197,13 +199,15 @@ export function Partners() {
         {PARTNER_TYPES.map((t) => <button key={t} className={'chip' + (ui.ptype === t ? ' on' : '')} onClick={() => ui.set({ ptype: t })}>{t}（{partners.filter((p) => p.type === t).length}）</button>)}
       </div>
       <div className="tbl-wrap"><table className="tbl">
-        <thead><tr><th style={{ minWidth: 240 }}>名称</th><th style={{ minWidth: 110 }}>联系人</th><th style={{ minWidth: 140 }}>电话</th><th style={{ minWidth: 180 }}>备注</th><th>合作订单</th><th /></tr></thead>
+        <thead><tr><th style={{ minWidth: 240 }}>名称</th>{en && <th style={{ minWidth: 260 }}>英文名称 / 英文地址（美国 ISF 资料用）</th>}<th style={{ minWidth: 110 }}>联系人</th><th style={{ minWidth: 140 }}>电话</th><th style={{ minWidth: 180 }}>备注</th><th>合作订单</th><th /></tr></thead>
         <tbody>
           {rows.map((p) => {
             const used = orders.filter((o) => Object.values(o.partners).includes(p.id)).length;
             return (
               <tr key={p.id}>
-                <td>{cell(p.id, 'name', p.name, '公司名称')}</td><td>{cell(p.id, 'contact', p.contact, '联系人')}</td>
+                <td>{cell(p.id, 'name', p.name, '公司名称')}</td>
+                {en && <td>{cell(p.id, 'nameEn', p.nameEn ?? '', '英文名称')}{cell(p.id, 'addressEn', p.addressEn ?? '', '英文地址')}</td>}
+                <td>{cell(p.id, 'contact', p.contact, '联系人')}</td>
                 <td>{cell(p.id, 'phone', p.phone, '电话')}</td><td>{cell(p.id, 'note', p.note, '航线、擅长业务等')}</td>
                 <td className="num" style={{ textAlign: 'center' }}>{used}</td>
                 <td>
@@ -219,7 +223,7 @@ export function Partners() {
               </tr>
             );
           })}
-          {!rows.length && <tr><td colSpan={6} className="empty">还没有{ui.ptype}，点右上角新增</td></tr>}
+          {!rows.length && <tr><td colSpan={en ? 7 : 6} className="empty">还没有{ui.ptype}，点右上角新增</td></tr>}
         </tbody>
       </table></div>
     </LibPage>

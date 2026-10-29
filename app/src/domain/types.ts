@@ -157,6 +157,9 @@ export interface Shipping {
   boxes?: ContainerRow[];
   /** 截关 / 截港时间 */
   cutoff?: string;
+  /** 美国 ISF：装柜地点、装柜方（没填按工厂 / 货代） */
+  stuffing?: string;
+  consolidator?: string;
 }
 
 export interface ContainerRow { no: string; seal: string; type: string; pkgs: Num; gw: Num; cbm: Num }
@@ -387,6 +390,9 @@ export interface Partner {
   contact: string;
   phone: string;
   note: string;
+  /** 英文名称、英文地址（美国 ISF 资料、英文单据用；工厂、货代填） */
+  nameEn?: string;
+  addressEn?: string;
 }
 
 export interface Product {

@@ -205,7 +205,7 @@ export function diffDoc(prev: Order, cur: Order, doc: DocKey): Change[] {
 }
 
 const COMMERCIAL: DocKey[] = ['quote', 'pi', 'contract', 'ci', 'customs'];
-const PACKING: DocKey[] = ['pl', 'booking', 'si', 'advice', 'customs', 'labels', 'marks'];
+const PACKING: DocKey[] = ['pl', 'booking', 'si', 'advice', 'isf', 'customs', 'labels', 'marks'];
 
 /** 合计的变化：金额（商务单据）、件数 / 毛重 / 体积（装箱、物流单据） */
 export function totalChanges(prev: Order, cur: Order, doc: DocKey): Change[] {
@@ -232,10 +232,10 @@ export function totalChanges(prev: Order, cur: Order, doc: DocKey): Change[] {
 
 const DOC_EN: Record<DocKey, string> = {
   quote: 'Quotation', pi: 'Proforma Invoice', contract: 'Sales Contract', po: 'Purchase Order', co: 'Certificate of Origin application', ci: 'Commercial Invoice', pl: 'Packing List', customs: 'customs documents',
-  marks: 'Shipping Marks', labels: 'carton labels', booking: 'Booking Note', si: 'Shipping Instruction', advice: 'Shipping Advice',
+  marks: 'Shipping Marks', labels: 'carton labels', booking: 'Booking Note', si: 'Shipping Instruction', advice: 'Shipping Advice', isf: 'ISF information',
 };
 /** 发给客户的单据默认写英文说明，其它（工厂、货代、报关行）写中文 */
-export const noteLang = (doc: DocKey): 'en' | 'zh' => (['quote', 'pi', 'contract', 'ci', 'pl', 'advice'].includes(doc) ? 'en' : 'zh');
+export const noteLang = (doc: DocKey): 'en' | 'zh' => (['quote', 'pi', 'contract', 'ci', 'pl', 'advice', 'isf'].includes(doc) ? 'en' : 'zh');
 
 export function changeNote(o: Order, doc: DocKey, changes: Change[], lang: 'en' | 'zh', version?: number): string {
   const no = docFile(o, doc);

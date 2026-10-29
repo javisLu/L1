@@ -6,7 +6,7 @@ import { useData } from '../store/data';
 import { savePref, toast, useUI } from '../store/ui';
 import { fillMarks, calcOrder } from '../domain/calc';
 import { LABEL_LAYOUTS, cartonLabels, labelPages } from '../domain/labels';
-import { DOCNAMES, DOC_FMT, MODS, STEPS, STEP_MOD, missing, normPath, ownerOf, stepPaths, type DocKey, type ModKey, type StepKey } from '../modules/defs';
+import { DOCNAMES, DOC_FMT, MODS, docApplies, STEPS, STEP_MOD, missing, normPath, ownerOf, stepPaths, type DocKey, type ModKey, type StepKey } from '../modules/defs';
 import { exportDoc, exportZip } from '../export/actions';
 import { countErrors } from '../components/CheckPanel';
 import { confirmAction } from '../components/confirm';
@@ -24,7 +24,7 @@ export function Workbench({ order: o, mod }: { order: Order; mod: ModKey }) {
   const ui = useUI();
   const m = MODS[mod];
   const steps = m.steps!;
-  const docs = m.docs!;
+  const docs = m.docs!.filter((d) => docApplies(o, d));
   const step: StepKey = ui.step && steps.includes(ui.step) ? ui.step : steps[0];
   const doc: DocKey = ui.doc && docs.includes(ui.doc) ? ui.doc : docs[0];
   const s = STEPS[step];

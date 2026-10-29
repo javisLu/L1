@@ -11,7 +11,8 @@ export function CheckPanel({ order, max = 5 }: { order: Order; max?: number }) {
   const [all, setAll] = useState(false);
   const updateOrder = useData((st) => st.updateOrder);
   const reqs = useData((st) => st.customers.find((c) => c.id === order.customerId)?.reqs);
-  const issues = checkOrder(order, reqs);
+  const partners = useData((st) => st.partners);
+  const issues = checkOrder(order, reqs, partners);
   const errors = issues.filter((x) => x.level === 'error').length;
   const warns = issues.length - errors;
   if (!issues.length) return <div className="chk-panel ok">✓ 单据检查：没有发现问题</div>;
@@ -46,4 +47,4 @@ export function CheckPanel({ order, max = 5 }: { order: Order; max?: number }) {
 
 /** 本单客户的要求清单 */
 export const reqsOf = (o: Order) => useData.getState().customers.find((c) => c.id === o.customerId)?.reqs ?? [];
-export const countErrors = (o: Order) => checkOrder(o, reqsOf(o)).filter((x: Issue) => x.level === 'error').length;
+export const countErrors = (o: Order) => checkOrder(o, reqsOf(o), useData.getState().partners).filter((x: Issue) => x.level === 'error').length;

@@ -44,6 +44,7 @@ export function project(o: Order, doc: DocKey): unknown {
     case 'booking':
     case 'si':
     case 'advice':
+    case 'isf':
       return { ...base, terms: o.terms, items: strip(o, [...PRICE, ...COST]), ...pack, shipping: o.shipping, forwarder: o.partners.forwarder };
   }
 }

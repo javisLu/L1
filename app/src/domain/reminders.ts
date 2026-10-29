@@ -1,6 +1,7 @@
 import { STATUSES } from './constants';
 import { money, toNum, today as localToday } from './calc';
 import { receivedOf } from './receipts';
+import { isfNeeded } from './compliance';
 import type { Order, OrderStatus } from './types';
 import type { DocKey, ModKey, StepKey } from '../modules/defs';
 
@@ -119,6 +120,12 @@ export function orderReminders(o: Order, today: string): Reminder[] {
   if (s.etd && (o.status === '出货' || o.status === '收款') && o.terms.transport !== '快递' && !sent('advice')) {
     const d = daysUntil(s.etd, today);
     if (d <= 0 && d >= -30) add({ key: 'advice:' + s.etd, level: 'blue', days: d, go: { mod: 'booking', doc: 'advice' }, text: `${md(s.etd)} 已开船，还没给客户发装船通知` });
+  }
+
+  // 6b. 美国海运单：装船前 24 小时进口商要报 ISF，开船前一周提醒把 ISF 资料发给客户
+  if (s.etd && isfNeeded(o) && before(o, '出货') && !sent('isf')) {
+    const d = daysUntil(s.etd, today);
+    if (d >= 0 && d <= 7) add({ key: 'isf:' + s.etd, level: d <= 3 ? 'red' : 'amber', days: d, go: { mod: 'booking', doc: 'isf' }, text: `${md(s.etd)} 开船，美国要求装船前 24 小时报 ISF，还没把 ISF 资料发给客户` });
   }
 
   // 7. 尾款（收款记录里已收齐的不再提醒；逾期提醒写上还差多少）

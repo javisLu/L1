@@ -345,6 +345,28 @@ await step('32-leads', async () => {
   await page.click('.lead-kw:has-text("office chair") button'); await page.waitForSelector('.lead-kw:has-text("office chair")', { state: 'detached', timeout: 5000 });
 });
 
+await step('33-isf-origin', async () => {
+  // 美国单：订舱 / 提单里有 ISF 资料，能导出；唛头去掉 MADE IN CHINA 会提醒、一键加回；别的国家没有 ISF
+  await page.click('.brand'); await page.click('.orow[role=button]:has-text("2026-002")'); await page.click('.mcard:has-text("订舱 / 提单")');
+  await page.click('.pv-bar .tab:has-text("ISF 资料")'); await page.waitForSelector('.paper:has-text("ISF INFORMATION")', { timeout: 5000 });
+  await page.click('.mod-head button:has-text("导出 PDF")'); await waitToast('已保存 ISF-.*\\.pdf');
+  await page.click('button:has-text("← 订单菜单")'); await page.click('.mcard:has-text("唛头箱贴")');
+  await page.click('.step:has-text("唛头内容")');
+  await page.fill('#in-shipping-marks', 'ABC\nLOS ANGELES');
+  // 单据导出页的检查面板：展开全部，点一键修正
+  await page.click('button:has-text("← 订单菜单")'); await page.click('.mcard:has-text("单据导出")');
+  if (await page.$('.chk-panel button:has-text("展开全部")')) await page.click('.chk-panel button:has-text("展开全部")');
+  await page.waitForSelector('.chk-basis:has-text("19 CFR Part 134")', { timeout: 5000 });
+  await page.click('.chk-fix:has-text("唛头加一行 MADE IN CHINA")'); await waitToast('已修正');
+  await page.click('button:has-text("← 订单菜单")'); await page.click('.mcard:has-text("唛头箱贴")'); await page.click('.step:has-text("唛头内容")');
+  await page.waitForFunction(() => document.querySelector('#in-shipping-marks')?.value.endsWith('MADE IN CHINA'), null, { timeout: 5000 });
+  await page.click('.brand'); await page.click('.orow[role=button]:has-text("2026-003")'); await page.click('.mcard:has-text("订舱 / 提单")');
+  await page.waitForSelector('.pv-bar .tab:has-text("装船通知")', { timeout: 5000 });
+  if (await page.$('.pv-bar .tab:has-text("ISF 资料")')) throw new Error('非美国订单不应有 ISF 资料');
+  await page.click('.brand'); await page.click('.lib button:has-text("合作方库")'); await page.click('.chip:has-text("工厂")');
+  await page.waitForSelector('input[aria-label="英文名称"]', { timeout: 5000 });
+});
+
 console.log('\n==== 报错 ====\n' + (errors.join('\n\n') || '无'));
 // CI 里另写成注解，不下载日志也能在检查结果里看到
 if (process.env.GITHUB_ACTIONS) for (const e of errors) console.log('::error::' + e.replace(/%/g, '%25').replace(/\r?\n/g, '%0A').slice(0, 1500));

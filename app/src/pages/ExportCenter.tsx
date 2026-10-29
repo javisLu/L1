@@ -3,7 +3,7 @@ import { Preview } from '../components/Preview';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { fixed, money, calcOrder } from '../domain/calc';
-import { BUNDLES, DOCNAMES, DOC_FMT, EXPDOCS, type Bundle, type DocKey, type ExpKey, type Fmt } from '../modules/defs';
+import { BUNDLES, DOCNAMES, DOC_FMT, EXPDOCS, docApplies, type Bundle, type DocKey, type ExpKey, type Fmt } from '../modules/defs';
 import { exportZip } from '../export/actions';
 import { CheckPanel, countErrors } from '../components/CheckPanel';
 import { confirmAction } from '../components/confirm';
@@ -32,7 +32,7 @@ function mailText(o: Order, bundle: Bundle, sel: ExpKey[], partnerContact?: stri
 export function ExportCenter({ order: o }: { order: Order }) {
   const ui = useUI();
   const partners = useData((s) => s.partners);
-  const avail = EXPDOCS.filter((d) => !d.ph).map((d) => d.key);
+  const avail = EXPDOCS.filter((d) => !d.ph && docApplies(o, d.key)).map((d) => d.key);
   const sel = ui.expSel ?? BUNDLES[ui.bundle].filter((d) => avail.includes(d));
   const focus: DocKey = ui.expDoc ?? (sel.find(isDoc) || 'pi');
   const fmts = (d: DocKey): Fmt[] => {
@@ -78,7 +78,7 @@ export function ExportCenter({ order: o }: { order: Order }) {
           )}
           <div className="eyebrow" style={{ marginBottom: 8 }}>包含单据</div>
           <div className="dl">
-            {EXPDOCS.filter((d) => !d.ph).map((d) => (
+            {EXPDOCS.filter((d) => !d.ph && docApplies(o, d.key)).map((d) => (
               <label key={d.key} className={focus === d.key ? 'foc' : ''}>
                 <input
                   type="checkbox"
