@@ -13,6 +13,8 @@ export interface Seller {
   email: string;
   tax: string;
   bank: string;
+  /** 开票信息（给工厂开增值税专票：名称、税号、地址电话、开户行及账号），印在采购单上 */
+  invoiceInfo?: string;
 }
 
 export interface Buyer {

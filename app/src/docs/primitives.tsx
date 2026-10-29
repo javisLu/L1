@@ -159,7 +159,7 @@ export function Table({
       {foot && (
         <Row style={{ background: '#f3f5f8', fontWeight: 700, borderBottom: '0.75px solid #d6dae0' }}>
           {foot.map((cell, ci) => (
-            <Box key={ci} style={cellBase({ label: '', w: cell.w, align: cell.align }, accent, false)}><Txt style={{ textAlign: cell.align ?? 'left' }}>{cell.c}</Txt></Box>
+            <Box key={ci} style={cellBase({ label: '', w: cell.w, align: cell.align }, accent, false)}><Txt style={{ textAlign: cell.align ?? 'left', whiteSpace: 'pre-line' }}>{cell.c}</Txt></Box>
           ))}
         </Row>
       )}

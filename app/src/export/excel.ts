@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { THEMES, TRANSPORT_CD } from '../domain/constants';
-import { amountWords, needAddr, calcOrder } from '../domain/calc';
+import { amountWords, needAddr, calcOrder, qtyTotal, unitTotals } from '../domain/calc';
+import { lcNoOf } from '../domain/lc';
 import { DOCNAMES, docFile, type DocKey } from '../modules/defs';
 import type { Order } from '../domain/types';
 import type { DocAssets } from '../docs/primitives';
@@ -138,7 +139,7 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
     const nos: [string, string][] =
       doc === 'quote' ? [['No.', o.numbers.quote], ['Date', o.numbers.date], ['Valid Until', o.numbers.validUntil]]
       : doc === 'pi' ? [['No.', o.numbers.pi], ['Date', o.numbers.date], ['PO No.', o.numbers.po]]
-      : [['Invoice No.', o.numbers.ci], ['Date', o.numbers.date], ['Contract No.', o.numbers.contract], ['PO No.', o.numbers.po]];
+      : [['Invoice No.', o.numbers.ci], ['Date', o.numbers.date], ['Contract No.', o.numbers.contract], ['PO No.', o.numbers.po], ...(lcNoOf(o) ? [['L/C No.', lcNoOf(o)] as [string, string]] : [])];
     nos.forEach(([l, v]) => pair(l, v));
     r++;
     pair(doc === 'ci' ? 'Sold To' : doc === 'pl' ? 'Consignee' : 'To', [o.buyer.name, o.buyer.address, `Attn: ${o.buyer.contact}  Tel: ${o.buyer.phone}`, o.buyer.email].filter(Boolean).join('\n'));
@@ -216,16 +217,19 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
   if (doc !== 'customs' && k.rows.length) {
     r++;
     const sum = (key: string, result: number) => ({ formula: `SUM(${letter(key)}${first}:${letter(key)}${r - 1})`, result });
-    const totals: Record<string, unknown> = { qty: sum('qty', k.qty), amount: sum('amount', k.amount), ctns: sum('ctns', k.ctns), nw: sum('nw', k.nw), gw: sum('gw', k.gw), cbm: sum('cbm', k.cbm) };
+    // 单位不同不能相加：数量合计按单位分开写
+    const mixed = unitTotals(k.rows).length > 1;
+    const totals: Record<string, unknown> = { qty: mixed ? qtyTotal(k.rows) : sum('qty', k.qty), amount: sum('amount', k.amount), ctns: sum('ctns', k.ctns), nw: sum('nw', k.nw), gw: sum('gw', k.gw), cbm: sum('cbm', k.cbm) };
     cols.forEach((c, ci) => {
       const cell = ws.getCell(r, ci + 1);
       cell.value = ci === 0 ? 'TOTAL' : ((totals[c.key] as ExcelJS.CellValue) ?? '');
       cell.font = { name: 'Arial', bold: true, size: 9 };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F5F8' } };
       cell.border = box;
-      cell.alignment = { horizontal: c.align ?? 'left' };
+      cell.alignment = { horizontal: c.align ?? 'left', wrapText: mixed && c.key === 'qty' };
       if (c.num) cell.numFmt = c.num;
     });
+    if (mixed) ws.getRow(r).height = unitTotals(k.rows).length * 13 + 3;
   }
   r += 2;
 

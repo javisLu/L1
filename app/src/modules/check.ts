@@ -5,7 +5,8 @@ import { pkgSummary } from '../domain/package';
 import { autoFreight } from '../domain/shipping';
 import { MODS, STEPS, STEP_MOD, missing, neededMods, ownerOf, type ModKey, type StepKey } from './defs';
 import { REQS, reqState, reqStrict } from '../domain/requirements';
-import { factoriesOf, profitOf, purchaseOf } from '../domain/purchase';
+import { factoriesOf, missingSellerCosts, profitOf, purchaseOf } from '../domain/purchase';
+import { parseMT700 } from '../domain/lc';
 import { certOf, certsFor, destOf } from '../domain/origin';
 import { planOf, receivedOf } from '../domain/receipts';
 import { cnFields } from '../domain/english';
@@ -130,6 +131,9 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
       out.push({ level: 'warn', text: `${inc} 成交，报关单一般不填运费（现在填了 ${o.customs.freight}）`, mod: 'customs', path: 'customs.freight' });
     }
   }
+  // 报价单 / PI 是价格承诺：写「价格可随时变动」客户一般不接受
+  if ((need.has('quote') || need.has('pi')) && /subject\s+to\s+change\s+without\s+(prior\s+)?notice/i.test(`${o.docset.clauses}\n${o.docset.remarks}`))
+    out.push({ level: 'warn', text: '报价单 / PI 的条款写了「价格可随时变动、不另行通知」：PI 是价格承诺，客户一般会要求删掉，建议改成「价格 30 天内有效」', mod: 'quote', path: 'docset.clauses' });
   if (toNum(o.terms.payDeposit) > 100) out.push({ level: 'error', text: `定金比例 ${o.terms.payDeposit}% 超过 100%`, mod: 'quote', path: 'terms.payDeposit' });
 
   // 5. 柜型装载
@@ -152,7 +156,22 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
   if (sh.consigneeMode === 'custom' && !sh.consignee?.trim()) out.push({ level: 'error', text: '收货人选了「自定义」但没有填写', mod: 'booking', path: 'shipping.consignee' });
   if (sh.notifyMode === 'custom' && !sh.notify?.trim()) out.push({ level: 'error', text: '通知人选了「自定义」但没有填写', mod: 'booking', path: 'shipping.notify' });
   if (sh.freight && sh.freight !== autoFreight(o)) out.push({ level: 'warn', text: `${inc} 成交一般是 FREIGHT ${autoFreight(o)}，现在选的是 FREIGHT ${sh.freight}`, mod: 'booking', path: 'shipping.freight' });
-  if (sh.consigneeMode === 'order' && sh.blType && sh.blType !== 'original') out.push({ level: 'warn', text: '收货人是 TO ORDER 时一般出正本提单；电放、海运单需要写明收货人', mod: 'booking', path: 'shipping.blType' });
+  // 信用证 / 托收：货款收到前货权要在自己（或银行）手里——提单做成 TO ORDER、出正本
+  const lcPay = /L\/C/.test(o.terms.payment), coll = /D\/P|D\/A/.test(o.terms.payment);
+  if (lcPay || coll) {
+    const way = lcPay ? '信用证' : '托收（D/P、D/A）';
+    const a46 = o.lc?.text ? (parseMT700(o.lc.text)['46A'] ?? '').toUpperCase() : '';
+    // 信用证 46A 明确写了「CONSIGNED TO 买方」的按信用证办，不提醒
+    const lcSaysBuyer = !!a46 && !/TO\s+(THE\s+)?ORDER/.test(a46) && /CONSIGNED\s+TO/.test(a46);
+    if ((sh.consigneeMode ?? 'buyer') === 'buyer' && !lcSaysBuyer)
+      out.push({
+        level: 'warn', text: `${way}付款，提单收货人直接写了买方：钱还没收到货权就给了对方${lcPay ? '，银行审单也可能算不符点' : ''}。一般做成 TO ORDER（凭指示），通知人写买方`, mod: 'booking', path: 'shipping.consigneeMode',
+        fix: { label: '收货人改为 TO ORDER', apply: (x) => { x.shipping.consigneeMode = 'order'; if (x.shipping.blType && x.shipping.blType !== 'original') x.shipping.blType = 'original'; } },
+      });
+    if (sh.blType === 'telex' || sh.blType === 'seaway')
+      out.push({ level: 'warn', text: `${way}付款要交正本提单给银行，现在选的是${sh.blType === 'telex' ? '电放' : '海运单'}`, mod: 'booking', path: 'shipping.blType', fix: { label: '改为正本提单', apply: (x) => void (x.shipping.blType = 'original') } });
+  }
+  if (sh.consigneeMode === 'order' && sh.blType && sh.blType !== 'original' && !lcPay && !coll) out.push({ level: 'warn', text: '收货人是 TO ORDER 时一般出正本提单；电放、海运单需要写明收货人', mod: 'booking', path: 'shipping.blType' });
   if (need.has('booking') && !sh.equipment?.trim() && STATUSES.indexOf(o.status) >= STATUSES.indexOf('生产')) out.push({ level: 'warn', text: '订舱委托书还没填柜型柜量（如 1×40HQ、LCL 拼箱）', mod: 'booking', path: 'shipping.equipment' });
   const boxes = (sh.boxes ?? []).filter((b) => b.no || toNum(b.pkgs));
   if (boxes.length > 1 || (boxes.length === 1 && (sh.boxes ?? []).length === 1 && toNum(boxes[0].pkgs))) {
@@ -179,6 +198,11 @@ export function checkOrder(o: Order, reqs: CustReq[] = []): Issue[] {
     }
     if (pf.hasCost && pf.noCost.length)
       out.push({ level: 'warn', text: `第 ${pf.noCost.slice(0, 4).map((i) => i + 1).join('、')} 行没填采购单价，采购单和利润不完整`, mod: 'purchase', path: `items.${pf.noCost[0]}.cost` });
+    const miss = missingSellerCosts(o);
+    if (pf.hasCost && miss.length)
+      out.push({ level: 'warn', text: `${inc} 成交由我方付${miss.join('、')}，费用里还没填，利润偏高`, mod: 'purchase', step: 'profit' });
+    if (factoriesOf(o).length && /专用发票|专票/.test(pur.invoice) && !o.seller.invoiceInfo?.trim())
+      out.push({ level: 'warn', text: '采购单上还没有我方开票信息（名称、税号、地址电话、开户行及账号），工厂开增值税专票要用', mod: 'purchase', path: 'seller.invoiceInfo' });
     if (pf.hasCost && !pf.noCost.length && pf.profit < 0)
       out.push({ level: 'warn', text: `按现在的采购价和费用，本单预计亏损 ¥${money(-pf.profit)}`, mod: 'purchase', step: 'profit' });
   }

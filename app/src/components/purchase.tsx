@@ -1,7 +1,7 @@
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
 import { fixed, money, sym, uid } from '../domain/calc';
-import { defaultPurchase, factoriesOf, factoryName, poNo, poRows, poTotal, profitOf, purchaseOf } from '../domain/purchase';
+import { defaultPurchase, factoriesOf, factoryName, missingSellerCosts, poNo, poRows, poTotal, profitOf, purchaseOf } from '../domain/purchase';
 import { inputId } from '../modules/defs';
 import type { Order } from '../domain/types';
 
@@ -87,6 +87,11 @@ export function ProfitSummary({ order: o }: { order: Order }) {
         <b className="num">¥{money(p.profit)}</b>
         <em>利润率 {fixed(p.margin * 100, 1)}%</em>
       </div>
+      {missingSellerCosts(o).length > 0 && (
+        <div className="note">
+          {o.terms.incoterm} 成交由我方付{missingSellerCosts(o).join('、')}，上面费用里还没填，利润偏高。
+        </div>
+      )}
       {p.noCost.length > 0 && (
         <div className="note">
           还有 {p.noCost.length} 行没填采购单价（第 {p.noCost.slice(0, 6).map((i) => i + 1).join('、')}{p.noCost.length > 6 ? ' 等' : ''} 行），利润偏高、不准。

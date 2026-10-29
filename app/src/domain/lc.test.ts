@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { seed } from './seed';
 import { allowed, amendmentText, docsRequired, expiryPlace, parseAmount, parseMT700, presentDays, reviewLc, sameParty, sampleMT700, softClauses, swiftDate, tolerance } from './lc';
 
-const lcOrder = () => seed().orders[1]; // 2026-002，信用证付款，10-08 开船
+// 2026-002，信用证付款，10-08 开船；收货人先按买方，看审证能不能查出 46A 要 TO ORDER
+const lcOrder = () => { const o = seed().orders[1]; o.shipping.consigneeMode = 'buyer'; return o; };
 
 describe('解析电文', () => {
   it('原始电文：:代号: 值，多行值接在一起', () => {

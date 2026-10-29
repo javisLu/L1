@@ -118,6 +118,29 @@ export function calc(items: Item[], packs: MixPack[] = []): Totals {
   return { rows, qty, amount, ctns, nw, gw, cbm };
 }
 
+/** 合计数量按单位分组（单位不分大小写），没填数量的行不算 */
+export function unitTotals(rows: { q: number; unit: string }[]): { unit: string; q: number }[] {
+  const m = new Map<string, { unit: string; q: number }>();
+  for (const r of rows) {
+    if (!(r.q > 0)) continue;
+    const unit = String(r.unit ?? '').trim();
+    const g = m.get(unit.toUpperCase()) ?? { unit, q: 0 };
+    g.q += r.q;
+    m.set(unit.toUpperCase(), g);
+  }
+  return [...m.values()];
+}
+/** 合计数量：单位都一样只写数字（单位另有一栏）；单位不同不能相加，按单位分行写「60 SETS」「300 PCS」 */
+export function qtyTotal(rows: { q: number; unit: string }[]): string {
+  const g = unitTotals(rows);
+  return g.length > 1 ? g.map((x) => `${int(x.q)} ${x.unit}`).join('\n') : int(g[0]?.q ?? 0);
+}
+/** 合计数量带单位（装运通知等没有单位栏的地方） */
+export function qtyWithUnit(rows: { q: number; unit: string }[], fallback = 'PCS'): string {
+  const g = unitTotals(rows);
+  return g.length ? g.map((x) => `${int(x.q)} ${x.unit || fallback}`).join('\n') : `0 ${fallback}`;
+}
+
 /** 订单的计算结果（带混装箱） */
 export const calcOrder = (o: Pick<Order, 'items' | 'packs'>) => calc(o.items, o.packs ?? []);
 

@@ -80,6 +80,18 @@ export interface Profit {
   hasCost: boolean;
 }
 
+/** CFR / CIF / DAP 等由卖方付国际运费（CIF / CIP 还要付保费）：费用里没填的列出来，不然利润偏高 */
+const SELLER_FREIGHT = ['CFR', 'CIF', 'CPT', 'CIP', 'DAP', 'DPU', 'DDP'];
+export function missingSellerCosts(o: Order): string[] {
+  const inc = o.terms.incoterm;
+  if (!SELLER_FREIGHT.includes(inc)) return [];
+  const has = (re: RegExp) => purchaseOf(o).fees.some((f) => re.test(f.name) && toNum(f.amount) > 0);
+  const out: string[] = [];
+  if (!has(/海运|空运|国际运费|ocean|sea|air\s*freight/i)) out.push('海运费');
+  if (['CIF', 'CIP'].includes(inc) && !has(/保险|insurance/i)) out.push('保险费');
+  return out;
+}
+
 export function profitOf(o: Order): Profit {
   const p = purchaseOf(o);
   const k = calcOrder(o);

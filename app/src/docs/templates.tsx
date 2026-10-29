@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { AssetsProvider, CleanProvider, Box, Fld, Img, Page, Row, Table, Txt, useAssets, useIsPdf, type DocAssets, type St } from './primitives';
 import { THEMES, TRANSPORT_CD } from '../domain/constants';
-import { amountWords, fixed, int, intWords, money, needAddr, sym, calcOrder, toNum, type Row as CalcRow } from '../domain/calc';
+import { amountWords, fixed, int, intWords, money, needAddr, qtyTotal, qtyWithUnit, sym, calcOrder, toNum, type Row as CalcRow } from '../domain/calc';
 import { getPath } from '../store/data';
 import type { Order } from '../domain/types';
 import type { DocKey } from '../modules/defs';
@@ -11,6 +11,7 @@ import { isBlank, blTypeCn, blTypeText, consigneeText, containerRows, freightTex
 import { useData } from '../store/data';
 import { factoriesOf, poNo, poRows, purchaseOf, rmbWords } from '../domain/purchase';
 import { certHs, certOf, criterionOf, declPlace, destOf, routeText } from '../domain/origin';
+import { lcNoOf } from '../domain/lc';
 
 const MONO = 'var(--f-doc-num)';
 const accent = (o: Order) => THEMES[o.docset.theme] ?? '#1d3f72';
@@ -174,7 +175,7 @@ function QuotePI({ o, kind }: { o: Order; kind: 'quote' | 'pi' }) {
         accent={a}
         cols={[{ label: 'No.', w: '5%', align: 'center' }, { label: 'Model', w: '12%' }, { label: 'Description', w: '37%' }, { label: 'Unit', w: '7%', align: 'center' }, { label: 'Qty', w: '10%', align: 'right' }, { label: `Unit Price (${c})`, w: '13%', align: 'right' }, { label: `Amount (${c})`, w: '16%', align: 'right' }]}
         rows={rows.length ? rows : EmptyRow(7)}
-        foot={[{ w: '61%', c: `TOTAL  ${(o.terms.incoterm + ' ' + o.terms.place).toUpperCase()}` }, { w: '10%', align: 'right', c: nz(k, int(k.qty)) }, { w: '13%', c: '' }, { w: '16%', align: 'right', c: nz(k, sym(c) + money(k.amount)) }]}
+        foot={[{ w: '61%', c: `TOTAL  ${(o.terms.incoterm + ' ' + o.terms.place).toUpperCase()}` }, { w: '10%', align: 'right', c: nz(k, qtyTotal(k.rows)) }, { w: '13%', c: '' }, { w: '16%', align: 'right', c: nz(k, sym(c) + money(k.amount)) }]}
       />
       {k.rows.length > 0 && <Words o={o}>{amountWords(k.amount, c)}</Words>}
       {k.rows.length > 0 && <Txt style={{ color: '#666' }}>Packing: {pk.short}  ·  G.W. {nz(k, fixed(pk.gw, 2))} kg  ·  Meas. {nz(k, fixed(pk.cbm, 3))} m³</Txt>}
@@ -276,6 +277,9 @@ function Statement({ o }: { o: Order }) {
   return o.docset.statement?.trim() ? <Section o={o} title="REMARKS">{F(o, 'docset.statement')}</Section> : null;
 }
 
+/** 信用证付款：发票、箱单注明信用证号（贴过信用证电文才有） */
+const lcMeta = (o: Order): [string, ReactNode][] => (lcNoOf(o) ? [['L/C No.', lcNoOf(o)]] : []);
+
 /* ---------- 商业发票 ---------- */
 function Invoice({ o }: { o: Order }) {
   const k = calcOrder(o), c = o.terms.currency, a = accent(o);
@@ -287,7 +291,7 @@ function Invoice({ o }: { o: Order }) {
   ]);
   return (
     <Page accent={a}>
-      <Head o={o} title="COMMERCIAL INVOICE" meta={[['Invoice No.', F(o, 'numbers.ci')], ['Date', F(o, 'numbers.date')], ['Contract No.', F(o, 'numbers.contract')], ['PO No.', F(o, 'numbers.po', '—')]]} />
+      <Head o={o} title="COMMERCIAL INVOICE" meta={[['Invoice No.', F(o, 'numbers.ci')], ['Date', F(o, 'numbers.date')], ['Contract No.', F(o, 'numbers.contract')], ['PO No.', F(o, 'numbers.po', '—')], ...lcMeta(o)]} />
       <Two><BuyerBox o={o} label="SOLD TO / CONSIGNEE" /><ShipBox o={o} /></Two>
       <Row style={{ background: '#f4f6f9', padding: '6px 9px', marginBottom: 11 }}>
         <Txt style={{ width: '33%' }}>Terms: {F(o, 'terms.incoterm')} {F(o, 'terms.place')}</Txt>
@@ -299,7 +303,7 @@ function Invoice({ o }: { o: Order }) {
         lead={{ label: 'Marks & Nos.', w: '17%', content: <Txt style={{ fontSize: 7 }}>{F(o, 'shipping.marks', 'N/M')}</Txt> }}
         cols={[{ label: 'Description of Goods', w: '43%' }, { label: 'Quantity', w: '13%', align: 'right' }, { label: `Unit Price (${c})`, w: '12%', align: 'right' }, { label: `Amount (${c})`, w: '15%', align: 'right' }]}
         rows={rows.length ? rows : EmptyRow(4)}
-        foot={[{ w: '60%', c: 'TOTAL' }, { w: '13%', align: 'right', c: nz(k, int(k.qty)) }, { w: '12%', c: '' }, { w: '15%', align: 'right', c: nz(k, sym(c) + money(k.amount)) }]}
+        foot={[{ w: '60%', c: 'TOTAL' }, { w: '13%', align: 'right', c: nz(k, qtyTotal(k.rows)) }, { w: '12%', c: '' }, { w: '15%', align: 'right', c: nz(k, sym(c) + money(k.amount)) }]}
       />
       {k.rows.length > 0 && <Words o={o}>{amountWords(k.amount, c)}</Words>}
       <Statement o={o} />
@@ -335,14 +339,14 @@ function Packing({ o }: { o: Order }) {
   const mixedNote = (o.packs ?? []).length > 0;
   return (
     <Page accent={a}>
-      <Head o={o} title="PACKING LIST" meta={[['Invoice No.', F(o, 'numbers.ci')], ['Date', F(o, 'numbers.date')], ['Contract No.', F(o, 'numbers.contract')]]} />
+      <Head o={o} title="PACKING LIST" meta={[['Invoice No.', F(o, 'numbers.ci')], ['Date', F(o, 'numbers.date')], ['Contract No.', F(o, 'numbers.contract')], ...lcMeta(o)]} />
       <Two><BuyerBox o={o} label="CONSIGNEE" /><ShipBox o={o} /></Two>
       <Table
         accent={a}
         lead={{ label: 'Marks', w: '15%', content: <Txt style={{ fontSize: 7 }}>{F(o, 'shipping.marks', 'N/M')}</Txt> }}
         cols={[{ label: 'C/No.', w: '8%', align: 'center' }, { label: 'Description', w: '29%' }, { label: 'Qty', w: '9%', align: 'right' }, { label: 'CTNs', w: '7%', align: 'right' }, { label: 'N.W. (kg)', w: '11%', align: 'right' }, { label: 'G.W. (kg)', w: '11%', align: 'right' }, { label: 'Meas. (m³)', w: '10%', align: 'right' }]}
         rows={rows.length ? rows : EmptyRow(7)}
-        foot={[{ w: '52%', c: 'TOTAL' }, { w: '9%', align: 'right', c: nz(k, int(k.qty)) }, { w: '7%', align: 'right', c: nz(k, String(k.ctns)) }, { w: '11%', align: 'right', c: nz(k, fixed(k.nw, 2)) }, { w: '11%', align: 'right', c: nz(k, fixed(k.gw, 2)) }, { w: '10%', align: 'right', c: nz(k, fixed(k.cbm, 3)) }]}
+        foot={[{ w: '52%', c: 'TOTAL' }, { w: '9%', align: 'right', c: nz(k, qtyTotal(k.rows)) }, { w: '7%', align: 'right', c: nz(k, String(k.ctns)) }, { w: '11%', align: 'right', c: nz(k, fixed(k.nw, 2)) }, { w: '11%', align: 'right', c: nz(k, fixed(k.gw, 2)) }, { w: '10%', align: 'right', c: nz(k, fixed(k.cbm, 3)) }]}
       />
       {k.rows.length > 0 && <Words o={o}>{pk.words}</Words>}
       {!!pkgNote(pk) && <Txt style={{ fontSize: 7.5, color: '#333', marginBottom: 2 }}>{pkgNote(pk)}</Txt>}
@@ -533,7 +537,7 @@ function Advice({ o }: { o: Order }) {
       <Txt style={{ marginBottom: 10 }}>We are pleased to advise that the goods under the above order have been shipped. Details are as follows:</Txt>
       <Box style={{ padding: '8px 10px', background: '#f6f7f9', marginBottom: 10 }}>
         {line('Commodity', goodsLines(o, k, false).join('\n') || '—')}
-        {line('Quantity', `${nz(k, int(k.qty))} ${k.rows[0]?.unit ?? 'PCS'}`)}
+        {line('Quantity', nz(k, qtyWithUnit(k.rows)))}
         {line('Packages', `${pk.count} ${pk.unitEn}${pk.contains ? ` (${pk.contains})` : ''}`)}
         {line('Gross / Net Weight', `${nz(k, fixed(pk.gw, 2))} KGS / ${nz(k, fixed(k.nw, 2))} KGS`)}
         {line('Measurement', `${nz(k, fixed(pk.cbm, 3))} CBM`)}
@@ -628,11 +632,10 @@ function PurchaseOrder({ o, factory }: { o: Order; factory?: string }) {
   const po = pur.pos[fid] ?? {};
   const pp = (key: string) => `purchase.pos.${fid}.${key}`;
   const idx = poRows(o, fid);
-  let qty = 0, total = 0;
+  let total = 0;
   const rows = idx.map((i, n) => {
     const r = k.rows[i], it = o.items[i];
     const c = toNum(it.cost), amt = toNum(r.q) * c;
-    qty += toNum(r.q);
     total += amt;
     return [
       String(n + 1),
@@ -684,6 +687,9 @@ function PurchaseOrder({ o, factory }: { o: Order; factory?: string }) {
           <Txt style={{ fontWeight: 700 }}>{o.seller.nameCn || o.seller.name}</Txt>
           <Txt>{o.seller.address}</Txt>
           <Txt>电话：{o.seller.phone || '—'}</Txt>
+          {o.seller.invoiceInfo?.trim()
+            ? <><Txt style={{ marginTop: 4, color: '#5b6470' }}>开票信息</Txt><Txt>{F(o, 'seller.invoiceInfo')}</Txt></>
+            : isBlank(o) ? null : <Hint text="[开票信息：在「设置 → 公司信息」填写，工厂开增值税专票要用]" />}
         </Box>
         <Box style={boxSt}>
           <Lab o={o}>供方（工厂）</Lab>
@@ -695,7 +701,7 @@ function PurchaseOrder({ o, factory }: { o: Order; factory?: string }) {
         accent={a}
         cols={[{ label: '序号', w: '6%', align: 'center' }, { label: '型号', w: '13%' }, { label: '品名 / 规格', w: '35%' }, { label: '单位', w: '7%', align: 'center' }, { label: '数量', w: '11%', align: 'right' }, { label: '单价（元）', w: '12%', align: 'right' }, { label: '金额（元）', w: '16%', align: 'right' }]}
         rows={rows.length ? rows : EmptyRow(7)}
-        foot={[{ w: '61%', c: '合计（含税）' }, { w: '11%', align: 'right', c: rows.length ? int(qty) : '' }, { w: '12%', c: '' }, { w: '16%', align: 'right', c: total ? '¥' + money(total) : '' }]}
+        foot={[{ w: '61%', c: '合计（含税）' }, { w: '11%', align: 'right', c: rows.length ? qtyTotal(idx.map((i) => k.rows[i])) : '' }, { w: '12%', c: '' }, { w: '16%', align: 'right', c: total ? '¥' + money(total) : '' }]}
       />
       {total > 0 && <Words o={o}>合计金额大写：{rmbWords(total)}</Words>}
       <Section o={o} title="包装与唛头">

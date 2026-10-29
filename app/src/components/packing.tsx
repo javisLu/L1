@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../store/data';
 import { toast } from '../store/ui';
-import { calcOrder, fixed, int, toNum, type Row } from '../domain/calc';
+import { calcOrder, fixed, int, qtyTotal, toNum, type Row } from '../domain/calc';
 import { groupRows, ungroup } from '../domain/packs';
 import { inputId } from '../modules/defs';
 import { PKG_MODES, defaultPackaging, pkgSummary } from '../domain/package';
@@ -118,7 +118,7 @@ export function PackingTable({ order }: { order: Order }) {
           <tbody>{k.rows.map(rowCells)}</tbody>
           <tfoot>
             <tr>
-              <td /><td /><td>合计</td><td style={{ textAlign: 'right' }}>{int(k.qty)}</td>
+              <td /><td /><td>合计</td><td style={{ textAlign: 'right', whiteSpace: 'pre-line' }}>{qtyTotal(k.rows)}</td>
               <td colSpan={6} /><td style={{ textAlign: 'right' }}>{k.ctns}</td><td />
               <td style={{ textAlign: 'right' }}>{fixed(k.nw, 2)} / {fixed(k.gw, 2)}</td>
               <td style={{ textAlign: 'right' }}>{fixed(k.cbm, 3)}</td>

@@ -202,6 +202,7 @@ export function Settings() {
                 <Field target="seller" path="phone" label="电话" />
                 <Field target="seller" path="email" label="邮箱" />
                 <Field target="seller" path="bank" label="收款银行信息（受益人 / 银行 / SWIFT / 账号）" wide type="textarea" />
+                <Field target="seller" path="invoiceInfo" label="开票信息（名称 / 税号 / 地址电话 / 开户行及账号，印在工厂采购单上，工厂开增值税专票用）" wide type="textarea" />
               </div>
               <div className="tbl-tools">
                 <button

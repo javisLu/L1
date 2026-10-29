@@ -13,6 +13,7 @@ export function seed(): DataState {
     address: 'No. 18 Haier Road, Laoshan District, Qingdao, Shandong, China',
     phone: '+86 532 8888 6666', email: 'sales@hengyuan-demo.com', tax: '91370212MA3DEMO001',
     bank: 'Beneficiary: Qingdao Hengyuan Industrial Co., Ltd.\nBank: Bank of China, Qingdao Branch\nSWIFT: BKCHCNBJ500\nA/C No.: 2201 0000 0000 0000 (SAMPLE)',
+    invoiceInfo: '名称：青岛恒远实业有限公司\n税号：91370212MA3DEMO001\n地址电话：青岛市崂山区海尔路18号 0532-88886666\n开户行及账号：中国银行青岛分行 2201 0000 0000 0001（示例）',
   };
   const products: Product[] = [
     { id: uid(), model: 'AL-S200', nameCn: '铝合金展示架（标准款）', nameEn: 'Aluminium Display Rack - Standard', spec: '1200×450×1800 mm', hs: '9403200000', unit: 'PCS', price: 12.5, pcsPerCtn: 2, l: 122, w: 47, h: 20, nw: 14.5, gw: 16, elements: '0|0|展示用|铝合金|无品牌|AL-S200', cat: '展示架' },
@@ -94,7 +95,8 @@ export function seed(): DataState {
       o.numbers.po = 'ABC-2026-118';
       Object.assign(o.shipping, { vessel: 'COSCO SHIPPING ARIES V.045E', blNo: 'COSU6384521900', container: 'CSNU7234561 / 40HQ', seal: 'CN4471823', etd: '2026-10-08' });
       Object.assign(o.customs, { freight: 'USD 2,350', insFee: 'USD 30' });
-      Object.assign(o.shipping, { equipment: '1×40HQ', cargoReady: '2026-10-02', eta: '2026-11-03' });
+      // 信用证单：提单做成 TO ORDER（凭指示），通知人写买方
+      Object.assign(o.shipping, { equipment: '1×40HQ', cargoReady: '2026-10-02', eta: '2026-11-03', consigneeMode: 'order' });
       o.partners = { forwarder: 'p2', broker: 'p3', factory: 'p4' };
       o.dates = { lcLatest: '2026-10-10', lcExpiry: '2026-10-20' };
     }),

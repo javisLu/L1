@@ -36,8 +36,8 @@ export function blankOrder(seller: Seller, no: string, name: string, created = t
     partners: { forwarder: '', broker: '', factory: '' },
     docset: {
       theme: d.theme, stamp: d.stamp,
-      remarks: 'Prices are based on current material costs. Goods are inspected before shipment.',
-      clauses: 'All prices are subject to change without prior notice.\nClaims must be raised within 7 days after receipt of goods.\nForce majeure events excuse any delay in performance.',
+      remarks: 'Goods are inspected before shipment.',
+      clauses: 'Prices are valid for 30 days from the date of this document.\nBank charges in China are for the Seller\'s account; those outside China are for the Buyer\'s account.\nQuality is based on the approved sample; claims must be raised within 30 days after arrival of the goods at destination.\nForce majeure events excuse any delay in performance.',
     },
     contractClauses: clausesFromLib(DEFAULT_CLAUSES),
     purchase: defaultPurchase(),

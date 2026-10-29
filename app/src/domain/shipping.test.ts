@@ -6,6 +6,7 @@ import { checkOrder } from '../modules/check';
 describe('订舱 / 提单补料', () => {
   it('收货人、通知人默认规则', () => {
     const o = seed().orders[1];
+    o.shipping.consigneeMode = undefined; // 没选过：默认同买方
     expect(consigneeText(o).split('\n')[0]).toBe('ABC Trading LLC');
     expect(notifyText(o)).toBe('SAME AS CONSIGNEE');
     o.shipping.consigneeMode = 'order';
@@ -54,6 +55,12 @@ describe('订舱 / 提单补料', () => {
     expect(t).toContain('CIF 成交一般是 FREIGHT PREPAID');
     o.shipping.consigneeMode = 'order';
     o.shipping.blType = 'telex';
-    expect(checkOrder(o).map((x) => x.text).join()).toContain('TO ORDER 时一般出正本提单');
+    // 这一单是信用证：提示要交正本提单给银行
+    expect(checkOrder(o).map((x) => x.text).join()).toContain('信用证付款要交正本提单给银行');
+    // 不是信用证 / 托收的单子：TO ORDER 却电放
+    const tt = seed().orders[0];
+    tt.shipping.consigneeMode = 'order';
+    tt.shipping.blType = 'telex';
+    expect(checkOrder(tt).map((x) => x.text).join()).toContain('TO ORDER 时一般出正本提单');
   });
 });

@@ -5,7 +5,8 @@ import { calcOrder, fixed } from './calc';
 import { pkgSummary } from './package';
 
 /** 2026-002：已出货，有船名、提单号、柜号封号 */
-const order = () => seed().orders[1];
+// 示例信用证单现在是 TO ORDER；这里按收货人 = 买方的草稿来测
+const order = () => { const o = seed().orders[1]; o.shipping.consigneeMode = 'buyer'; return o; };
 
 /** 按订单拼一份「货代格式」的提单草稿：栏目顺序、写法和我们的单据都不一样 */
 function draft(o: ReturnType<typeof order>, patch: (s: string) => string = (s) => s) {

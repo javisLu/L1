@@ -83,8 +83,8 @@ export const CONTRACT_LIB: LibClause[] = [
 export const DEFAULT_CLAUSES = ['inspection', 'claims', 'fm', 'arb', 'effect'];
 
 export const OTHER_CLAUSES: Record<string, string[]> = {
-  付款条款: ['30% T/T deposit, 70% T/T before shipment.', '100% irrevocable L/C at sight.', '100% T/T within 30 days after B/L date.'],
+  付款条款: ['30% T/T deposit, 70% T/T before shipment.', '100% irrevocable L/C at sight.', '100% T/T within 30 days after B/L date.', "Bank charges in China are for the Seller's account; those outside China are for the Buyer's account."],
   交货条款: ['Shipment within 30 days after receipt of deposit.', 'Partial shipment not allowed, transshipment allowed.'],
-  质量与异议: ['Claims must be raised within 7 days after receipt of goods.', 'Quality based on the approved sample.'],
-  其他: ['Force majeure events excuse any delay in performance.', 'All prices are subject to change without prior notice.'],
+  质量与异议: ['Claims must be raised within 30 days after arrival of the goods at destination.', 'Quality based on the approved sample.'],
+  其他: ['Prices are valid for 30 days from the date of this document.', 'Force majeure events excuse any delay in performance.'],
 };

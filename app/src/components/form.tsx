@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useData, getPath } from '../store/data';
 import { toast, useUI } from '../store/ui';
-import { fixed, int, money, sym, calcOrder, toNum } from '../domain/calc';
+import { fixed, int, money, qtyTotal, sym, calcOrder, toNum } from '../domain/calc';
 import { CONTRACT_LIB } from '../domain/constants';
 import { emptyItem, productToItem, syncPay } from '../domain/factory';
 import { SRC_NAME, TABLES, dyn, inputId, type FieldDef, type TableKey } from '../modules/defs';
@@ -365,7 +365,7 @@ function GoodsTable({ order, table }: { order: Order; table: TableKey }) {
             ))}
           </tbody>
           {table === 'items' && (
-            <tfoot><tr><td /><td colSpan={5}>合计</td><td style={{ textAlign: 'right' }}>{int(k.qty)}</td><td /><td style={{ textAlign: 'right' }}>{sym(cur) + money(k.amount)}</td><td /></tr></tfoot>
+            <tfoot><tr><td /><td colSpan={5}>合计</td><td style={{ textAlign: 'right', whiteSpace: 'pre-line' }}>{qtyTotal(k.rows)}</td><td /><td style={{ textAlign: 'right' }}>{sym(cur) + money(k.amount)}</td><td /></tr></tfoot>
           )}
         </table>
       </div>

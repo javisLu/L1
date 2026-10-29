@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { THEMES } from '../domain/constants';
-import { calcOrder, fixed, toNum } from '../domain/calc';
+import { calcOrder, fixed, qtyTotal, toNum, unitTotals } from '../domain/calc';
 import { factoryName, poNo, poRows, purchaseOf, rmbWords } from '../domain/purchase';
 import type { DocAssets } from '../docs/primitives';
 import type { Order, Partner } from '../domain/types';
@@ -63,6 +63,7 @@ export async function renderPoExcel(o: Order, fid: string, partners: Partner[], 
   pair('采购单号', poNo(o, fid));
   pair('日期', o.numbers.date);
   pair('需方（采购方）', `${o.seller.nameCn || o.seller.name}  ${o.seller.phone}`);
+  if (o.seller.invoiceInfo?.trim()) pair('开票信息', o.seller.invoiceInfo.trim());
   pair('供方（工厂）', [factoryName(partners, fid), fp?.contact && `联系人：${fp.contact}`, fp?.phone && `电话：${fp.phone}`].filter(Boolean).join('   '));
   r++;
 
@@ -95,7 +96,10 @@ export async function renderPoExcel(o: Order, fid: string, partners: Partner[], 
   ws.mergeCells(r, 1, r, 4);
   ws.getCell(r, 1).value = '合计（含税）';
   if (idx.length) {
-    ws.getCell(r, 5).value = { formula: `SUM(E${first}:E${r - 1})` };
+    // 单位不同不能相加：按单位分开写
+    const units = unitTotals(idx.map((i) => k.rows[i]));
+    ws.getCell(r, 5).value = units.length > 1 ? qtyTotal(idx.map((i) => k.rows[i])) : { formula: `SUM(E${first}:E${r - 1})` };
+    if (units.length > 1) { ws.getCell(r, 5).alignment = { horizontal: 'right', wrapText: true }; ws.getRow(r).height = units.length * 13 + 3; }
     ws.getCell(r, 7).value = { formula: `SUM(G${first}:G${r - 1})` };
   }
   ws.getCell(r, 7).numFmt = MONEY;

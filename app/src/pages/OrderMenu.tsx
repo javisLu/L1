@@ -8,7 +8,7 @@ import { SendHistory } from '../components/history';
 import { pkgSummary } from '../domain/package';
 import { useData } from '../store/data';
 import { toast, useUI } from '../store/ui';
-import { fixed, int, money, sym, calcOrder } from '../domain/calc';
+import { fixed, money, qtyTotal, sym, calcOrder } from '../domain/calc';
 import { STATUSES } from '../domain/constants';
 import { DOCNAMES, MODS, STEP_MOD, missing, neededMods, type DocKey, type ModKey } from '../modules/defs';
 import { docState, shortStamp } from '../domain/exports';
@@ -152,7 +152,7 @@ export function OrderMenu({ order: o }: { order: Order }) {
             <h3>货物合计</h3>
             <div className="big num">{orderAmount(o)}</div>
             <div className="kv">
-              <span>数量</span><b className="num">{int(k.qty)}</b>
+              <span>数量</span><b className="num">{qtyTotal(k.rows).replace(/\n/g, ' · ')}</b>
               <span>件数</span><b className="num">{pk.mode === 'ctns' ? `${k.ctns} CTNS` : `${pk.count} ${pk.unitEn} / ${k.ctns} CTNS`}</b>
               <span>毛重 / 体积</span><b className="num">{fixed(pk.gw, 1)} kg / {fixed(pk.cbm, 2)} m³</b>
               {pf.hasCost && (

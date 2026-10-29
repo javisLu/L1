@@ -130,6 +130,7 @@ export const STEPS: Record<StepKey, StepDef> = {
       f('seller.phone', '电话', { src: 'S' }),
       f('seller.email', '邮箱', { src: 'S' }),
       f('seller.bank', '收款银行信息', { type: 'textarea', wide: true, src: 'S' }),
+      f('seller.invoiceInfo', '开票信息（印在工厂采购单上，工厂开增值税专票用）', { type: 'textarea', wide: true, src: 'S' }),
       head('买方（客户）', 'buyer'),
       f('buyer.name', '公司名称', { req: true, wide: true, src: 'B' }),
       f('buyer.address', '地址', { req: true, wide: true, type: 'textarea', src: 'B' }),

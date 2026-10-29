@@ -54,6 +54,9 @@ export const LC_TAGS: Record<string, { en: string; cn: string }> = {
 export type LcFields = Record<string, string>;
 
 /** 按栏目代号拆电文：支持原始电文（:31D:261130CHINA）和银行打印件（31D: Date and Place of Expiry 换行 261130 CHINA） */
+/** 订单里贴过信用证电文时的信用证号（:20:），印在发票、箱单上 */
+export const lcNoOf = (o: Pick<Order, 'lc'>): string => (o.lc?.text?.trim() ? (parseMT700(o.lc.text)['20'] ?? '').trim() : '');
+
 export function parseMT700(text: string): LcFields {
   const out: LcFields = {};
   let cur = '';
