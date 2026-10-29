@@ -38,13 +38,15 @@ export async function renderCoExcel(o: Order): Promise<Uint8Array> {
     ws.mergeCells(r, 3, r, last);
     const v = ws.getCell(r, 3);
     v.value = value; v.font = { name: 'Arial', size: 10 }; v.alignment = { vertical: 'top', wrapText: true }; v.border = box;
-    ws.getRow(r).height = Math.max(18, String(value).split('\n').length * 13 + 4);
+    ws.getRow(r).height = Math.max(18, String(value).split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 80)), 0) * 13 + 4);
     r++;
   };
 
   title('原产地证申请资料', 15);
   title(c.name, 11, 'FF333333');
+  title('草稿 · 照此在「中国国际贸易单一窗口」填写 · 以签发机构审核为准', 8, 'FF777777');
   r++;
+  pair('Certificate No.（签发后填）', '');
   pair('1. 出口商 Exporter', [o.seller.name, o.seller.address, 'CHINA'].filter(Boolean).join('\n'));
   pair('2. 收货人 Consignee', [o.buyer.name, o.buyer.address, d.en].filter(Boolean).join('\n'));
   pair('3. 运输方式和路线', routeText(o));
@@ -80,7 +82,13 @@ export async function renderCoExcel(o: Order): Promise<Uint8Array> {
   }
   r++;
   pair('10. 发票号和日期', `${o.numbers.ci}  ${o.numbers.date}`);
-  pair('11. 申报地点和日期', `${declPlace(o)}  ${o.numbers.date}`);
+  pair('11. 出口商声明 Declaration', `The undersigned hereby declares that the above details and statements are correct, that all the goods were produced in China and that they comply with the Rules of Origin of the People's Republic of China.\n${declPlace(o)}  ${o.numbers.date}`);
+  r++;
+  ws.mergeCells(r, 1, r, last);
+  const n = ws.getCell(r, 1);
+  n.value = `说明：${c.hs6 ? `自贸协定证书商品编码填前 6 位；原产地标准常用 ${c.criteria.join(' / ')}（完全获得填 WO，按区域价值成分判定的要填 FOB 价）。` : '一般原产地证：完全国产填 P，含进口料件填 W + 4 位品目号。'}第 12 栏由签发机构填写。`;
+  n.font = { name: 'Arial', size: 8, color: { argb: 'FF666666' } }; n.alignment = { wrapText: true };
+  ws.getRow(r).height = 28;
   ws.headerFooter.oddFooter = `&L${docFile(o, 'co')}&R&P / &N`;
   const buf = await wb.xlsx.writeBuffer();
   return new Uint8Array(buf as ArrayBuffer);

@@ -14,11 +14,12 @@ import type { DocKey } from '../modules/defs';
 registerFonts(resolve('public/fonts/NotoSansSC-Regular.ttf'), resolve('public/fonts/NotoSansSC-Bold.ttf'));
 
 const blank = () => blankForm(seed().seller);
+// 带格式的文字（报关单格子：栏目名 + 内容）也要读出来，用 cell.text
 const cellsText = async (u8: Uint8Array) => {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(u8 as unknown as ArrayBuffer);
   const out: string[] = [];
-  wb.worksheets[0].eachRow((row) => row.eachCell((c) => out.push(String(c.value ?? ''))));
+  wb.worksheets[0].eachRow((row) => row.eachCell((c) => out.push(c.text)));
   return out.join('\n');
 };
 

@@ -50,7 +50,7 @@ export async function renderPoExcel(o: Order, fid: string, partners: Partner[], 
     ws.mergeCells(r, 3, r, last);
     const c = ws.getCell(r, 3);
     c.value = v; c.font = { name: 'Arial', size: 10 }; c.alignment = { vertical: 'top', wrapText: true };
-    ws.getRow(r).height = Math.max(16, String(v).split('\n').length * 13 + 3);
+    ws.getRow(r).height = Math.max(16, String(v).split('\n').length * 14 + 4);
     r++;
   };
 
@@ -62,7 +62,8 @@ export async function renderPoExcel(o: Order, fid: string, partners: Partner[], 
   r++;
   pair('采购单号', poNo(o, fid));
   pair('日期', o.numbers.date);
-  pair('需方（采购方）', `${o.seller.nameCn || o.seller.name}  ${o.seller.phone}`);
+  pair('交货日期', po.delivery ?? '');
+  pair('需方（采购方）', [o.seller.nameCn || o.seller.name, o.seller.address, o.seller.phone && `电话：${o.seller.phone}`].filter(Boolean).join('\n'));
   if (o.seller.invoiceInfo?.trim()) pair('开票信息', o.seller.invoiceInfo.trim());
   pair('供方（工厂）', [factoryName(partners, fid), fp?.contact && `联系人：${fp.contact}`, fp?.phone && `电话：${fp.phone}`].filter(Boolean).join('   '));
   r++;
@@ -99,7 +100,7 @@ export async function renderPoExcel(o: Order, fid: string, partners: Partner[], 
     // 单位不同不能相加：按单位分开写
     const units = unitTotals(idx.map((i) => k.rows[i]));
     ws.getCell(r, 5).value = units.length > 1 ? qtyTotal(idx.map((i) => k.rows[i])) : { formula: `SUM(E${first}:E${r - 1})` };
-    if (units.length > 1) { ws.getCell(r, 5).alignment = { horizontal: 'right', wrapText: true }; ws.getRow(r).height = units.length * 13 + 3; }
+    if (units.length > 1) ws.getRow(r).height = units.length * 14 + 4;
     ws.getCell(r, 7).value = { formula: `SUM(G${first}:G${r - 1})` };
   }
   ws.getCell(r, 7).numFmt = MONEY;
@@ -107,7 +108,7 @@ export async function renderPoExcel(o: Order, fid: string, partners: Partner[], 
     const c = ws.getCell(r, j);
     c.font = { name: 'Arial', bold: true, size: 10 }; c.border = box;
     c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F5F8' } };
-    if (j >= 5) c.alignment = { horizontal: 'right' };
+    if (j >= 5) c.alignment = { horizontal: 'right', vertical: 'top', wrapText: true };
   }
   r++;
   const total = idx.reduce((a, i) => a + toNum(k.rows[i].q) * toNum(o.items[i].cost), 0);

@@ -40,7 +40,7 @@ export async function buildFile(o: Order, doc: DocKey, fmt: Fmt, factory?: strin
   if (fmt === 'Excel') {
     if (doc === 'contract' || doc === 'marks' || doc === 'labels' || doc === 'advice' || doc === 'po' || doc === 'co' || doc === 'isf') throw new Error(`${DOCNAMES[doc]}不支持导出 Excel`);
     const { renderExcel } = await import('./excel');
-    return { name, data: await renderExcel(o, doc as Parameters<typeof renderExcel>[1], assets) };
+    return { name, data: await renderExcel(o, doc as Parameters<typeof renderExcel>[1], assets, useData.getState().partners) };
   }
   if (doc !== 'contract') throw new Error(`${DOCNAMES[doc]}不支持导出 Word`);
   const { renderContractDocx } = await import('./word');

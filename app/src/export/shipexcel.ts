@@ -68,12 +68,13 @@ export async function renderShipExcel(o: Order, doc: 'booking' | 'si', forwarder
     pair('体积 Meas. (CBM)', z(pk.cbm.toFixed(3)), '净重 N.W. (KGS)', z(k.nw.toFixed(2)));
     pair('品名 / HS Code', goods);
     pair('唛头 Marks', o.shipping.marks || 'N/M');
-    pair('投保 Insurance', isBlank(o) ? '' : insureNeeded(o) ? `请代为投保，保额按发票金额 110%${has ? `（发票金额 ${sym(o.terms.currency)}${money(k.amount)}）` : ''}` : '无需投保');
+    pair('投保 Insurance', isBlank(o) ? '' : insureNeeded(o) ? `请代为投保，保额按发票金额 110%${has ? `（发票金额 ${sym(o.terms.currency)}${money(k.amount)}）` : ''}\nPlease arrange insurance for 110% of invoice value.` : '无需投保 No insurance required.');
     pair('特殊要求 Remarks', o.shipping.bookingNote ?? '');
   } else {
     title('SHIPPING INSTRUCTION');
     r++;
     pair('Ref.', o.no ? `SI-${o.no}` : '', 'B/L No.', o.shipping.blNo);
+    pair('Date', o.numbers.date);
     pair('SHIPPER', shipperText(o), 'VESSEL / VOYAGE', o.shipping.vessel);
     pair('CONSIGNEE', consigneeText(o), 'NOTIFY PARTY', notifyText(o));
     pair('PORT OF LOADING', o.terms.pol, 'PORT OF DISCHARGE', o.terms.pod);
@@ -98,6 +99,16 @@ export async function renderShipExcel(o: Order, doc: 'booking' | 'si', forwarder
     ws.mergeCells(r, 1, r, 4);
     ws.getCell(r, 1).value = z(pk.words); ws.getCell(r, 1).font = { name: 'Arial', bold: true, size: 10 };
   }
+  // 结尾说明和签章栏（和 PDF 一致）
+  r += 2;
+  const note = (t: string) => { ws.mergeCells(r, 1, r, 4); const c = ws.getCell(r, 1); c.value = t; c.font = { name: 'Arial', size: 9, color: { argb: 'FF555555' } }; c.alignment = { wrapText: true }; ws.getRow(r).height = 28; r++; };
+  if (doc === 'booking') note('请确认船期后回传订舱确认（S/O），并在开船前发送提单草稿核对。Please confirm the booking and send us the draft B/L before sailing.');
+  else if (!isBlank(o)) note(`${freightText(o)} · ${blTypeText(o)}${o.shipping.bookingNote ? ` · ${o.shipping.bookingNote}` : ''}`);
+  ws.getRow(r).height = 44; r++;
+  const sig = (c1: number, c2: number, t: string) => { ws.mergeCells(r, c1, r, c2); const c = ws.getCell(r, c1); c.value = t; c.font = { name: 'Arial', size: 9 }; c.border = { top: { style: 'thin', color: { argb: 'FF333333' } } }; };
+  sig(1, 2, doc === 'booking' ? `委托方签章 For ${o.seller.name}` : `For and on behalf of ${o.seller.name}`);
+  sig(3, 4, doc === 'booking' ? '货代确认 Forwarder' : 'Authorized Signature');
+
   ws.headerFooter.oddFooter = `&L${docFile(o, doc)}&R&P / &N`;
   const buf = await wb.xlsx.writeBuffer();
   return new Uint8Array(buf as ArrayBuffer);

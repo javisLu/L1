@@ -1,23 +1,34 @@
 import ExcelJS from 'exceljs';
-import { THEMES, TRANSPORT_CD } from '../domain/constants';
-import { amountWords, needAddr, calcOrder, qtyTotal, unitTotals } from '../domain/calc';
+import { THEMES } from '../domain/constants';
+import { amountWords, fixed, needAddr, calcOrder, qtyTotal, unitTotals } from '../domain/calc';
 import { lcNoOf } from '../domain/lc';
-import { codeName, curCn, unitCn, ymd8 } from '../domain/customsForm';
 import { DOCNAMES, docFile, type DocKey } from '../modules/defs';
-import type { Order } from '../domain/types';
+import type { Order, Partner } from '../domain/types';
 import type { DocAssets } from '../docs/primitives';
 import { pkgNote, pkgSummary } from '../domain/package';
 import { fit, imageInfo } from './images';
 
 type ExcelDoc = Exclude<DocKey, 'contract' | 'po' | 'co' | 'marks' | 'labels' | 'booking' | 'si' | 'advice' | 'isf'>;
+type CommercialDoc = Exclude<ExcelDoc, 'customs'>;
 const MONEY = '#,##0.00';
 const thin = { style: 'thin' as const, color: { argb: 'FFC9CFD8' } };
 const box = { top: thin, left: thin, bottom: thin, right: thin };
 
 interface Col { header: string; width: number; key: string; num?: string; align?: 'left' | 'center' | 'right' }
 
-/** 生成单据 Excel：抬头、双方、条款、明细表（金额与合计为公式，改数量单价会自动重算） */
-export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): Promise<Uint8Array> {
+/**
+ * 生成单据 Excel：抬头、双方、条款、明细表（金额与合计为公式，改数量单价会自动重算）。
+ * 内容和 PDF 一致；报关单另按报关单的格子排（customsexcel.ts）。
+ */
+export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets, partners: Partner[] = []): Promise<Uint8Array> {
+  if (doc === 'customs') {
+    const { renderCustomsExcel } = await import('./customsexcel');
+    return renderCustomsExcel(o, partners);
+  }
+  return renderCommercial(o, doc, assets);
+}
+
+async function renderCommercial(o: Order, doc: CommercialDoc, assets?: DocAssets): Promise<Uint8Array> {
   const wb = new ExcelJS.Workbook();
   wb.creator = '外贸超级工作台';
   wb.created = new Date();
@@ -49,7 +60,7 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
   };
 
   // Logo 放在左上角（与预览、PDF 一致）：占第一列（第一列很窄时占前两列），公司名称等从它右边开始
-  const logo = doc !== 'customs' ? imageInfo(assets?.logo ?? '') : null;
+  const logo = imageInfo(assets?.logo ?? '');
   let headFrom = 1;
   if (logo) {
     const span = colPx[0] >= 100 ? 1 : 2;
@@ -93,68 +104,47 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
     fitHeight([value], 70);
     r++;
   };
-  /** 报关表：每行两组「字段：内容」 */
-  const pair2 = (l1: string, v1: string, l2?: string, v2?: string) => {
-    ws.mergeCells(r, 1, r, 2); labelStyle(ws.getCell(r, 1), l1);
-    ws.mergeCells(r, 3, r, 4); valueStyle(ws.getCell(r, 3), v1);
-    if (l2 != null) {
-      ws.mergeCells(r, 5, r, 7); labelStyle(ws.getCell(r, 5), l2);
-      ws.mergeCells(r, 8, r, last); valueStyle(ws.getCell(r, 8), v2 ?? '');
-    }
-    fitHeight([v1, v2 ?? ''], 40);
-    r++;
-  };
-
   // 抬头
-  if (doc === 'customs') {
-    line('中华人民共和国海关出口货物报关单', { bold: true, size: 16, align: 'center' });
-    line('预录入草稿 · 供报关行核对 · 以单一窗口申报为准', { size: 9, color: 'FF777777', align: 'center' });
-  } else {
-    line(o.seller.name, { bold: true, size: 14, color: acc, from: headFrom });
-    line(o.seller.address, { size: 9, from: headFrom });
-    line(`Tel: ${o.seller.phone}   Email: ${o.seller.email}`, { size: 9, from: headFrom });
-    if (logo) [22, 16, 16].forEach((h, i) => (ws.getRow(i + 1).height = h));
-    r++;
-    line({ quote: 'QUOTATION', pi: 'PROFORMA INVOICE', ci: 'COMMERCIAL INVOICE', pl: 'PACKING LIST' }[doc], { bold: true, size: 18, color: acc, align: 'center' });
-  }
+  line(o.seller.name, { bold: true, size: 14, color: acc, from: headFrom });
+  line(o.seller.address, { size: 9, from: headFrom });
+  line(`Tel: ${o.seller.phone}   Email: ${o.seller.email}`, { size: 9, from: headFrom });
+  if (logo) [22, 16, 16].forEach((h, i) => (ws.getRow(i + 1).height = h));
+  r++;
+  line({ quote: 'QUOTATION', pi: 'PROFORMA INVOICE', ci: 'COMMERCIAL INVOICE', pl: 'PACKING LIST' }[doc], { bold: true, size: 18, color: acc, align: 'center' });
   r++;
 
-  // 编号与双方
-  if (doc === 'customs') {
-    const cd = o.customs;
-    // 栏目顺序和报关单一致
-    const fields: [string, string][] = [
-      ['境内发货人', `${o.seller.nameCn}  ${o.seller.tax}`], ['出境关别', cd.exportPort], ['出口日期', ymd8(o.shipping.etd)], ['申报日期', ''], ['备案号', ''],
-      ['境外收货人', o.buyer.name], ['运输方式', TRANSPORT_CD[o.terms.transport] ?? ''], ['运输工具名称及航次号', o.shipping.vessel], ['提运单号', o.shipping.blNo],
-      ['生产销售单位', `${o.seller.nameCn}  ${o.seller.tax}`], ['监管方式', codeName(cd.supervision)], ['征免性质', codeName(cd.exemption)], ['许可证号', cd.license],
-      ['合同协议号', o.numbers.contract], ['贸易国（地区）', cd.tradeCountry], ['运抵国（地区）', cd.destCountry], ['指运港', o.terms.pod], ['离境口岸', o.terms.pol],
-      ['包装种类', cd.packageType], ['件数', String(pk.count)], ['毛重（千克）', pk.gw.toFixed(2)], ['净重（千克）', k.nw.toFixed(2)],
-      ['成交方式', o.terms.incoterm], ['运费', cd.freight], ['保费', cd.insFee], ['杂费', ''], ['随附单证及编号', cd.docs], ['标记唛码及备注', o.shipping.marks],
-    ];
-    for (let i = 0; i < fields.length; i += 2) {
-      const [l1, v1] = fields[i];
-      const next = fields[i + 1];
-      pair2(l1, v1 ?? '', next?.[0], next?.[1] ?? '');
-    }
-  } else {
+  // 编号与双方（和 PDF 一样的栏目）
+  {
     const nos: [string, string][] =
       doc === 'quote' ? [['No.', o.numbers.quote], ['Date', o.numbers.date], ['Valid Until', o.numbers.validUntil]]
       : doc === 'pi' ? [['No.', o.numbers.pi], ['Date', o.numbers.date], ['PO No.', o.numbers.po]]
-      : [['Invoice No.', o.numbers.ci], ['Date', o.numbers.date], ['Contract No.', o.numbers.contract], ['PO No.', o.numbers.po], ...(lcNoOf(o) ? [['L/C No.', lcNoOf(o)] as [string, string]] : [])];
+      : [['Invoice No.', o.numbers.ci], ['Date', o.numbers.date], ['Contract No.', o.numbers.contract], ...(doc === 'ci' ? [['PO No.', o.numbers.po] as [string, string]] : []), ...(lcNoOf(o) ? [['L/C No.', lcNoOf(o)] as [string, string]] : [])];
     nos.forEach(([l, v]) => pair(l, v));
     r++;
-    pair(doc === 'ci' ? 'Sold To' : doc === 'pl' ? 'Consignee' : 'To', [o.buyer.name, o.buyer.address, `Attn: ${o.buyer.contact}  Tel: ${o.buyer.phone}`, o.buyer.email].filter(Boolean).join('\n'));
-    if (doc === 'ci' || doc === 'pl') {
+    const buyer = [o.buyer.name, o.buyer.address, `Attn: ${o.buyer.contact || '—'}  Tel: ${o.buyer.phone || '—'}`, o.buyer.email, o.buyer.tax && `Tax/VAT: ${o.buyer.tax}`].filter(Boolean).join('\n');
+    if (doc === 'quote' || doc === 'pi') {
+      pair('To / Buyer', buyer);
+      pair('Bank Information', o.seller.bank);
+      pair('Incoterms 2020', `${o.terms.incoterm} ${o.terms.place}`);
+      pair('Payment', o.terms.paymentText);
+      pair('Lead Time', o.terms.leadTime);
+      pair('Port of Loading', o.terms.pol);
+      pair('Destination', o.terms.pod);
+      pair('Currency', o.terms.currency);
+      if (o.terms.deliveryAddress || needAddr(o)) pair('Place of Delivery', o.terms.deliveryAddress);
+    } else {
+      pair(doc === 'ci' ? 'Sold To / Consignee' : 'Consignee', buyer);
       pair('Shipment', `From ${o.terms.pol} to ${o.terms.pod}${o.shipping.vessel ? ` by ${o.shipping.vessel}` : ''}`);
       pair('B/L No.', o.shipping.blNo);
+      pair('ETD', o.shipping.etd);
       pair('Container', o.shipping.container);
+      if (o.terms.deliveryAddress && needAddr(o)) pair('Deliver to', o.terms.deliveryAddress);
+      if (doc === 'ci') {
+        pair('Terms', `${o.terms.incoterm} ${o.terms.place}`);
+        pair('Payment', o.terms.paymentText);
+        pair('Origin', o.shipping.origin);
+      }
     }
-    pair('Terms', `${o.terms.incoterm} ${o.terms.place}`);
-    if (o.terms.deliveryAddress || needAddr(o)) pair('Place of Delivery', o.terms.deliveryAddress);
-    if (doc !== 'pl') pair('Payment', o.terms.paymentText);
-    if (doc === 'quote' || doc === 'pi') pair('Lead Time', o.terms.leadTime);
-    if (doc === 'pi') pair('Bank', o.seller.bank);
-    if (doc === 'ci') pair('Country of Origin', o.shipping.origin);
   }
   r++;
 
@@ -174,12 +164,12 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
   k.rows.forEach((row, i) => {
     r++;
     const values: Record<string, unknown> = {
-      no: i + 1, model: row.model, desc: row.pack && doc === 'pl' ? `${row.nameEn} (MIXED)` : row.nameEn, spec: row.spec, hs: row.hs, unit: doc === 'customs' ? unitCn(row.unit) : row.unit, qty: row.q, price: row.p,
+      no: i + 1, model: row.model, desc: row.pack && doc === 'pl' ? `${row.nameEn} (MIXED)` : row.nameEn, spec: row.spec, hs: row.hs, unit: row.unit, qty: row.q, price: row.p,
+      per: row.pack ? 'MIXED' : row.pcsPerCtn ? `${row.pcsPerCtn} ${row.unit}/CTN` : '',
       cno: row.from ? (row.pack && row.from === row.to ? String(row.from) : `${row.from}-${row.to}`) : '',
       ctns: row.pack ? (row.n || null) : row.n,
       nw: Number(row.nwT.toFixed(3)), gw: Number(row.gwT.toFixed(2)), cbm: Number(row.cbmT.toFixed(3)),
-      marks: i === 0 ? o.shipping.marks : '', nameCn: row.nameCn, elements: row.elements, cur: doc === 'customs' ? curCn(cur) : cur, origin: '中国',
-      dest: o.customs.destCountry, source: o.customs.sourceArea, exempt: '照章征税',
+      marks: i === 0 ? o.shipping.marks : '',
     };
     cols.forEach((c, ci) => {
       const cell = ws.getCell(r, ci + 1);
@@ -215,7 +205,7 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
       }
     });
   }
-  if (doc !== 'customs' && k.rows.length) {
+  if (k.rows.length) {
     r++;
     const sum = (key: string, result: number) => ({ formula: `SUM(${letter(key)}${first}:${letter(key)}${r - 1})`, result });
     // 单位不同不能相加：数量合计按单位分开写
@@ -223,7 +213,7 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
     const totals: Record<string, unknown> = { qty: mixed ? qtyTotal(k.rows) : sum('qty', k.qty), amount: sum('amount', k.amount), ctns: sum('ctns', k.ctns), nw: sum('nw', k.nw), gw: sum('gw', k.gw), cbm: sum('cbm', k.cbm) };
     cols.forEach((c, ci) => {
       const cell = ws.getCell(r, ci + 1);
-      cell.value = ci === 0 ? 'TOTAL' : ((totals[c.key] as ExcelJS.CellValue) ?? '');
+      cell.value = ci === 0 ? (doc === 'quote' || doc === 'pi' ? `TOTAL ${o.terms.incoterm} ${o.terms.place}`.toUpperCase() : 'TOTAL') : ((totals[c.key] as ExcelJS.CellValue) ?? '');
       cell.font = { name: 'Arial', bold: true, size: 9 };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F5F8' } };
       cell.border = box;
@@ -231,37 +221,62 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
       if (c.num) cell.numFmt = c.num;
     });
     if (mixed) ws.getRow(r).height = unitTotals(k.rows).length * 13 + 3;
+    // 合计字样占到第一个有数的格子前面（「TOTAL FOB QINGDAO」不会被窄列截断）
+    const firstNum = cols.findIndex((c, ci) => ci > 0 && totals[c.key] != null);
+    if (firstNum > 1) {
+      ws.mergeCells(r, 1, r, firstNum);
+      ws.getCell(r, 1).alignment = { horizontal: 'left', vertical: 'middle' };
+    }
   }
   r += 2;
 
-  // 大写与备注
+  // 大写、包装、备注、条款、声明（和 PDF 一样）
+  const heading = (t: string) => line(t, { bold: true, size: 9, color: acc });
   if (!k.rows.length) { /* 没有货物：不写大写 */ }
   else if (doc === 'pl') {
     line(pk.words, { bold: true, size: 10 });
     if (pkgNote(pk)) line(pkgNote(pk), { size: 9 });
+  } else {
+    line(amountWords(k.amount, cur), { bold: true, size: 10 });
+    if (doc === 'quote' || doc === 'pi') line(`Packing: ${pk.short}  ·  G.W. ${fixed(pk.gw, 2)} kg  ·  Meas. ${fixed(pk.cbm, 3)} m³`, { size: 9, color: 'FF555555' });
   }
-  else if (doc !== 'customs') line(amountWords(k.amount, cur), { bold: true, size: 10 });
   if (doc === 'quote' || doc === 'pi') {
-    if (o.docset.remarks) line('Remarks: ' + o.docset.remarks, { size: 9 });
-    o.docset.clauses.split('\n').filter((x) => x.trim()).forEach((x, i) => line(`${i + 1}. ${x}`, { size: 9 }));
+    if (o.docset.remarks) { heading('REMARKS'); line(o.docset.remarks, { size: 9 }); }
+    const clauses = o.docset.clauses.split('\n').filter((x) => x.trim());
+    if (clauses.length) { heading('TERMS & CONDITIONS'); clauses.forEach((x, i) => line(`${i + 1}. ${x}`, { size: 9 })); }
   }
-  if ((doc === 'ci' || doc === 'pl') && o.docset.statement?.trim()) o.docset.statement.trim().split('\n').forEach((x) => line(x, { size: 9, bold: true }));
-  if (doc === 'ci') line('We hereby certify that the information on this invoice is true and correct.', { size: 9 });
+  if ((doc === 'ci' || doc === 'pl') && o.docset.statement?.trim()) { heading('REMARKS'); line(o.docset.statement.trim(), { size: 9 }); }
+  if (doc === 'pl' && (o.packs ?? []).length) line('Note: goods marked MIXED are packed together in the same carton(s); the carton gross weight is allocated to each item in proportion to its net weight.', { size: 8, color: 'FF666666' });
+  if (doc === 'ci') { heading('DECLARATION'); line('We hereby certify that the information on this invoice is true and correct and that the contents of this shipment are as stated above.', { size: 9 }); }
   r++;
-  // 签字区（右侧）：卖方名称 → 留白盖章、签名 → 签字线
-  if (doc !== 'customs') {
+  // 签字区：右侧卖方名称 → 留白盖章、签名 → 签字线；报价单、PI 左侧留买方确认
+  {
     // 从距右边缘约 320 像素的那一列开始
     let from = last, px = colPx[last - 1];
     while (from > 2 && px < 320) px += colPx[--from - 1];
     const fromPx = colPx.slice(0, from - 1).reduce((x, y) => x + y, 0);
+    const top = r;
     const head = line(`For and on behalf of\n${o.seller.name}`, { size: 9, from });
     head.font = { ...head.font, bold: true };
     ws.getRow(r - 1).height = 28;
     const blank = r;
     ws.getRow(blank).height = 58;
     r++;
+    const sigLine = r;
     line('______________________________', { size: 9, from });
     line('Authorized Signature', { size: 9, color: 'FF6B7380', from });
+    if ((doc === 'quote' || doc === 'pi') && from > 2) {
+      const left = (row: number, text: string, opt: { bold?: boolean; color?: string } = {}) => {
+        ws.mergeCells(row, 1, row, from - 2);
+        const c = ws.getCell(row, 1);
+        c.value = text;
+        c.font = { name: 'Arial', size: 9, bold: opt.bold, color: opt.color ? { argb: opt.color } : undefined };
+        c.alignment = { vertical: 'middle', wrapText: true };
+      };
+      left(top, `Accepted by\n${o.buyer.name || 'the Buyer'}`, { bold: true });
+      left(sigLine, '______________________________');
+      left(sigLine + 1, "Buyer's Signature & Date", { color: 'FF6B7380' });
+    }
     const stamp = o.docset.stamp ? imageInfo(assets?.stamp ?? '') : null;
     const sign = o.docset.stamp ? imageInfo(assets?.signature ?? '') : null;
     // 公章盖在卖方名称下方的留白处（压住签字线），签名在公章右侧
@@ -274,7 +289,7 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
   return new Uint8Array(buf as ArrayBuffer);
 }
 
-function columns(doc: ExcelDoc, cur: string): Col[] {
+function columns(doc: CommercialDoc, cur: string): Col[] {
   if (doc === 'quote' || doc === 'pi')
     return [
       { header: 'No.', key: 'no', width: 6, align: 'center' }, { header: 'Model', key: 'model', width: 13 },
@@ -284,26 +299,16 @@ function columns(doc: ExcelDoc, cur: string): Col[] {
     ];
   if (doc === 'ci')
     return [
-      { header: 'Marks & Nos.', key: 'marks', width: 20 }, { header: 'Description of Goods', key: 'desc', width: 34 },
-      { header: 'HS Code', key: 'hs', width: 13 }, { header: 'Unit', key: 'unit', width: 8, align: 'center' },
+      { header: 'Marks & Nos.', key: 'marks', width: 20 }, { header: 'Description of Goods', key: 'desc', width: 32 },
+      { header: 'Model', key: 'model', width: 12 }, { header: 'HS Code', key: 'hs', width: 13 }, { header: 'Unit', key: 'unit', width: 8, align: 'center' },
       { header: 'Qty', key: 'qty', width: 10, num: '#,##0', align: 'right' }, { header: `Unit Price (${cur})`, key: 'price', width: 14, num: MONEY, align: 'right' },
       { header: `Amount (${cur})`, key: 'amount', width: 16, num: MONEY, align: 'right' },
     ];
-  if (doc === 'pl')
-    return [
+  return [
       { header: 'Marks', key: 'marks', width: 18 }, { header: 'C/No.', key: 'cno', width: 10, align: 'center' },
-      { header: 'Description', key: 'desc', width: 34 }, { header: 'Qty', key: 'qty', width: 10, num: '#,##0', align: 'right' },
+      { header: 'Description', key: 'desc', width: 30 }, { header: 'Model', key: 'model', width: 11 }, { header: 'Packing', key: 'per', width: 13 },
+      { header: 'Qty', key: 'qty', width: 10, num: '#,##0', align: 'right' },
       { header: 'CTNs', key: 'ctns', width: 8, num: '#,##0', align: 'right' }, { header: 'N.W. (kg)', key: 'nw', width: 12, num: MONEY, align: 'right' },
       { header: 'G.W. (kg)', key: 'gw', width: 12, num: MONEY, align: 'right' }, { header: 'Meas. (m³)', key: 'cbm', width: 12, num: '0.000', align: 'right' },
     ];
-  return [
-    { header: '项号', key: 'no', width: 6, align: 'center' }, { header: '商品编号', key: 'hs', width: 13 },
-    { header: '商品名称', key: 'nameCn', width: 22 }, { header: '申报要素', key: 'elements', width: 30 },
-    { header: '数量', key: 'qty', width: 10, num: '#,##0', align: 'right' }, { header: '单位', key: 'unit', width: 8, align: 'center' },
-    { header: '净重(千克)', key: 'nw', width: 11, num: MONEY, align: 'right' }, { header: '毛重(千克)', key: 'gw', width: 11, num: MONEY, align: 'right' },
-    { header: '单价', key: 'price', width: 11, num: MONEY, align: 'right' }, { header: '总价', key: 'amount', width: 13, num: MONEY, align: 'right' },
-    { header: '币制', key: 'cur', width: 7, align: 'center' }, { header: '原产国', key: 'origin', width: 8, align: 'center' },
-    { header: '最终目的国', key: 'dest', width: 11, align: 'center' }, { header: '境内货源地', key: 'source', width: 11, align: 'center' },
-    { header: '征免', key: 'exempt', width: 9, align: 'center' },
-  ];
 }
