@@ -12,6 +12,7 @@ import { useData } from '../store/data';
 import { factoriesOf, poNo, poRows, purchaseOf, rmbWords } from '../domain/purchase';
 import { certHs, certOf, criterionOf, declPlace, destOf, routeText } from '../domain/origin';
 import { lcNoOf } from '../domain/lc';
+import { codeName, curCn, unitCn, ymd8 } from '../domain/customsForm';
 import { isfData } from '../domain/compliance';
 
 const MONO = 'var(--f-doc-num)';
@@ -358,22 +359,30 @@ function Packing({ o }: { o: Order }) {
   );
 }
 
-/* ---------- 报关预录入表 ---------- */
+/* ---------- 报关单（按海关《出口货物报关单》格式排） ---------- */
 function CustomsDraft({ o }: { o: Order }) {
-  const k = calcOrder(o), c = o.terms.currency, a = accent(o);
+  const k = calcOrder(o), c = o.terms.currency, a = '#222';
   const pk = pkgSummary(o, k);
-  const cell = (label: string, v: ReactNode, span = 1) => (
-    <Box style={{ width: `${span * 25}%`, borderRight: '0.75px solid #333', borderBottom: '0.75px solid #333', padding: '3px 5px', minHeight: 28 }}>
-      <Txt style={{ fontSize: 6.3, color: '#666' }}>{label}</Txt>
+  const broker = useData.getState().partners.find((p) => p.id === o.partners.broker);
+  const line = '0.75px solid #333';
+  const cell = (label: string, v: ReactNode, w: string, minH = 26) => (
+    <Box style={{ width: w, borderRight: line, borderBottom: line, padding: '2px 4px', minHeight: minH }}>
+      <Txt style={{ fontSize: 6.3, color: '#555' }}>{label}</Txt>
       <Txt style={{ whiteSpace: 'pre-line' }}>{v}</Txt>
     </Box>
   );
+  // 报关单上的数字不加千位分隔，单价最多 4 位小数
+  const plain = (n: number, d: number) => String(Number((n || 0).toFixed(d)));
+  const cols: { label: string; w: string; align?: 'left' | 'center' | 'right' }[] = [
+    { label: '项号', w: '5%', align: 'center' }, { label: '商品编号', w: '11%' }, { label: '商品名称及规格型号', w: '27%' }, { label: '数量及单位', w: '11%', align: 'right' },
+    { label: '单价/总价/币制', w: '11%', align: 'right' }, { label: '原产国（地区）', w: '8%', align: 'center' }, { label: '最终目的国（地区）', w: '9%', align: 'center' }, { label: '境内货源地', w: '10%', align: 'center' }, { label: '征免', w: '8%', align: 'center' },
+  ];
   const rows = k.rows.map((r, i) => [
     String(i + 1),
     <Fld p={`items.${i}.hs`} v={r.hs} ph="[编码]" />,
-    <><Fld p={`items.${i}.nameCn`} v={r.nameCn} ph="[中文品名]" />{'\n'}<Txt style={{ color: '#777', fontSize: 7 }}><Fld p={`items.${i}.elements`} v={r.elements} ph="[申报要素]" /></Txt></>,
-    `${int(r.q)} ${r.unit}\n净重 ${fixed(r.nwT, 2)} kg\n毛重 ${fixed(r.gwT, 2)} kg`,
-    `${money(r.p)}\n${money(r.a)}\n${c}`,
+    <><Fld p={`items.${i}.nameCn`} v={r.nameCn} ph="[中文品名]" />{'\n'}<Fld p={`items.${i}.elements`} v={r.elements} ph="[申报要素]" /></>,
+    `${plain(r.nwT, 2)}千克\n${plain(r.q, 4)}${unitCn(r.unit)}`,
+    `${plain(r.p, 4)}\n${r.a.toFixed(2)}\n${curCn(c)}`,
     '中国',
     F(o, 'customs.destCountry', '—'),
     F(o, 'customs.sourceArea', '—'),
@@ -381,31 +390,56 @@ function CustomsDraft({ o }: { o: Order }) {
   ]);
   return (
     <Page accent={a}>
-      <Box style={{ marginBottom: 6 }}>
-        <Txt style={{ width: '100%', textAlign: 'center', fontSize: 13, fontWeight: 700, letterSpacing: 3 }}>出口报关资料预录入表</Txt>
-        <Txt style={{ width: '100%', textAlign: 'center', color: '#777', fontSize: 7, letterSpacing: 1, marginTop: 2 }}>草稿 · 供报关行申报参考 · 以海关系统录入为准</Txt>
-      </Box>
-      <Row style={{ justifyContent: 'space-between', margin: '8px 0 5px', fontSize: 7, color: '#555' }}>
-        <Txt>合同协议号 {F(o, 'numbers.contract')}</Txt><Txt>发票号 {F(o, 'numbers.ci')}</Txt><Txt>订单 {o.no}</Txt>
+      <Txt style={{ width: '100%', textAlign: 'center', fontSize: 13, fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>中华人民共和国海关出口货物报关单</Txt>
+      <Row style={{ justifyContent: 'space-between', fontSize: 7, color: '#333', marginBottom: 3 }}>
+        <Txt style={{ width: '40%' }}>预录入编号：</Txt><Txt style={{ width: '40%' }}>海关编号：</Txt><Txt style={{ width: '20%', textAlign: 'right' }}>订单 {o.no}</Txt>
       </Row>
-      <Box style={{ borderTop: '0.75px solid #333', borderLeft: '0.75px solid #333' }}>
-        <Row>{cell('境内发货人', <>{F(o, 'seller.nameCn', '[中文名称]')}{'\n'}{F(o, 'seller.tax', '[信用代码]')}</>, 2)}{cell('出境关别', F(o, 'customs.exportPort'))}{cell('出口日期', F(o, 'shipping.etd', '—'))}</Row>
-        <Row>{cell('境外收货人', F(o, 'buyer.name', '[境外收货人]'), 2)}{cell('运输方式', TRANSPORT_CD[o.terms.transport] ?? '—')}{cell('运输工具名称及航次号', F(o, 'shipping.vessel', '—'))}</Row>
-        <Row>{cell('生产销售单位', F(o, 'seller.nameCn', '[中文名称]'), 2)}{cell('监管方式', F(o, 'customs.supervision'))}{cell('征免性质', F(o, 'customs.exemption'))}</Row>
-        <Row>{cell('提运单号', F(o, 'shipping.blNo', '—'))}{cell('许可证号', F(o, 'customs.license', '—'))}{cell('贸易国（地区）', F(o, 'customs.tradeCountry', '—'))}{cell('运抵国（地区）', F(o, 'customs.destCountry', '—'))}</Row>
-        <Row>{cell('指运港', F(o, 'terms.pod', '—'))}{cell('离境口岸', F(o, 'terms.pol'))}{cell('包装种类', F(o, 'customs.packageType'))}{cell('件数', `${pk.count} ${pk.unitCn}`)}</Row>
-        <Row>{cell('毛重（千克）', nz(k, fixed(pk.gw, 2)))}{cell('净重（千克）', nz(k, fixed(k.nw, 2)))}{cell('成交方式', F(o, 'terms.incoterm'))}{cell('运费 / 保费', <>{F(o, 'customs.freight', '—')} / {F(o, 'customs.insFee', '—')}</>)}</Row>
-        <Row>{cell('随附单证', F(o, 'customs.docs', '—'), 4)}</Row>
-        <Row>{cell('标记唛码及备注', F(o, 'shipping.marks', 'N/M'), 4)}</Row>
+      <Box style={{ borderTop: line, borderLeft: line }}>
+        <Row>
+          {cell('境内发货人', <>{F(o, 'seller.nameCn', '[中文名称]')}{'\n'}{F(o, 'seller.tax', '[统一社会信用代码]')}</>, '36%')}
+          {cell('出境关别', F(o, 'customs.exportPort'), '16%')}{cell('出口日期', ymd8(o.shipping.etd) || '—', '16%')}{cell('申报日期', '', '16%')}{cell('备案号', '', '16%')}
+        </Row>
+        <Row>
+          {cell('境外收货人', F(o, 'buyer.name', '[境外收货人]'), '36%')}
+          {cell('运输方式', TRANSPORT_CD[o.terms.transport] ?? '—', '16%')}{cell('运输工具名称及航次号', F(o, 'shipping.vessel', '—'), '24%')}{cell('提运单号', F(o, 'shipping.blNo', '—'), '24%')}
+        </Row>
+        <Row>
+          {cell('生产销售单位', <>{F(o, 'seller.nameCn', '[中文名称]')}{'\n'}{F(o, 'seller.tax', '')}</>, '36%')}
+          {cell('监管方式', codeName(o.customs.supervision) || '—', '16%')}{cell('征免性质', codeName(o.customs.exemption) || '—', '16%')}{cell('许可证号', F(o, 'customs.license', ''), '32%')}
+        </Row>
+        <Row>
+          {cell('合同协议号', F(o, 'numbers.contract'), '20%')}{cell('贸易国（地区）', F(o, 'customs.tradeCountry', '—'), '20%')}{cell('运抵国（地区）', F(o, 'customs.destCountry', '—'), '20%')}
+          {cell('指运港', F(o, 'terms.pod', '—'), '20%')}{cell('离境口岸', F(o, 'terms.pol'), '20%')}
+        </Row>
+        <Row>
+          {cell('包装种类', F(o, 'customs.packageType'), '21%')}{cell('件数', String(pk.count || ''), '8%')}{cell('毛重（千克）', nz(k, plain(pk.gw, 2)), '11%')}{cell('净重（千克）', nz(k, plain(k.nw, 2)), '11%')}
+          {cell('成交方式', F(o, 'terms.incoterm'), '9%')}{cell('运费', F(o, 'customs.freight', ''), '14%')}{cell('保费', F(o, 'customs.insFee', ''), '14%')}{cell('杂费', '', '12%')}
+        </Row>
+        <Row>{cell('随附单证及编号', F(o, 'customs.docs', ''), '100%')}</Row>
+        <Row>{cell('标记唛码及备注', F(o, 'shipping.marks', 'N/M'), '100%', 40)}</Row>
       </Box>
-      <Box style={{ marginTop: 10 }}>
-        <Table
-          accent={a}
-          cols={[{ label: '项号', w: '5%', align: 'center' }, { label: '商品编号', w: '12%' }, { label: '商品名称及规格型号', w: '26%' }, { label: '数量 / 净毛重', w: '16%', align: 'right' }, { label: '单价/总价/币制', w: '12%', align: 'right' }, { label: '原产国', w: '7%', align: 'center' }, { label: '最终目的国', w: '8%', align: 'center' }, { label: '境内货源地', w: '8%', align: 'center' }, { label: '征免', w: '6%', align: 'center' }]}
-          rows={rows.length ? rows : EmptyRow(9)}
-        />
+      {/* 货物表：和报关单一样白底黑框（不用彩色表头） */}
+      <Box style={{ borderLeft: line }}>
+        <Row>{cols.map((x, i) => <Box key={i} style={{ width: x.w, borderRight: line, borderBottom: line, padding: '3px 3px' }}><Txt style={{ textAlign: 'center', fontSize: 6.8 }}>{x.label}</Txt></Box>)}</Row>
+        {(rows.length ? rows : EmptyRow(9)).map((r, ri) => (
+          <Row key={ri} keep>{r.map((v, ci) => <Box key={ci} style={{ width: cols[ci].w, borderRight: line, borderBottom: line, padding: '3px 3px', minHeight: 30 }}><Txt style={{ textAlign: cols[ci].align ?? 'left', whiteSpace: 'pre-line' }}>{v}</Txt></Box>)}</Row>
+        ))}
       </Box>
-      <Txt style={{ marginTop: 10, color: '#666', fontSize: 7 }}>说明：本表根据订单数据生成，供报关行核对与录入，不作为海关正式单证。</Txt>
+      <Box style={{ borderLeft: line, borderRight: line, borderBottom: line, padding: '3px 5px' }}>
+        <Txt>特殊关系确认：        价格影响确认：        支付特许权使用费确认：        自报自缴：</Txt>
+      </Box>
+      <Row style={{ borderLeft: line, borderBottom: line }}>
+        <Box style={{ width: '38%', borderRight: line, padding: '3px 5px', minHeight: 54 }}>
+          <Txt>报关人员        报关人员证号        电话</Txt>
+          <Txt style={{ marginTop: 14 }}>申报单位  {broker?.name ?? ''}</Txt>
+        </Box>
+        <Box style={{ width: '37%', borderRight: line, padding: '3px 5px' }}>
+          <Txt>兹申明对以上内容承担如实申报、依法纳税之法律责任</Txt>
+          <Txt style={{ marginTop: 22, textAlign: 'right' }}>申报单位（签章）</Txt>
+        </Box>
+        <Box style={{ width: '25%', borderRight: line, padding: '3px 5px' }}><Txt>海关批注及签章</Txt></Box>
+      </Row>
+      <Txt style={{ marginTop: 8, color: '#666', fontSize: 7 }}>说明：根据订单数据生成的预录入草稿，供报关行核对；「数量及单位」第一行为净重、第二行为成交数量，法定计量单位和数量以报关行按税则核定为准，正式以单一窗口申报为准。</Txt>
     </Page>
   );
 }

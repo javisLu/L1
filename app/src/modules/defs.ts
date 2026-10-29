@@ -43,7 +43,7 @@ export const MODS: Record<ModKey, ModDef> = {
   purchase: { code: 'PO', name: '工厂采购', desc: '给工厂的采购单（按工厂各出一张）；采购价、退税、费用算出每单利润', grp: 'doc', docs: ['po'], steps: ['purchaseItems', 'purchase', 'profit'], uses: ['parties', 'items', 'packing', 'marks'] },
   ci: { code: 'CI', name: '商业发票', desc: 'Commercial Invoice：发票号、原产地、注明文字', grp: 'doc', docs: ['ci'], steps: ['invoice'], uses: ['parties', 'items', 'terms', 'contractNo', 'shipping', 'docset'] },
   pl: { code: 'PL', name: '箱单', desc: 'Packing List：箱号、净毛重、体积自动计算', grp: 'doc', docs: ['pl'], steps: ['packing'], uses: ['parties', 'items', 'invoice', 'shipping', 'docset'] },
-  customs: { code: 'CD', name: '报关资料', desc: '报关预录入表 + 发票 + 箱单，发报关行', grp: 'doc', docs: ['customs', 'ci', 'pl'], steps: ['customs', 'customsItems'], uses: ['parties', 'items', 'terms', 'contractNo', 'packing', 'shipping'] },
+  customs: { code: 'CD', name: '报关资料', desc: '报关单（预录入）+ 发票 + 箱单，发报关行', grp: 'doc', docs: ['customs', 'ci', 'pl'], steps: ['customs', 'customsItems'], uses: ['parties', 'items', 'terms', 'contractNo', 'packing', 'shipping'] },
   origin: { code: 'CO', name: '产地证', desc: '原产地证申请资料：按目的国提示能用的证书（RCEP、Form E 等），照着填单一窗口', grp: 'doc', docs: ['co'], steps: ['coInfo'], uses: ['parties', 'items', 'invoice', 'customsItems', 'packing', 'shipping', 'marks'] },
   booking: { code: 'SI', name: '订舱 / 提单', desc: '订舱委托书、SI 提单补料、装船通知：船期、收发通、提单；美国单另有 ISF 资料', grp: 'doc', docs: ['booking', 'si', 'advice', 'isf'], steps: ['shipping'], uses: ['parties', 'items', 'terms', 'contractNo', 'packing', 'marks'] },
   marks: { code: 'SM', name: '唛头箱贴', desc: '正唛、侧唛，按箱号批量打印', grp: 'doc', docs: ['marks', 'labels'], steps: ['marks'], uses: ['contractNo', 'items', 'packing'] },
@@ -54,7 +54,7 @@ export const MODS: Record<ModKey, ModDef> = {
 };
 
 export const DOCNAMES: Record<DocKey, string> = {
-  quote: '报价单', pi: 'PI 形式发票', contract: '销售合同', po: '采购单', ci: '商业发票', pl: '装箱单', customs: '报关预录入表', co: '产地证申请资料', marks: '唛头', labels: '箱贴',
+  quote: '报价单', pi: 'PI 形式发票', contract: '销售合同', po: '采购单', ci: '商业发票', pl: '装箱单', customs: '报关单（预录入）', co: '产地证申请资料', marks: '唛头', labels: '箱贴',
   booking: '订舱委托书', si: 'SI 提单补料', advice: '装船通知', isf: 'ISF 资料（美国）',
 };
 
@@ -429,7 +429,7 @@ export const inputId = (p: string) => 'in-' + p.replace(/[.*]/g, '-');
 export type ExpKey = DocKey;
 export const EXPDOCS: { key: ExpKey; name: string; ph?: string }[] = [
   { key: 'quote', name: '报价单' }, { key: 'pi', name: 'PI 形式发票' }, { key: 'contract', name: '销售合同' }, { key: 'po', name: '采购单（给工厂）' },
-  { key: 'ci', name: '商业发票' }, { key: 'pl', name: '装箱单' }, { key: 'customs', name: '报关预录入表' }, { key: 'co', name: '产地证申请资料' }, { key: 'marks', name: '唛头' },
+  { key: 'ci', name: '商业发票' }, { key: 'pl', name: '装箱单' }, { key: 'customs', name: '报关单（预录入）' }, { key: 'co', name: '产地证申请资料' }, { key: 'marks', name: '唛头' },
   { key: 'labels', name: '箱贴（每箱一张）' },
   { key: 'booking', name: '订舱委托书' }, { key: 'si', name: 'SI 提单补料' }, { key: 'advice', name: '装船通知' }, { key: 'isf', name: 'ISF 资料（美国）' },
 ];

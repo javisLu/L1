@@ -67,7 +67,7 @@ export function OrderMenu({ order: o }: { order: Order }) {
       const miss = (m.steps ?? []).flatMap((x) => missing(o, x));
       // 本模块自己的都填好了，但单据还用到别的模块里没填的资料
       const wait = [...new Set((m.uses ?? []).filter((x) => missing(o, x).length).map((x) => MODS[STEP_MOD[x]].name))];
-      // 报关资料模块里的发票、箱单属于各自模块，这里只看报关预录入表
+      // 报关资料模块里的发票、箱单属于各自模块，这里只看报关单（预录入）
       const own = key === 'customs' ? (['customs'] as DocKey[]) : m.docs ?? [];
       const states = own.map((d) => ({ d, s: docState(o, d) }));
       const changed = states.filter((x) => x.s.kind === 'changed');

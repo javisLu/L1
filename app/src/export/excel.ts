@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import { THEMES, TRANSPORT_CD } from '../domain/constants';
 import { amountWords, needAddr, calcOrder, qtyTotal, unitTotals } from '../domain/calc';
 import { lcNoOf } from '../domain/lc';
+import { codeName, curCn, unitCn, ymd8 } from '../domain/customsForm';
 import { DOCNAMES, docFile, type DocKey } from '../modules/defs';
 import type { Order } from '../domain/types';
 import type { DocAssets } from '../docs/primitives';
@@ -106,8 +107,8 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
 
   // 抬头
   if (doc === 'customs') {
-    line('出口报关资料预录入表', { bold: true, size: 16, align: 'center' });
-    line('草稿 · 供报关行申报参考 · 以海关系统录入为准', { size: 9, color: 'FF777777', align: 'center' });
+    line('中华人民共和国海关出口货物报关单', { bold: true, size: 16, align: 'center' });
+    line('预录入草稿 · 供报关行核对 · 以单一窗口申报为准', { size: 9, color: 'FF777777', align: 'center' });
   } else {
     line(o.seller.name, { bold: true, size: 14, color: acc, from: headFrom });
     line(o.seller.address, { size: 9, from: headFrom });
@@ -121,14 +122,14 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
   // 编号与双方
   if (doc === 'customs') {
     const cd = o.customs;
+    // 栏目顺序和报关单一致
     const fields: [string, string][] = [
-      ['合同协议号', o.numbers.contract], ['发票号', o.numbers.ci],
-      ['境内发货人', `${o.seller.nameCn}  ${o.seller.tax}`], ['境外收货人', o.buyer.name], ['生产销售单位', o.seller.nameCn],
-      ['出境关别', cd.exportPort], ['出口日期', o.shipping.etd], ['运输方式', TRANSPORT_CD[o.terms.transport] ?? ''],
-      ['运输工具名称及航次号', o.shipping.vessel], ['提运单号', o.shipping.blNo], ['监管方式', cd.supervision], ['征免性质', cd.exemption],
-      ['许可证号', cd.license], ['贸易国（地区）', cd.tradeCountry], ['运抵国（地区）', cd.destCountry], ['指运港', o.terms.pod], ['离境口岸', o.terms.pol],
-      ['包装种类', cd.packageType], ['件数', `${pk.count} ${pk.unitCn}`], ['毛重（千克）', pk.gw.toFixed(2)], ['净重（千克）', k.nw.toFixed(2)],
-      ['成交方式', o.terms.incoterm], ['运费', cd.freight], ['保费', cd.insFee], ['随附单证', cd.docs], ['标记唛码及备注', o.shipping.marks],
+      ['境内发货人', `${o.seller.nameCn}  ${o.seller.tax}`], ['出境关别', cd.exportPort], ['出口日期', ymd8(o.shipping.etd)], ['申报日期', ''], ['备案号', ''],
+      ['境外收货人', o.buyer.name], ['运输方式', TRANSPORT_CD[o.terms.transport] ?? ''], ['运输工具名称及航次号', o.shipping.vessel], ['提运单号', o.shipping.blNo],
+      ['生产销售单位', `${o.seller.nameCn}  ${o.seller.tax}`], ['监管方式', codeName(cd.supervision)], ['征免性质', codeName(cd.exemption)], ['许可证号', cd.license],
+      ['合同协议号', o.numbers.contract], ['贸易国（地区）', cd.tradeCountry], ['运抵国（地区）', cd.destCountry], ['指运港', o.terms.pod], ['离境口岸', o.terms.pol],
+      ['包装种类', cd.packageType], ['件数', String(pk.count)], ['毛重（千克）', pk.gw.toFixed(2)], ['净重（千克）', k.nw.toFixed(2)],
+      ['成交方式', o.terms.incoterm], ['运费', cd.freight], ['保费', cd.insFee], ['杂费', ''], ['随附单证及编号', cd.docs], ['标记唛码及备注', o.shipping.marks],
     ];
     for (let i = 0; i < fields.length; i += 2) {
       const [l1, v1] = fields[i];
@@ -173,11 +174,11 @@ export async function renderExcel(o: Order, doc: ExcelDoc, assets?: DocAssets): 
   k.rows.forEach((row, i) => {
     r++;
     const values: Record<string, unknown> = {
-      no: i + 1, model: row.model, desc: row.pack && doc === 'pl' ? `${row.nameEn} (MIXED)` : row.nameEn, spec: row.spec, hs: row.hs, unit: row.unit, qty: row.q, price: row.p,
+      no: i + 1, model: row.model, desc: row.pack && doc === 'pl' ? `${row.nameEn} (MIXED)` : row.nameEn, spec: row.spec, hs: row.hs, unit: doc === 'customs' ? unitCn(row.unit) : row.unit, qty: row.q, price: row.p,
       cno: row.from ? (row.pack && row.from === row.to ? String(row.from) : `${row.from}-${row.to}`) : '',
       ctns: row.pack ? (row.n || null) : row.n,
       nw: Number(row.nwT.toFixed(3)), gw: Number(row.gwT.toFixed(2)), cbm: Number(row.cbmT.toFixed(3)),
-      marks: i === 0 ? o.shipping.marks : '', nameCn: row.nameCn, elements: row.elements, cur, origin: '中国',
+      marks: i === 0 ? o.shipping.marks : '', nameCn: row.nameCn, elements: row.elements, cur: doc === 'customs' ? curCn(cur) : cur, origin: '中国',
       dest: o.customs.destCountry, source: o.customs.sourceArea, exempt: '照章征税',
     };
     cols.forEach((c, ci) => {
